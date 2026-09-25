@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -10,16 +11,29 @@ using UnityEngine.InputSystem;
 /// Requiere un CharacterController en el mismo GameObject y una cámara hija asignada.
 /// No depende de ningún manager externo: todo el estado vive aquí.
 ///
-/// Incluye "slide buffering": si pulsas Slide mientras estás en el aire (por ejemplo
-/// justo tras saltar), el input se guarda un pequeño margen de tiempo y el deslizamiento
-/// se ejecuta automáticamente en el instante en que aterrizas, con un boost de velocidad
-/// (mecánica típica de "jump slide" / bunny hop de shooters tipo COD).
+/// Incluye:
+/// - Slide buffering + boost: pulsar Slide en el aire lo ejecuta al aterrizar, más rápido (jump slide).
+/// - El slide solo puede iniciarse mientras se mantiene pulsado Sprint.
+/// - Coyote time + jump buffer: salto más permisivo, como en cualquier shooter pulido.
+/// - FOV kick al esprintar / deslizar.
+/// - Máquina de estados simple (PlayerMovementState) con evento OnStateChanged,
+///   pensada para engancharse después a un Animator sin tocar el resto del código.
 /// </summary>
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
 {
+    public enum PlayerMovementState
+    {
+        Idle,
+        Walking,
+        Sprinting,
+        Sliding,
+        Airborne
+    }
+
     [Header("Referencias")]
     [SerializeField] private Transform cameraHolder; // Empty vacío hijo del player, a la altura de los ojos
+    [SerializeField] private Camera playerCamera;     // Camera hija del cameraHolder (para el FOV kick)
     [SerializeField] private CharacterController controller;
 
     [Header("Movimiento")]
@@ -32,6 +46,10 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float jumpHeight = 1.2f;
     [SerializeField] private float gravity = -20f;
     [SerializeField] private float groundedGravity = -2f; // pequeña fuerza hacia abajo para mantener pegado al suelo
+    [Tooltip("Margen tras salir de una plataforma en el que todavía puedes saltar.")]
+    [SerializeField] private float coyoteTime = 0.15f;
+    [Tooltip("Margen para bufferizar el salto si lo pulsas justo antes de tocar el suelo.")]
+    [SerializeField] private float jumpBufferTime = 0.15f;
 
     [Header("Cámara / Mirada")]
     [SerializeField] private float mouseSensitivity = 0.12f; // el delta del ratón viene en píxeles por frame, sensibilidad mucho menor que con Input Manager viejo
@@ -39,33 +57,39 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float minPitch = -85f;
     [SerializeField] private float maxPitch = 85f;
 
+    [Header("FOV Kick")]
+    [SerializeField] private float sprintFovBoost = 8f;
+    [SerializeField] private float slideFovBoost = 12f;
+    [SerializeField] private float fovLerpSpeed = 8f;
+
     [Header("Deslizamiento (Slide)")]
+    [Tooltip("El slide solo se puede iniciar mientras se mantiene pulsado Sprint.")]
     [SerializeField] private float slideSpeed = 11f;
     [SerializeField] private float slideDuration = 0.75f;
     [SerializeField] private float slideCooldown = 0.5f;
     [SerializeField] private float slideCameraHeightOffset = -0.6f; // baja la cámara al deslizar
     [SerializeField] private float slideControllerHeight = 1f;      // altura del CharacterController al deslizar
     [SerializeField] private float standingControllerHeight = 2f;
-
-    [Header("Jump Slide (buffer + boost)")]
     [Tooltip("Margen en segundos durante el cual pulsar Slide en el aire queda 'guardado' para ejecutarse al aterrizar.")]
     [SerializeField] private float slideBufferWindow = 0.15f;
     [Tooltip("Multiplicador de velocidad del slide cuando viene de un salto (jump slide). 1 = sin boost.")]
     [SerializeField] private float airSlideBoostMultiplier = 1.35f;
+
+    /// <summary>Se dispara cada vez que cambia el estado de movimiento. Útil para animaciones/sonido.</summary>
+    public event Action<PlayerMovementState> OnStateChanged;
+    public PlayerMovementState CurrentState { get; private set; } = PlayerMovementState.Idle;
 
     // Input recibido desde Player Input (Invoke Unity Events)
     private Vector2 moveInput;
     private Vector2 lookInput;
     private bool lookIsMouse; // para decidir si aplicar deltaTime o no al mirar
     private bool sprintHeld;
-    private bool jumpQueued;
 
     // Estado interno
     private float pitch;
     private Vector3 velocity;              // velocidad vertical (gravedad/salto)
     private Vector3 currentMoveVelocity;   // velocidad horizontal suavizada
     private bool isGrounded;
-    private bool wasGroundedLastFrame;
     private bool isSprinting;
     private bool isSliding;
     private float slideTimer;
@@ -73,6 +97,11 @@ public class PlayerController : MonoBehaviour
     private Vector3 slideDirection;
     private float currentSlideMaxSpeed;    // velocidad tope del slide actual (con o sin boost)
     private float defaultCameraLocalY;
+    private float baseFov;
+
+    // Coyote time / jump buffer
+    private float coyoteTimer;
+    private float jumpBufferTimer;
 
     // Buffer de slide
     private float slideBufferTimer;
@@ -81,14 +110,22 @@ public class PlayerController : MonoBehaviour
     public bool IsSliding => isSliding;
     public bool IsGrounded => isGrounded;
     public bool IsSprinting => isSprinting;
+    /// <summary>Magnitud de la velocidad horizontal actual, usada por las armas para calcular la dispersión de disparo.</summary>
+    public float CurrentHorizontalSpeed => currentMoveVelocity.magnitude;
 
     private void Awake()
     {
         if (controller == null)
             controller = GetComponent<CharacterController>();
 
+        if (playerCamera == null)
+            playerCamera = GetComponentInChildren<Camera>();
+
         if (cameraHolder != null)
             defaultCameraLocalY = cameraHolder.localPosition.y;
+
+        if (playerCamera != null)
+            baseFov = playerCamera.fieldOfView;
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
@@ -96,7 +133,6 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
-        wasGroundedLastFrame = isGrounded;
         isGrounded = controller.isGrounded;
 
         ApplyLook();
@@ -116,6 +152,9 @@ public class PlayerController : MonoBehaviour
 
         Vector3 finalMove = currentMoveVelocity + velocity;
         controller.Move(finalMove * Time.deltaTime);
+
+        UpdateMovementState();
+        UpdateFov();
     }
 
     // ---------------- EVENTOS DEL PLAYER INPUT (Invoke Unity Events) ----------------
@@ -142,12 +181,13 @@ public class PlayerController : MonoBehaviour
 
     public void OnJump(InputAction.CallbackContext context)
     {
-        if (context.performed) jumpQueued = true;
+        if (context.performed) jumpBufferTimer = jumpBufferTime;
     }
 
     public void OnSlide(InputAction.CallbackContext context)
     {
         if (!context.performed) return;
+        if (!sprintHeld) return; // solo se puede deslizar mientras se esprinta, nunca andando
 
         // Guardamos el input un pequeño margen de tiempo. Si en ese margen
         // aterrizamos, el slide se dispara solo al tocar el suelo.
@@ -174,6 +214,22 @@ public class PlayerController : MonoBehaviour
             cameraHolder.localRotation = Quaternion.Euler(pitch, 0f, 0f);
     }
 
+    private void UpdateFov()
+    {
+        if (playerCamera == null) return;
+
+        // Usamos las banderas directas (no CurrentState) porque el estado Airborne tiene
+        // prioridad en la máquina de estados y, si no, el FOV bajaría al saltar aunque
+        // sigas esprintando en el aire.
+        float targetFov = baseFov;
+        if (isSliding)
+            targetFov = baseFov + slideFovBoost;
+        else if (isSprinting)
+            targetFov = baseFov + sprintFovBoost;
+
+        playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, targetFov, fovLerpSpeed * Time.deltaTime);
+    }
+
     // ---------------- MOVIMIENTO NORMAL ----------------
 
     private void HandleMovement()
@@ -181,7 +237,9 @@ public class PlayerController : MonoBehaviour
         Vector3 inputDir = (transform.right * moveInput.x + transform.forward * moveInput.y);
         inputDir = Vector3.ClampMagnitude(inputDir, 1f);
 
-        isSprinting = sprintHeld && moveInput.y > 0.1f && isGrounded && !isSliding;
+        // Sin "&& isGrounded": si saltas mientras esprintas y sigues pulsando Sprint + adelante,
+        // el objetivo de velocidad en el aire sigue siendo el de sprint, así que el salto no te frena.
+        isSprinting = sprintHeld && moveInput.y > 0.1f && !isSliding;
 
         float targetSpeed = isSprinting ? sprintSpeed : walkSpeed;
         Vector3 targetVelocity = inputDir * targetSpeed;
@@ -189,11 +247,10 @@ public class PlayerController : MonoBehaviour
         float accel = acceleration * (isGrounded ? 1f : airControlMultiplier);
         currentMoveVelocity = Vector3.MoveTowards(currentMoveVelocity, targetVelocity, accel * Time.deltaTime * targetSpeed);
 
-        // Si hay un slide "guardado" en el buffer y ya estamos en el suelo, lo disparamos ya.
-        bool canStartSlide = slideBufferTimer > 0f && isGrounded && slideCooldownTimer <= 0f;
+        // Si hay un slide "guardado" en el buffer, seguimos esprintando y ya estamos en el suelo, lo disparamos ya.
+        bool canStartSlide = slideBufferTimer > 0f && isGrounded && slideCooldownTimer <= 0f && sprintHeld;
         if (canStartSlide)
         {
-            // Dirección: si venimos cayendo, usa hacia donde mira el jugador si no hay input lateral
             Vector3 dir = inputDir.sqrMagnitude > 0.01f ? inputDir : transform.forward;
             StartSlide(dir, slideBufferedInAir);
             slideBufferTimer = 0f;
@@ -204,11 +261,13 @@ public class PlayerController : MonoBehaviour
 
     private void ConsumeJump()
     {
-        if (jumpQueued && isGrounded && !isSliding)
+        bool canJump = jumpBufferTimer > 0f && coyoteTimer > 0f && !isSliding;
+        if (canJump)
         {
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+            jumpBufferTimer = 0f;
+            coyoteTimer = 0f;
         }
-        jumpQueued = false;
     }
 
     private void ApplyGravity()
@@ -227,6 +286,12 @@ public class PlayerController : MonoBehaviour
 
     private void HandleTimers()
     {
+        // Coyote time: se recarga mientras estás en el suelo, cuenta atrás en cuanto lo dejas.
+        coyoteTimer = isGrounded ? coyoteTime : coyoteTimer - Time.deltaTime;
+
+        if (jumpBufferTimer > 0f)
+            jumpBufferTimer -= Time.deltaTime;
+
         if (slideCooldownTimer > 0f)
             slideCooldownTimer -= Time.deltaTime;
 
@@ -283,5 +348,28 @@ public class PlayerController : MonoBehaviour
             camPos.y = defaultCameraLocalY;
             cameraHolder.localPosition = camPos;
         }
+    }
+
+    // ---------------- MÁQUINA DE ESTADOS ----------------
+
+    private void UpdateMovementState()
+    {
+        PlayerMovementState newState;
+
+        if (!isGrounded)
+            newState = PlayerMovementState.Airborne;
+        else if (isSliding)
+            newState = PlayerMovementState.Sliding;
+        else if (isSprinting)
+            newState = PlayerMovementState.Sprinting;
+        else if (moveInput.sqrMagnitude > 0.01f)
+            newState = PlayerMovementState.Walking;
+        else
+            newState = PlayerMovementState.Idle;
+
+        if (newState == CurrentState) return;
+
+        CurrentState = newState;
+        OnStateChanged?.Invoke(CurrentState);
     }
 }
