@@ -51,6 +51,8 @@ public abstract class WeaponBase : MonoBehaviour
     [SerializeField] protected float speedForMaxSpread = 8.5f;
     [Tooltip("Qué tan rápido se abre/cierra la dispersión visible y real al cambiar de velocidad.")]
     [SerializeField] protected float spreadSmoothing = 12f;
+    [Tooltip("Si estás en el aire (saltando, cayendo), la dispersión se va a la máxima aunque no te muevas apenas en horizontal — como saltar en sitio.")]
+    [SerializeField] protected bool maxSpreadWhileAirborne = true;
 
     protected int currentAmmo;
     protected int reserveAmmo;
@@ -106,6 +108,12 @@ public abstract class WeaponBase : MonoBehaviour
     {
         float speed = playerController != null ? playerController.CurrentHorizontalSpeed : 0f;
         float speedT = speedForMaxSpread > 0f ? Mathf.Clamp01(speed / speedForMaxSpread) : 0f;
+
+        // Saltar en el sitio apenas mueve al jugador en horizontal, pero en un shooter real
+        // estar en el aire ya te hace mucho menos preciso, así que forzamos el máximo.
+        if (maxSpreadWhileAirborne && playerController != null && !playerController.IsGrounded)
+            speedT = 1f;
+
         float targetSpread = Mathf.Lerp(minSpreadDegrees, maxSpreadDegrees, speedT);
 
         currentSpreadDegrees = Mathf.Lerp(currentSpreadDegrees, targetSpread, spreadSmoothing * Time.deltaTime);

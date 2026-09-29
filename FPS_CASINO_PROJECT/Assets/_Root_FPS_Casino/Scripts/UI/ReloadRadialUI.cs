@@ -6,8 +6,10 @@ using UnityEngine.UI;
 /// tiempo real de recarga del arma (ReloadProgress01). Requiere una Image con Image Type =
 /// Filled y Fill Method = Radial 360 (Origin: Top suele quedar bien, como un reloj normal).
 ///
-/// A diferencia del AmmoUI, este SÍ se actualiza cada frame: el progreso de la recarga es
-/// un valor continuo, no discreto, así que no hay evento que valga — hay que leerlo en Update.
+/// La visibilidad se controla con Image.enabled, NO con GameObject.SetActive: si este script
+/// vive en el mismo GameObject que quieres ocultar, desactivarlo con SetActive detendría su
+/// propio Update() y se quedaría apagado para siempre. Image.enabled solo apaga el dibujado,
+/// el script sigue vivo y comprobando el estado cada frame.
 /// </summary>
 public class ReloadRadialUI : MonoBehaviour
 {
@@ -15,8 +17,6 @@ public class ReloadRadialUI : MonoBehaviour
     [Tooltip("El arma actualmente equipada. Cuando montéis cambio de arma, llamad a SetWeapon() al equipar una nueva.")]
     [SerializeField] private WeaponBase weapon;
     [SerializeField] private Image radialImage;
-    [Tooltip("Objeto raíz del círculo (para ocultarlo del todo cuando no estás recargando). Puede ser el mismo GameObject que lleva la Image.")]
-    [SerializeField] private GameObject root;
 
     public void SetWeapon(WeaponBase newWeapon)
     {
@@ -25,14 +25,11 @@ public class ReloadRadialUI : MonoBehaviour
 
     private void Update()
     {
-        if (weapon == null) return;
+        if (weapon == null || radialImage == null) return;
 
         bool reloading = weapon.IsReloading;
 
-        if (root != null)
-            root.SetActive(reloading);
-
-        if (radialImage != null)
-            radialImage.fillAmount = weapon.ReloadProgress01;
+        radialImage.enabled = reloading;
+        radialImage.fillAmount = weapon.ReloadProgress01;
     }
 }
