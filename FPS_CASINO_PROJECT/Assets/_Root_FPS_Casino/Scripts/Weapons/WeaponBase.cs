@@ -99,6 +99,17 @@ public abstract class WeaponBase : MonoBehaviour
             playerCamera = GetComponentInParent<Camera>();
     }
 
+    /// <summary>
+    /// Inyecta las referencias de cámara y controller al equipar el arma por código
+    /// (WeaponManager la llama justo después de Instantiate). Necesario porque un prefab
+    /// no puede guardar de fábrica una referencia a la cámara de tu escena concreta.
+    /// </summary>
+    public void Initialize(PlayerController controller, Camera camera)
+    {
+        playerController = controller;
+        playerCamera = camera;
+    }
+
     protected virtual void Update()
     {
         UpdateSpread();
