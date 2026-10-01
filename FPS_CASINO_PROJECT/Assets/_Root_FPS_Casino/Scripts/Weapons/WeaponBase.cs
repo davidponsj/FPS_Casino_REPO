@@ -48,6 +48,14 @@ public abstract class WeaponBase : MonoBehaviour
     [Tooltip("Si estás en el aire (saltando, cayendo), la dispersión se va a la máxima aunque no te muevas apenas en horizontal — como saltar en sitio.")]
     [SerializeField] protected bool maxSpreadWhileAirborne = true;
 
+    [Header("Dispersión por disparo (recoil)")]
+    [Tooltip("Grados que se suman a la dispersión cada vez que disparas, por encima de la dispersión por movimiento.")]
+    [SerializeField] protected float spreadPerShot = 0.6f;
+    [Tooltip("Tope de cuánto puede acumular el recoil, independientemente del movimiento.")]
+    [SerializeField] protected float maxRecoilSpread = 3f;
+    [Tooltip("Grados por segundo que se recupera el recoil cuando dejas de disparar.")]
+    [SerializeField] protected float spreadRecoveryRate = 3f;
+
     [Header("Efectos (opcionales, compartidos por todas las armas)")]
     [SerializeField] protected BulletTracerEffect tracerPrefab;
     [SerializeField] protected GameObject impactEffectPrefab;
@@ -59,6 +67,7 @@ public abstract class WeaponBase : MonoBehaviour
     protected bool isReloading;
     protected float reloadStartTime;
     protected float currentSpreadDegrees;
+    protected float recoilSpread; // dispersión extra acumulada por disparos recientes, se recupera sola
 
     protected AudioSource audioSource;
 
@@ -70,10 +79,12 @@ public abstract class WeaponBase : MonoBehaviour
     public event Action OnReloadFinished;
 
     public float CurrentSpreadDegrees => currentSpreadDegrees;
-    /// <summary>Dispersión normalizada 0-1, pensada para la retícula en pantalla.</summary>
-    public float NormalizedSpread => maxSpreadDegrees <= minSpreadDegrees
+    /// <summary>Tope absoluto de dispersión: el de movimiento más lo que puede aportar el recoil.</summary>
+    private float EffectiveMaxSpreadDegrees => maxSpreadDegrees + maxRecoilSpread;
+    /// <summary>Dispersión normalizada 0-1 (ya contando el recoil), pensada para la retícula en pantalla.</summary>
+    public float NormalizedSpread => EffectiveMaxSpreadDegrees <= minSpreadDegrees
         ? 0f
-        : Mathf.InverseLerp(minSpreadDegrees, maxSpreadDegrees, currentSpreadDegrees);
+        : Mathf.InverseLerp(minSpreadDegrees, EffectiveMaxSpreadDegrees, currentSpreadDegrees);
 
     public int CurrentAmmo => currentAmmo;
     public int ReserveAmmo => reserveAmmo;
@@ -120,7 +131,12 @@ public abstract class WeaponBase : MonoBehaviour
         if (maxSpreadWhileAirborne && playerController != null && !playerController.IsGrounded)
             speedT = 1f;
 
-        float targetSpread = Mathf.Lerp(minSpreadDegrees, maxSpreadDegrees, speedT);
+        float movementSpread = Mathf.Lerp(minSpreadDegrees, maxSpreadDegrees, speedT);
+
+        // El recoil se va recuperando solo con el tiempo, dispares o no.
+        recoilSpread = Mathf.MoveTowards(recoilSpread, 0f, spreadRecoveryRate * Time.deltaTime);
+
+        float targetSpread = movementSpread + recoilSpread;
         currentSpreadDegrees = Mathf.Lerp(currentSpreadDegrees, targetSpread, spreadSmoothing * Time.deltaTime);
     }
 
@@ -218,6 +234,8 @@ public abstract class WeaponBase : MonoBehaviour
         currentAmmo--;
         nextFireTime = Time.time + (1f / fireRate);
         Fire();
+
+        recoilSpread = Mathf.Min(recoilSpread + spreadPerShot, maxRecoilSpread);
 
         OnAmmoChanged?.Invoke();
     }
