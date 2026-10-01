@@ -25,7 +25,13 @@ public class ReloadRadialUI : MonoBehaviour
 
     private void Update()
     {
-        if (weapon == null || radialImage == null) return;
+        if (radialImage == null) return;
+
+        if (weapon == null)
+        {
+            radialImage.enabled = false; // sin arma equipada, no hay nada que recargar
+            return;
+        }
 
         bool reloading = weapon.IsReloading;
 

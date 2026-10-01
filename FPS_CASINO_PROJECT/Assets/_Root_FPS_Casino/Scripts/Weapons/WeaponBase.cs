@@ -5,20 +5,13 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// Base común para todas las armas del juego (pistola, subfusil, escopeta, lanzagranadas, sniper).
-/// Gestiona munición por cargador + reserva, cadencia de fuego, recarga y la dispersión
-/// dinámica (estilo Counter-Strike): quieto = precisión perfecta al centro de la cámara,
-/// moviéndote = el cono de disparo se abre según tu velocidad actual.
-///
-/// Cada arma concreta solo tiene que heredar de esta clase e implementar Fire(), que es
-/// donde vive su patrón de disparo real (un raycast, varios perdigones, un proyectil...).
+/// Gestiona munición por cargador + reserva, cadencia de fuego, recarga, dispersión dinámica
+/// (estilo Counter-Strike) y el patrón de disparo hitscan compartido (raycast + daño + trazador
+/// + impacto + fogonazo), para que cada arma concreta solo tenga que decidir CUÁNDO dispara
+/// (semi-auto, automática, a ráfagas, varios perdigones...), no CÓMO se ve/hace daño un disparo.
 ///
 /// Conecta OnFire y OnReload desde el Player Input (Events > Player > Fire / Reload),
 /// igual que hicimos con Move/Look/Jump/Slide.
-///
-/// Expone eventos (OnAmmoChanged, OnReloadStarted, OnReloadFinished) y ReloadProgress01
-/// para que el HUD (munición + indicador circular de recarga) se entere sin tener que
-/// leer el estado cada frame salvo cuando de verdad necesita algo continuo (el propio
-/// progreso de la recarga).
 /// </summary>
 [RequireComponent(typeof(AudioSource))]
 public abstract class WeaponBase : MonoBehaviour
@@ -38,9 +31,10 @@ public abstract class WeaponBase : MonoBehaviour
     [Tooltip("Disparos por segundo.")]
     [SerializeField] protected float fireRate = 4f;
 
-    [Header("Alcance")]
+    [Header("Alcance y daño")]
     [SerializeField] protected float range = 100f;
     [SerializeField] protected LayerMask hitMask = ~0; // por defecto, choca con todo
+    [SerializeField] protected float damage = 25f;
 
     [Header("Dispersión (estilo CS)")]
     [Tooltip("Grados de dispersión cuando estás completamente quieto. 0 = precisión perfecta al centro.")]
@@ -53,6 +47,11 @@ public abstract class WeaponBase : MonoBehaviour
     [SerializeField] protected float spreadSmoothing = 12f;
     [Tooltip("Si estás en el aire (saltando, cayendo), la dispersión se va a la máxima aunque no te muevas apenas en horizontal — como saltar en sitio.")]
     [SerializeField] protected bool maxSpreadWhileAirborne = true;
+
+    [Header("Efectos (opcionales, compartidos por todas las armas)")]
+    [SerializeField] protected BulletTracerEffect tracerPrefab;
+    [SerializeField] protected GameObject impactEffectPrefab;
+    [SerializeField] protected MuzzleFlash muzzleFlash;
 
     protected int currentAmmo;
     protected int reserveAmmo;
@@ -70,7 +69,6 @@ public abstract class WeaponBase : MonoBehaviour
     /// <summary>Se dispara al terminar la recarga (con éxito).</summary>
     public event Action OnReloadFinished;
 
-    /// <summary>Dispersión actual en grados, ya usable directamente para el raycast.</summary>
     public float CurrentSpreadDegrees => currentSpreadDegrees;
     /// <summary>Dispersión normalizada 0-1, pensada para la retícula en pantalla.</summary>
     public float NormalizedSpread => maxSpreadDegrees <= minSpreadDegrees
@@ -81,7 +79,6 @@ public abstract class WeaponBase : MonoBehaviour
     public int ReserveAmmo => reserveAmmo;
     public int MagazineSize => magazineSize;
     public bool IsReloading => isReloading;
-    /// <summary>Progreso de la recarga actual, de 0 a 1, a velocidad real (mapeado 1:1 con reloadTime). 0 si no estás recargando.</summary>
     public float ReloadProgress01 => isReloading
         ? Mathf.Clamp01((Time.time - reloadStartTime) / Mathf.Max(reloadTime, 0.0001f))
         : 0f;
@@ -120,13 +117,10 @@ public abstract class WeaponBase : MonoBehaviour
         float speed = playerController != null ? playerController.CurrentHorizontalSpeed : 0f;
         float speedT = speedForMaxSpread > 0f ? Mathf.Clamp01(speed / speedForMaxSpread) : 0f;
 
-        // Saltar en el sitio apenas mueve al jugador en horizontal, pero en un shooter real
-        // estar en el aire ya te hace mucho menos preciso, así que forzamos el máximo.
         if (maxSpreadWhileAirborne && playerController != null && !playerController.IsGrounded)
             speedT = 1f;
 
         float targetSpread = Mathf.Lerp(minSpreadDegrees, maxSpreadDegrees, speedT);
-
         currentSpreadDegrees = Mathf.Lerp(currentSpreadDegrees, targetSpread, spreadSmoothing * Time.deltaTime);
     }
 
@@ -147,6 +141,51 @@ public abstract class WeaponBase : MonoBehaviour
             + playerCamera.transform.up * randomPoint.y;
 
         return spreadDirection.normalized;
+    }
+
+    // ---------------- DISPARO HITSCAN COMPARTIDO ----------------
+
+    /// <summary>
+    /// Un disparo hitscan completo: raycast con dispersión, daño si golpea algo, impacto,
+    /// trazador y fogonazo. Pensado para que pistola/subfusil/escopeta (un perdigón)/sniper
+    /// solo tengan que llamar a esto con el daño que les corresponda, en vez de reescribir
+    /// el raycast cada vez. Devuelve el RaycastHit si impactó contra algo, o null si no.
+    /// </summary>
+    protected RaycastHit? FireHitscanShot(float shotDamage)
+    {
+        Vector3 origin = playerCamera.transform.position;
+        Vector3 direction = ApplySpread(playerCamera.transform.forward);
+
+        RaycastHit? result = null;
+        Vector3 tracerEndPoint;
+
+        if (Physics.Raycast(origin, direction, out RaycastHit hit, range, hitMask, QueryTriggerInteraction.Ignore))
+        {
+            hit.collider.GetComponentInParent<IDamageable>()?.TakeDamage(shotDamage);
+
+            if (impactEffectPrefab != null)
+                Instantiate(impactEffectPrefab, hit.point, Quaternion.LookRotation(hit.normal));
+
+            tracerEndPoint = hit.point;
+            result = hit;
+        }
+        else
+        {
+            tracerEndPoint = origin + direction * range;
+        }
+
+        SpawnTracer(tracerEndPoint);
+        muzzleFlash?.Flash();
+
+        return result;
+    }
+
+    protected void SpawnTracer(Vector3 endPoint)
+    {
+        if (tracerPrefab == null || muzzlePoint == null) return;
+
+        BulletTracerEffect tracer = Instantiate(tracerPrefab, muzzlePoint.position, Quaternion.identity);
+        tracer.Play(muzzlePoint.position, endPoint);
     }
 
     // ---------------- INPUT (Player Input > Invoke Unity Events) ----------------
@@ -184,8 +223,9 @@ public abstract class WeaponBase : MonoBehaviour
     }
 
     /// <summary>
-    /// El patrón de disparo concreto de cada arma: un raycast, varios perdigones, un proyectil, etc.
-    /// La dispersión ya está calculada en currentSpreadDegrees; usa ApplySpread(direction) para aplicarla.
+    /// El patrón de disparo concreto de cada arma. La mayoría de armas hitscan solo necesitan
+    /// llamar a FireHitscanShot(damage); la escopeta llamará varias veces con perdigones,
+    /// el lanzagranadas instanciará un proyectil en vez de usar esto.
     /// </summary>
     protected abstract void Fire();
 

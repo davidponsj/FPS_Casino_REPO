@@ -12,7 +12,7 @@ public class WallWeaponPickup : MonoBehaviour, IInteractable
     [SerializeField] private WeaponBase weaponPrefab;
     [SerializeField] private string weaponDisplayName = "Arma";
 
-    public string InteractionPrompt => $"Coger {weaponDisplayName} [E]";
+    public string InteractionPrompt => $"Pick {weaponDisplayName} [E]";
 
     public void Interact(GameObject interactor)
     {

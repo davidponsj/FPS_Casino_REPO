@@ -2,8 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// Retícula estilo Counter-Strike: 4 líneas (arriba/abajo/izq/dcha) que se separan del
-/// centro según la dispersión actual del arma equipada. Quieto = líneas pegadas al centro
-/// (o incluso un punto fijo); moviéndote = se abren proporcionalmente.
+/// centro según la dispersión actual del arma equipada. Quieto = líneas pegadas al centro;
+/// moviéndote = se abren proporcionalmente. Sin arma equipada, se oculta por completo.
 ///
 /// Jerarquía esperada en el Canvas:
 /// Crosshair (RectTransform vacío, anclado al centro de la pantalla)
@@ -32,7 +32,7 @@ public class DynamicCrosshair : MonoBehaviour
 
     private float currentGap;
 
-    /// <summary>Llamar a esto al cambiar de arma (cuando montéis el inventario/cambio de arma).</summary>
+    /// <summary>Llamar a esto al cambiar de arma (o pasar null al quedarte sin arma).</summary>
     public void SetWeapon(WeaponBase newWeapon)
     {
         weapon = newWeapon;
@@ -40,7 +40,13 @@ public class DynamicCrosshair : MonoBehaviour
 
     private void Update()
     {
-        if (weapon == null) return;
+        if (weapon == null)
+        {
+            SetLinesActive(false); // sin arma equipada, no hay nada que apuntar
+            return;
+        }
+
+        SetLinesActive(true);
 
         float targetGap = Mathf.Lerp(minGap, maxGap, weapon.NormalizedSpread);
         currentGap = Mathf.Lerp(currentGap, targetGap, smoothing * Time.deltaTime);
@@ -49,5 +55,15 @@ public class DynamicCrosshair : MonoBehaviour
         if (bottom != null) bottom.anchoredPosition = new Vector2(0f, -currentGap);
         if (left != null) left.anchoredPosition = new Vector2(-currentGap, 0f);
         if (right != null) right.anchoredPosition = new Vector2(currentGap, 0f);
+    }
+
+    // Ojo: esto activa/desactiva las 4 líneas hijas, NUNCA el propio GameObject del script
+    // (si se desactivara a sí mismo, su Update() dejaría de ejecutarse y se quedaría oculto para siempre).
+    private void SetLinesActive(bool active)
+    {
+        if (top != null) top.gameObject.SetActive(active);
+        if (bottom != null) bottom.gameObject.SetActive(active);
+        if (left != null) left.gameObject.SetActive(active);
+        if (right != null) right.gameObject.SetActive(active);
     }
 }

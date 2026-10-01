@@ -35,7 +35,11 @@ public class AmmoUI : MonoBehaviour
 
     private void Subscribe()
     {
-        if (weapon == null) return;
+        if (weapon == null)
+        {
+            HideAmmoNumbers(); // sin arma equipada, el HUD no tiene nada que mostrar
+            return;
+        }
 
         weapon.OnAmmoChanged += UpdateUI;
         weapon.OnReloadStarted += HideAmmoNumbers;
