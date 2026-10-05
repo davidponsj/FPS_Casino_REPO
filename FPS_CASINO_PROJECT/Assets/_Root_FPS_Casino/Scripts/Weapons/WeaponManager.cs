@@ -43,9 +43,11 @@ public class WeaponManager : MonoBehaviour
         if (CurrentWeapon != null)
             Destroy(CurrentWeapon.gameObject);
 
+        // Instantiate(prefab, parent) coloca la copia con la MISMA posición/rotación LOCAL
+        // que tenga guardada el prefab — así que, si colocaste el arma a mano dentro de
+        // WeaponHolder antes de convertirla en prefab, aparece exactamente donde la dejaste.
+        // Ya no forzamos aquí la posición a cero.
         CurrentWeapon = Instantiate(weaponPrefab, weaponSocket);
-        CurrentWeapon.transform.localPosition = Vector3.zero;
-        CurrentWeapon.transform.localRotation = Quaternion.identity;
         CurrentWeapon.Initialize(playerController, playerCamera);
 
         if (ammoUI != null) ammoUI.SetWeapon(CurrentWeapon);
