@@ -49,12 +49,20 @@ public abstract class WeaponBase : MonoBehaviour
     [SerializeField] protected bool maxSpreadWhileAirborne = true;
 
     [Header("Dispersión por disparo (recoil)")]
-    [Tooltip("Grados que se suman a la dispersión cada vez que disparas, por encima de la dispersión por movimiento.")]
+    [Tooltip("Grados que suma el PRIMER disparo de una ráfaga a la dispersión, por encima de la dispersión por movimiento.")]
     [SerializeField] protected float spreadPerShot = 0.6f;
+    [Tooltip("Cada disparo consecutivo (sin soltar el gatillo) suma spreadPerShot multiplicado por esto, elevado al número de disparos ya hechos en la ráfaga. 1 = siempre suma lo mismo. >1 = cada bala abre más que la anterior (recoil progresivo, ideal para automáticas).")]
+    [SerializeField] protected float recoilRampMultiplier = 1f;
+    [Tooltip("Si pasa más tiempo que esto desde el último disparo, se considera que empieza una ráfaga nueva (el progresivo se reinicia).")]
+    [SerializeField] protected float burstResetGap = 0.3f;
     [Tooltip("Tope de cuánto puede acumular el recoil, independientemente del movimiento.")]
     [SerializeField] protected float maxRecoilSpread = 3f;
     [Tooltip("Grados por segundo que se recupera el recoil cuando dejas de disparar.")]
     [SerializeField] protected float spreadRecoveryRate = 3f;
+    [Tooltip("Cuánto más fuerte pega cada bala seguida sin soltar el gatillo (0.15 = un 15% más que la anterior). Pon 0 para que todas las balas abran siempre lo mismo.")]
+    [SerializeField] protected float consecutiveShotGrowth = 0f;
+    [Tooltip("Si pasa más de este tiempo sin disparar, la racha de 'balas seguidas' se reinicia.")]
+    [SerializeField] protected float burstResetTime = 0.3f;
 
     [Header("Efectos (opcionales, compartidos por todas las armas)")]
     [SerializeField] protected BulletTracerEffect tracerPrefab;
@@ -68,6 +76,8 @@ public abstract class WeaponBase : MonoBehaviour
     protected float reloadStartTime;
     protected float currentSpreadDegrees;
     protected float recoilSpread; // dispersión extra acumulada por disparos recientes, se recupera sola
+    protected int shotsInBurst;   // disparos seguidos sin soltar el gatillo (se reinicia tras burstResetTime sin disparar)
+    protected float lastShotTime;
 
     protected AudioSource audioSource;
 
@@ -235,7 +245,15 @@ public abstract class WeaponBase : MonoBehaviour
         nextFireTime = Time.time + (1f / fireRate);
         Fire();
 
-        recoilSpread = Mathf.Min(recoilSpread + spreadPerShot, maxRecoilSpread);
+        // Si llevas un rato sin disparar, la racha se reinicia; si no, este disparo
+        // cuenta como "uno más seguido" y pega más fuerte que el anterior.
+        if (Time.time - lastShotTime > burstResetTime)
+            shotsInBurst = 0;
+        lastShotTime = Time.time;
+
+        float scaledSpreadThisShot = spreadPerShot * (1f + shotsInBurst * consecutiveShotGrowth);
+        recoilSpread = Mathf.Min(recoilSpread + scaledSpreadThisShot, maxRecoilSpread);
+        shotsInBurst++;
 
         OnAmmoChanged?.Invoke();
     }
