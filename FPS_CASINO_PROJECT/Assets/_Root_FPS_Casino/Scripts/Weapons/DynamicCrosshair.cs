@@ -3,7 +3,10 @@ using UnityEngine;
 /// <summary>
 /// Retícula estilo Counter-Strike: 4 líneas (arriba/abajo/izq/dcha) que se separan del
 /// centro según la dispersión actual del arma equipada. Quieto = líneas pegadas al centro;
-/// moviéndote = se abren proporcionalmente. Sin arma equipada, se oculta por completo.
+/// moviéndote/disparando = se abren proporcionalmente. Sin arma equipada, se oculta por completo.
+///
+/// No aplica ningún suavizado propio: el arma (WeaponBase) ya suaviza su dispersión internamente,
+/// así que la retícula simplemente refleja ese valor tal cual, 1:1, sin añadir más retraso.
 ///
 /// Jerarquía esperada en el Canvas:
 /// Crosshair (RectTransform vacío, anclado al centro de la pantalla)
@@ -28,9 +31,6 @@ public class DynamicCrosshair : MonoBehaviour
     [Header("Distancias (píxeles desde el centro)")]
     [SerializeField] private float minGap = 4f;
     [SerializeField] private float maxGap = 32f;
-    [SerializeField] private float smoothing = 18f;
-
-    private float currentGap;
 
     /// <summary>Llamar a esto al cambiar de arma (o pasar null al quedarte sin arma).</summary>
     public void SetWeapon(WeaponBase newWeapon)
@@ -48,13 +48,12 @@ public class DynamicCrosshair : MonoBehaviour
 
         SetLinesActive(true);
 
-        float targetGap = Mathf.Lerp(minGap, maxGap, weapon.NormalizedSpread);
-        currentGap = Mathf.Lerp(currentGap, targetGap, smoothing * Time.deltaTime);
+        float gap = Mathf.Lerp(minGap, maxGap, weapon.NormalizedSpread);
 
-        if (top != null) top.anchoredPosition = new Vector2(0f, currentGap);
-        if (bottom != null) bottom.anchoredPosition = new Vector2(0f, -currentGap);
-        if (left != null) left.anchoredPosition = new Vector2(-currentGap, 0f);
-        if (right != null) right.anchoredPosition = new Vector2(currentGap, 0f);
+        if (top != null) top.anchoredPosition = new Vector2(0f, gap);
+        if (bottom != null) bottom.anchoredPosition = new Vector2(0f, -gap);
+        if (left != null) left.anchoredPosition = new Vector2(-gap, 0f);
+        if (right != null) right.anchoredPosition = new Vector2(gap, 0f);
     }
 
     // Ojo: esto activa/desactiva las 4 líneas hijas, NUNCA el propio GameObject del script

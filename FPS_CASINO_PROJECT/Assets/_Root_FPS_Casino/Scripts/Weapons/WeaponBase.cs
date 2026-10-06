@@ -89,12 +89,14 @@ public abstract class WeaponBase : MonoBehaviour
     public event Action OnReloadFinished;
 
     public float CurrentSpreadDegrees => currentSpreadDegrees;
-    /// <summary>Tope absoluto de dispersión: el de movimiento más lo que puede aportar el recoil.</summary>
-    private float EffectiveMaxSpreadDegrees => maxSpreadDegrees + maxRecoilSpread;
-    /// <summary>Dispersión normalizada 0-1 (ya contando el recoil), pensada para la retícula en pantalla.</summary>
-    public float NormalizedSpread => EffectiveMaxSpreadDegrees <= minSpreadDegrees
+    /// <summary>
+    /// Dispersión normalizada 0-1, pensada para la retícula en pantalla. Usa el MISMO techo
+    /// (maxSpreadDegrees) que el propio disparo, así que cuando la bala puede desviarse al
+    /// máximo, la retícula se ve también al 100% abierta — nunca van desincronizadas.
+    /// </summary>
+    public float NormalizedSpread => maxSpreadDegrees <= minSpreadDegrees
         ? 0f
-        : Mathf.InverseLerp(minSpreadDegrees, EffectiveMaxSpreadDegrees, currentSpreadDegrees);
+        : Mathf.InverseLerp(minSpreadDegrees, maxSpreadDegrees, currentSpreadDegrees);
 
     public int CurrentAmmo => currentAmmo;
     public int ReserveAmmo => reserveAmmo;
@@ -146,7 +148,9 @@ public abstract class WeaponBase : MonoBehaviour
         // El recoil se va recuperando solo con el tiempo, dispares o no.
         recoilSpread = Mathf.MoveTowards(recoilSpread, 0f, spreadRecoveryRate * Time.deltaTime);
 
-        float targetSpread = movementSpread + recoilSpread;
+        // Movimiento y recoil se suman, pero el total nunca pasa del techo real (maxSpreadDegrees).
+        // Así la retícula (que usa ese mismo techo para normalizar) siempre refleja el 100% real.
+        float targetSpread = Mathf.Clamp(movementSpread + recoilSpread, minSpreadDegrees, maxSpreadDegrees);
         currentSpreadDegrees = Mathf.Lerp(currentSpreadDegrees, targetSpread, spreadSmoothing * Time.deltaTime);
     }
 
