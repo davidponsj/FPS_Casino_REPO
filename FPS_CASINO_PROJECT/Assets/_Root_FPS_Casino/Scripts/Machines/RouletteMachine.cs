@@ -34,9 +34,12 @@ public class RouletteMachine : MonoBehaviour, IInteractable
     [SerializeField] private float ballHeight = 0.05f;
     [SerializeField] private int minSpins = 4;
     [SerializeField] private int maxSpins = 7;
-    [SerializeField] private float minDuration = 4f;
-    [SerializeField] private float maxDuration = 6f;
-    [SerializeField, Range(1f, 6f)] private float brakingPower = 3.5f;
+    [SerializeField] private float minDuration = 7f;
+    [SerializeField] private float maxDuration = 9f;
+    [Tooltip("Fracción de la tirada a velocidad máxima constante (0.4 = el primer 40%)")]
+    [SerializeField, Range(0f, 0.8f)] private float cruisePhase = 0.4f;
+    [Tooltip("Bajo = frena más tarde y más brusco. Alto = frena de forma más larga y suave")]
+    [SerializeField, Range(1.5f, 6f)] private float brakingPower = 2.5f;
 
     [Header("Spawner de tickets")]
     [SerializeField] private TicketSpawner ticketSpawner;
@@ -127,7 +130,7 @@ public class RouletteMachine : MonoBehaviour, IInteractable
         {
             t += Time.deltaTime / duration;
             float k = Mathf.Clamp01(t);
-            float eased = 1f - Mathf.Pow(1f - k, brakingPower);
+            float eased = SpinEase(k);
             currentAngle = startAngle - totalRotation * eased;
             PlaceBall(currentAngle, Mathf.Lerp(outerRadius, pocketRadius, eased));
             yield return null;
@@ -150,6 +153,25 @@ public class RouletteMachine : MonoBehaviour, IInteractable
 
         onSpinFinished?.Invoke(result);
         spinning = false;
+    }
+
+    // Velocidad: máxima desde el primer frame, se mantiene durante "cruisePhase"
+    // y luego baja de forma progresiva hasta 0.
+    // Devuelve el progreso (0..1) para un tiempo k (0..1).
+    private float SpinEase(float k)
+    {
+        float c = cruisePhase;
+        float p = brakingPower;
+
+        float cruiseArea = c;                // distancia recorrida a velocidad máxima
+        float brakeArea = (1f - c) / p;      // distancia recorrida frenando
+        float total = cruiseArea + brakeArea;
+
+        if (k < c)
+            return k / total;
+
+        float s = (k - c) / (1f - c);
+        return (cruiseArea + brakeArea * (1f - Mathf.Pow(1f - s, p))) / total;
     }
 
     private int PickWeightedIndex()
