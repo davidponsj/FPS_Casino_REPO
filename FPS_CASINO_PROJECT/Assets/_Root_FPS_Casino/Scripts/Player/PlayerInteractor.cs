@@ -2,25 +2,18 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-/// <summary>
-/// Cada frame lanza un raycast corto desde la cámara para ver si estás mirando algo
-/// interactuable (IInteractable). Si es así, muestra un prompt en pantalla; al pulsar E
-/// (acción "Interact"), ejecuta la interacción sobre lo que estés mirando en ese momento.
-///
-/// Conecta OnInteract desde el Player Input (Events > Player > Interact), igual que el
-/// resto de acciones.
-/// </summary>
 public class PlayerInteractor : MonoBehaviour
 {
     [Header("Referencias")]
     [SerializeField] private Camera playerCamera;
-    [SerializeField] private TMP_Text promptText; // opcional: si no lo asignas, simplemente no muestra prompt
+    [SerializeField] private TMP_Text promptText;
 
     [Header("Ajustes")]
     [SerializeField] private float interactionRange = 3f;
     [SerializeField] private LayerMask interactableMask = ~0;
 
     private IInteractable currentInteractable;
+    private string lastPrompt = "";
 
     private void Awake()
     {
@@ -46,33 +39,35 @@ public class PlayerInteractor : MonoBehaviour
             found = hit.collider.GetComponentInParent<IInteractable>();
         }
 
-        if (found == currentInteractable)
+        currentInteractable = found;
+
+        if (currentInteractable == null)
         {
-            if (currentInteractable != null && promptText != null)
-                promptText.text = currentInteractable.InteractionPrompt;
+            SetPromptVisible(false);
+            lastPrompt = "";
             return;
         }
 
-        currentInteractable = found;
+        string newPrompt = currentInteractable.InteractionPrompt;
 
-        if (currentInteractable != null)
+        if (promptText != null)
         {
-            if (promptText != null) promptText.text = currentInteractable.InteractionPrompt;
-            SetPromptVisible(currentInteractable != null);
+            promptText.text = newPrompt;
+            SetPromptVisible(true);
         }
-        else
+
+        if (newPrompt != lastPrompt)
         {
-            SetPromptVisible(false);
+            Debug.Log("[Prompt] " + newPrompt);
+            lastPrompt = newPrompt;
         }
     }
 
     private void SetPromptVisible(bool visible)
     {
-        if (promptText != null)
+        if (promptText != null && promptText.gameObject.activeSelf != visible)
             promptText.gameObject.SetActive(visible);
     }
-
-    // ---------------- INPUT (Player Input > Invoke Unity Events) ----------------
 
     public void OnInteract(InputAction.CallbackContext context)
     {
