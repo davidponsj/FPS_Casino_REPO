@@ -46,7 +46,12 @@ public class PlayerInteractor : MonoBehaviour
             found = hit.collider.GetComponentInParent<IInteractable>();
         }
 
-        if (found == currentInteractable) return;
+        if (found == currentInteractable)
+        {
+            if (currentInteractable != null && promptText != null)
+                promptText.text = currentInteractable.InteractionPrompt;
+            return;
+        }
 
         currentInteractable = found;
 
