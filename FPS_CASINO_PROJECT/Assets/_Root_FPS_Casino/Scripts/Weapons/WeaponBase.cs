@@ -37,32 +37,38 @@ public abstract class WeaponBase : MonoBehaviour
     [SerializeField] protected float damage = 25f;
 
     [Header("Dispersión (estilo CS)")]
-    [Tooltip("Grados de dispersión cuando estás completamente quieto. 0 = precisión perfecta al centro.")]
+    [Tooltip("Grados de dispersión cuando estás completamente quieto y sin disparar. 0 = precisión perfecta al centro.")]
     [SerializeField] protected float minSpreadDegrees = 0f;
-    [Tooltip("Grados de dispersión cuando te mueves a máxima velocidad (normalmente tu sprintSpeed).")]
-    [SerializeField] protected float maxSpreadDegrees = 4.5f;
-    [Tooltip("Velocidad (m/s) a partir de la cual se alcanza la dispersión máxima. Usa el sprintSpeed del PlayerController como referencia.")]
+    [Tooltip("Techo ABSOLUTO de dispersión. Movimiento + salto + recoil se suman, pero el total nunca pasa de aquí.")]
+    [SerializeField] protected float maxSpreadDegrees = 6f;
+    [Tooltip("Qué tan rápido se ABRE la dispersión (al empezar a moverte, saltar...). Alto = casi instantáneo.")]
+    [SerializeField] protected float spreadOpenSpeed = 20f;
+    [Tooltip("Qué tan rápido se CIERRA la dispersión al volver a estar quieto. Más bajo que el de abrir: se abre de golpe y se cierra poco a poco.")]
+    [SerializeField] protected float spreadCloseSpeed = 8f;
+
+    [Header("Dispersión por movimiento")]
+    [Tooltip("Grados que suma moverte a speedForMaxSpread (o más rápido).")]
+    [SerializeField] protected float movementSpreadDegrees = 3f;
+    [Tooltip("Por debajo de esta velocidad (m/s) moverse no penaliza: puedes corregir la posición sin perder precisión.")]
+    [SerializeField] protected float speedSpreadDeadzone = 1f;
+    [Tooltip("Velocidad (m/s) a partir de la cual se alcanza toda la dispersión por movimiento. Usa el sprintSpeed del PlayerController como referencia.")]
     [SerializeField] protected float speedForMaxSpread = 8.5f;
-    [Tooltip("Qué tan rápido se abre/cierra la dispersión visible y real al cambiar de velocidad.")]
-    [SerializeField] protected float spreadSmoothing = 12f;
-    [Tooltip("Si estás en el aire (saltando, cayendo), la dispersión se va a la máxima aunque no te muevas apenas en horizontal — como saltar en sitio.")]
-    [SerializeField] protected bool maxSpreadWhileAirborne = true;
+    [Tooltip("Grados que suma estar en el aire (saltando, cayendo, wallrun). Pon 0 para que saltar no penalice.")]
+    [SerializeField] protected float airborneSpreadDegrees = 3f;
 
     [Header("Dispersión por disparo (recoil)")]
     [Tooltip("Grados que suma el PRIMER disparo de una ráfaga a la dispersión, por encima de la dispersión por movimiento.")]
     [SerializeField] protected float spreadPerShot = 0.6f;
-    [Tooltip("Cada disparo consecutivo (sin soltar el gatillo) suma spreadPerShot multiplicado por esto, elevado al número de disparos ya hechos en la ráfaga. 1 = siempre suma lo mismo. >1 = cada bala abre más que la anterior (recoil progresivo, ideal para automáticas).")]
-    [SerializeField] protected float recoilRampMultiplier = 1f;
-    [Tooltip("Si pasa más tiempo que esto desde el último disparo, se considera que empieza una ráfaga nueva (el progresivo se reinicia).")]
-    [SerializeField] protected float burstResetGap = 0.3f;
-    [Tooltip("Tope de cuánto puede acumular el recoil, independientemente del movimiento.")]
-    [SerializeField] protected float maxRecoilSpread = 3f;
-    [Tooltip("Grados por segundo que se recupera el recoil cuando dejas de disparar.")]
-    [SerializeField] protected float spreadRecoveryRate = 3f;
     [Tooltip("Cuánto más fuerte pega cada bala seguida sin soltar el gatillo (0.15 = un 15% más que la anterior). Pon 0 para que todas las balas abran siempre lo mismo.")]
     [SerializeField] protected float consecutiveShotGrowth = 0f;
     [Tooltip("Si pasa más de este tiempo sin disparar, la racha de 'balas seguidas' se reinicia.")]
     [SerializeField] protected float burstResetTime = 0.3f;
+    [Tooltip("Tope de cuánto puede acumular el recoil, independientemente del movimiento.")]
+    [SerializeField] protected float maxRecoilSpread = 3f;
+    [Tooltip("Segundos sin disparar antes de que el recoil empiece a recuperarse. Así, disparando seguido, la dispersión se va acumulando.")]
+    [SerializeField] protected float recoilRecoveryDelay = 0.1f;
+    [Tooltip("Grados por segundo que se recupera el recoil cuando dejas de disparar.")]
+    [SerializeField] protected float spreadRecoveryRate = 3f;
 
     [Header("Efectos (opcionales, compartidos por todas las armas)")]
     [SerializeField] protected BulletTracerEffect tracerPrefab;
@@ -89,6 +95,8 @@ public abstract class WeaponBase : MonoBehaviour
     public event Action OnReloadFinished;
 
     public float CurrentSpreadDegrees => currentSpreadDegrees;
+    /// <summary>Cámara desde la que dispara el arma. La retícula la usa para pasar grados a píxeles.</summary>
+    public Camera PlayerCamera => playerCamera;
     /// <summary>
     /// Dispersión normalizada 0-1, pensada para la retícula en pantalla. Usa el MISMO techo
     /// (maxSpreadDegrees) que el propio disparo, así que cuando la bala puede desviarse al
@@ -137,21 +145,36 @@ public abstract class WeaponBase : MonoBehaviour
 
     private void UpdateSpread()
     {
-        float speed = playerController != null ? playerController.CurrentHorizontalSpeed : 0f;
-        float speedT = speedForMaxSpread > 0f ? Mathf.Clamp01(speed / speedForMaxSpread) : 0f;
+        // El recoil solo empieza a recuperarse cuando llevas un momento sin disparar.
+        // Si se recuperase también mientras disparas, una automática nunca llegaría a abrirse.
+        if (Time.time - lastShotTime > recoilRecoveryDelay)
+            recoilSpread = Mathf.MoveTowards(recoilSpread, 0f, spreadRecoveryRate * Time.deltaTime);
 
-        if (maxSpreadWhileAirborne && playerController != null && !playerController.IsGrounded)
-            speedT = 1f;
+        // Cada fuente de imprecisión suma por separado (movimiento, aire, disparos), pero el
+        // total nunca pasa del techo real (maxSpreadDegrees). Así la retícula, que usa ese
+        // mismo techo, siempre refleja el 100% real.
+        float targetSpread = minSpreadDegrees + GetMovementSpread() + GetAirborneSpread() + recoilSpread;
+        targetSpread = Mathf.Clamp(targetSpread, minSpreadDegrees, maxSpreadDegrees);
 
-        float movementSpread = Mathf.Lerp(minSpreadDegrees, maxSpreadDegrees, speedT);
+        // Se abre rápido y se cierra despacio: al saltar o arrancar a correr notas el castigo
+        // al momento, pero al pararte tienes que esperar un poco a que se estabilice.
+        float lerpSpeed = targetSpread > currentSpreadDegrees ? spreadOpenSpeed : spreadCloseSpeed;
+        currentSpreadDegrees = Mathf.Lerp(currentSpreadDegrees, targetSpread, 1f - Mathf.Exp(-lerpSpeed * Time.deltaTime));
+    }
 
-        // El recoil se va recuperando solo con el tiempo, dispares o no.
-        recoilSpread = Mathf.MoveTowards(recoilSpread, 0f, spreadRecoveryRate * Time.deltaTime);
+    private float GetMovementSpread()
+    {
+        if (playerController == null) return 0f;
 
-        // Movimiento y recoil se suman, pero el total nunca pasa del techo real (maxSpreadDegrees).
-        // Así la retícula (que usa ese mismo techo para normalizar) siempre refleja el 100% real.
-        float targetSpread = Mathf.Clamp(movementSpread + recoilSpread, minSpreadDegrees, maxSpreadDegrees);
-        currentSpreadDegrees = Mathf.Lerp(currentSpreadDegrees, targetSpread, spreadSmoothing * Time.deltaTime);
+        // InverseLerp ya devuelve 0..1 limitado: por debajo de la deadzone 0, a speedForMaxSpread o más, 1.
+        float speedT = Mathf.InverseLerp(speedSpreadDeadzone, speedForMaxSpread, playerController.CurrentHorizontalSpeed);
+        return speedT * movementSpreadDegrees;
+    }
+
+    private float GetAirborneSpread()
+    {
+        if (playerController == null || playerController.IsGrounded) return 0f;
+        return airborneSpreadDegrees;
     }
 
     /// <summary>
@@ -164,7 +187,13 @@ public abstract class WeaponBase : MonoBehaviour
             return forward;
 
         float spreadRadius = Mathf.Tan(currentSpreadDegrees * Mathf.Deg2Rad);
-        Vector2 randomPoint = UnityEngine.Random.insideUnitCircle * spreadRadius;
+
+        // Ángulo aleatorio y distancia al centro aleatoria SIN raíz cuadrada: así hay más balas
+        // cerca del centro que en el borde (como un arma de verdad), en vez de repartirse igual
+        // por todo el círculo como hace insideUnitCircle. El borde sigue siendo el de la retícula.
+        float angle = UnityEngine.Random.Range(0f, 2f * Mathf.PI);
+        float distance = UnityEngine.Random.value * spreadRadius;
+        Vector2 randomPoint = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * distance;
 
         Vector3 spreadDirection = forward
             + playerCamera.transform.right * randomPoint.x
@@ -256,8 +285,13 @@ public abstract class WeaponBase : MonoBehaviour
         lastShotTime = Time.time;
 
         float scaledSpreadThisShot = spreadPerShot * (1f + shotsInBurst * consecutiveShotGrowth);
+        float previousRecoil = recoilSpread;
         recoilSpread = Mathf.Min(recoilSpread + scaledSpreadThisShot, maxRecoilSpread);
         shotsInBurst++;
+
+        // El "golpe" del disparo se aplica al instante (sin suavizado), para que la retícula
+        // salte con cada bala y la siguiente ya salga con la dispersión abierta.
+        currentSpreadDegrees = Mathf.Min(currentSpreadDegrees + (recoilSpread - previousRecoil), maxSpreadDegrees);
 
         OnAmmoChanged?.Invoke();
     }
