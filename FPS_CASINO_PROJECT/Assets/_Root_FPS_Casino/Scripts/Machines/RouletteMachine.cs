@@ -44,6 +44,9 @@ public class RouletteMachine : MonoBehaviour, IInteractable
     [Header("Spawner de tickets")]
     [SerializeField] private TicketSpawner ticketSpawner;
 
+    [Header("Botella (para saber si la tienes en la mano)")]
+    [SerializeField] private BottleHolder bottleHolder;
+
     [Header("Eventos (opcionales, para sonidos/VFX)")]
     public UnityEvent onSpinStart;
     public UnityEvent onNotEnoughPoints;
@@ -61,8 +64,15 @@ public class RouletteMachine : MonoBehaviour, IInteractable
         get
         {
             if (spinning) return "Girando...";
-            if (TicketInventory.Instance != null && TicketInventory.Instance.IsLocked)
-                return "Gasta tu ticket antes de jugar [E]";
+
+            if (ticketSpawner != null && ticketSpawner.HasTicketWaiting)
+                return $"Coger {ticketSpawner.WaitingTicketName} [E]";
+
+            var inv = TicketInventory.Instance;
+            if (inv != null && inv.HasTicket) return "Gasta tu ticket";
+            if (bottleHolder != null && bottleHolder.HasBottle) return "Usa tu botella";
+            if (inv != null && inv.IsLocked) return "Gasta tu ticket";
+
             return $"Jugar a la ruleta ({cost} pts) [E]";
         }
     }
@@ -85,17 +95,26 @@ public class RouletteMachine : MonoBehaviour, IInteractable
 
     private void Start()
     {
-        PlaceBall(currentAngle, outerRadius);
+        PlaceBall(currentAngle, pocketRadius);
     }
 
     public void Interact(GameObject interactor)
     {
         if (spinning || segments == null || segments.Length == 0) return;
 
-        var inventory = TicketInventory.Instance;
-        if (inventory != null && inventory.IsLocked)
+        // 1) Si hay un ticket esperando en la ruleta, se coge desde aquí
+        if (ticketSpawner != null && ticketSpawner.HasTicketWaiting)
         {
-            Debug.Log("[Ruleta] Gasta tu ticket antes de volver a jugar.");
+            ticketSpawner.TryCollect();
+            return;
+        }
+
+        // 2) Bloqueada si tienes ticket en la mano, botella sin usar, o sigue bloqueada
+        var inventory = TicketInventory.Instance;
+        bool hasBottle = bottleHolder != null && bottleHolder.HasBottle;
+        if (inventory != null && (inventory.HasTicket || inventory.IsLocked) || hasBottle)
+        {
+            Debug.Log("[Ruleta] Gasta tu ticket y usa tu botella antes de volver a jugar.");
             onBlockedByTicket?.Invoke();
             return;
         }
@@ -132,7 +151,7 @@ public class RouletteMachine : MonoBehaviour, IInteractable
             float k = Mathf.Clamp01(t);
             float eased = SpinEase(k);
             currentAngle = startAngle - totalRotation * eased;
-            PlaceBall(currentAngle, Mathf.Lerp(outerRadius, pocketRadius, eased));
+            PlaceBall(currentAngle, pocketRadius);
             yield return null;
         }
 

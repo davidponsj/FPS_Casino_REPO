@@ -21,6 +21,7 @@ public class TicketInventory : MonoBehaviour
     }
 
     public void Lock() => IsLocked = true;
+    public void Unlock() => IsLocked = false;
 
     public bool TryAdd(TicketData ticket)
     {

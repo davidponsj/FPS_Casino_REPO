@@ -7,26 +7,55 @@ public class TicketSpawner : MonoBehaviour
     [SerializeField] private float slideDistance = 0.25f;
     [SerializeField] private float slideDuration = 0.6f;
 
+    private GameObject spawnedObject;
+    private TicketData waitingTicket;
+
+    public bool HasTicketWaiting => waitingTicket != null;
+    public string WaitingTicketName => waitingTicket != null ? waitingTicket.displayName : "ticket";
+
     public void Spawn(RouletteMachine.Segment segment)
     {
-        if (segment == null || segment.ticket == null || segment.ticket.worldPrefab == null)
+        if (segment == null || segment.ticket == null)
+            return;
+
+        // El ticket queda "esperando" aunque no haya prefab, para poder cogerlo desde la ruleta
+        waitingTicket = segment.ticket;
+
+        if (segment.ticket.worldPrefab == null)
             return;
 
         Transform point = spawnPoint ? spawnPoint : transform;
         Vector3 end = point.position;
         Vector3 start = end - point.forward * slideDistance;
 
-        GameObject obj = Instantiate(segment.ticket.worldPrefab, start, point.rotation);
+        spawnedObject = Instantiate(segment.ticket.worldPrefab, start, point.rotation);
 
-        var pickup = obj.GetComponent<TicketPickup>();
-        if (pickup != null)
-            pickup.SetData(segment.ticket);
+        // Sin colliders: el ticket ya no se coge mirándolo, sino desde la ruleta
+        foreach (var col in spawnedObject.GetComponentsInChildren<Collider>())
+            col.enabled = false;
 
-        var rend = obj.GetComponentInChildren<Renderer>();
+        var rend = spawnedObject.GetComponentInChildren<Renderer>();
         if (rend != null)
             rend.material.color = segment.ticket.ticketColor;
 
-        StartCoroutine(Slide(obj.transform, start, end));
+        StartCoroutine(Slide(spawnedObject.transform, start, end));
+    }
+
+    // Lo llama la ruleta cuando el jugador pulsa E sobre ella
+    public bool TryCollect()
+    {
+        if (waitingTicket == null || TicketInventory.Instance == null)
+            return false;
+
+        if (!TicketInventory.Instance.TryAdd(waitingTicket))
+            return false;
+
+        if (spawnedObject != null)
+            Destroy(spawnedObject);
+
+        spawnedObject = null;
+        waitingTicket = null;
+        return true;
     }
 
     private IEnumerator Slide(Transform t, Vector3 from, Vector3 to)
