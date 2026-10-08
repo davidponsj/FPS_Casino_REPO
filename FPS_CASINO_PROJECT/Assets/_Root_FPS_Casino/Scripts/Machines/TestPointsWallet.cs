@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class TestPointsWallet : MonoBehaviour, IPointsService
+public class TestPointsWallet : MonoBehaviour, IPointsService, IPointsReceiver
 {
     [SerializeField] private int startingPoints = 1000;
     private int points;
@@ -17,6 +17,12 @@ public class TestPointsWallet : MonoBehaviour, IPointsService
         return true;
     }
 
+    public void AddPoints(int amount)
+    {
+        points += amount;
+        Debug.Log($"[Puntos] +{amount}. Total: {points}");
+    }
+
     [ContextMenu("Añadir 500 puntos")]
-    private void AddPoints() => points += 500;
+    private void Add500() => AddPoints(500);
 }
