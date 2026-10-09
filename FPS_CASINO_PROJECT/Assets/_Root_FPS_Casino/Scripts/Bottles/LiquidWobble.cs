@@ -62,6 +62,17 @@ public class LiquidWobble : MonoBehaviour
         set => fillAmount = Mathf.Clamp01(value);
     }
 
+    /// <summary>
+    /// Cambia el color del líquido. La superficie se calcula sola, un poco más clara.
+    /// Lo usan BottleHolder (botella en la mano) y ThrownBottle (botella lanzada).
+    /// </summary>
+    public void SetLiquidColor(Color color)
+    {
+        color.a = 1f;
+        liquidColor = color;
+        surfaceColor = Color.Lerp(color, Color.white, 0.35f);
+    }
+
     private void Awake()
     {
         liquidRenderer = GetComponent<Renderer>();
