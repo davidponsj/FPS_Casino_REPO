@@ -246,6 +246,9 @@ public class PlayerController : MonoBehaviour
 
     private readonly RaycastHit[] hitBuffer = new RaycastHit[16];
 
+    // Mejoras temporales (botellas): de aquí sale el multiplicador de velocidad.
+    private PlayerBuffs buffs;
+
     public bool IsSliding => isSliding;
     public bool IsGrounded => isGrounded;
     public bool IsSprinting => isSprinting;
@@ -256,6 +259,8 @@ public class PlayerController : MonoBehaviour
     public float CurrentHorizontalSpeed => HorizontalVelocity.magnitude;
 
     private Vector3 HorizontalVelocity => new Vector3(velocity.x, 0f, velocity.z);
+    /// <summary>1 normalmente; más con la botella de velocidad (PlayerBuffs).</summary>
+    private float SpeedMultiplier => buffs != null ? buffs.MoveSpeedMultiplier : 1f;
     private Vector3 CapsuleCenter => transform.TransformPoint(controller.center);
     private Vector3 FeetPosition => CapsuleCenter - Vector3.up * (controller.height * 0.5f);
 
@@ -266,6 +271,8 @@ public class PlayerController : MonoBehaviour
 
         if (playerCamera == null)
             playerCamera = GetComponentInChildren<Camera>();
+
+        buffs = GetComponent<PlayerBuffs>();
 
         if (cameraHolder != null)
             defaultCameraLocalY = cameraHolder.localPosition.y;
@@ -455,7 +462,7 @@ public class PlayerController : MonoBehaviour
 
         // Sin "&& isGrounded": si saltas mientras esprintas y sigues pulsando Sprint + adelante,
         // el objetivo de velocidad en el aire sigue siendo el de sprint, así que el salto no te frena.
-        float targetSpeed = (isSprinting ? sprintSpeed : walkSpeed) * inputMagnitude;
+        float targetSpeed = (isSprinting ? sprintSpeed : walkSpeed) * inputMagnitude * SpeedMultiplier;
 
         if (isGrounded)
             ApplyGroundAcceleration(wishDir, targetSpeed, dt);

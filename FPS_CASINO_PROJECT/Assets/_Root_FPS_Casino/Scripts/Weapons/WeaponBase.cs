@@ -86,6 +86,8 @@ public abstract class WeaponBase : MonoBehaviour
     protected float lastShotTime;
 
     protected AudioSource audioSource;
+    protected PlayerBuffs buffs;          // mejoras temporales de las botellas (cadencia, recarga, munición)
+    protected float currentReloadDuration; // duración de la recarga en curso (con el multiplicador ya aplicado)
 
     /// <summary>Se dispara cada vez que cambia currentAmmo o reserveAmmo (disparo, recarga, RefillAmmo).</summary>
     public event Action OnAmmoChanged;
@@ -111,7 +113,7 @@ public abstract class WeaponBase : MonoBehaviour
     public int MagazineSize => magazineSize;
     public bool IsReloading => isReloading;
     public float ReloadProgress01 => isReloading
-        ? Mathf.Clamp01((Time.time - reloadStartTime) / Mathf.Max(reloadTime, 0.0001f))
+        ? Mathf.Clamp01((Time.time - reloadStartTime) / Mathf.Max(currentReloadDuration, 0.0001f))
         : 0f;
 
     protected virtual void Awake()
@@ -122,6 +124,8 @@ public abstract class WeaponBase : MonoBehaviour
 
         if (playerController == null)
             playerController = GetComponentInParent<PlayerController>();
+
+        buffs = GetComponentInParent<PlayerBuffs>();
 
         if (playerCamera == null)
             playerCamera = GetComponentInParent<Camera>();
@@ -136,6 +140,7 @@ public abstract class WeaponBase : MonoBehaviour
     {
         playerController = controller;
         playerCamera = camera;
+        buffs = controller != null ? controller.GetComponent<PlayerBuffs>() : null;
     }
 
     protected virtual void Update()
@@ -268,14 +273,20 @@ public abstract class WeaponBase : MonoBehaviour
         if (isReloading) return;
         if (Time.time < nextFireTime) return;
 
-        if (currentAmmo <= 0)
+        bool infiniteMagazine = buffs != null && buffs.InfiniteMagazine;
+
+        if (currentAmmo <= 0 && !infiniteMagazine)
         {
             OnDryFire();
             return;
         }
 
-        currentAmmo--;
-        nextFireTime = Time.time + (1f / fireRate);
+        // Con la botella de munición infinita el cargador no baja.
+        if (!infiniteMagazine)
+            currentAmmo--;
+
+        float fireRateMultiplier = buffs != null ? buffs.FireRateMultiplier : 1f;
+        nextFireTime = Time.time + (1f / (fireRate * fireRateMultiplier));
         Fire();
 
         // Si llevas un rato sin disparar, la racha se reinicia; si no, este disparo
@@ -321,9 +332,11 @@ public abstract class WeaponBase : MonoBehaviour
     {
         isReloading = true;
         reloadStartTime = Time.time;
+        // La duración se fija al empezar: si la botella de recarga se acaba a mitad, esta recarga no cambia.
+        currentReloadDuration = reloadTime * (buffs != null ? buffs.ReloadTimeMultiplier : 1f);
         OnReloadStarted?.Invoke();
 
-        yield return new WaitForSeconds(reloadTime);
+        yield return new WaitForSeconds(currentReloadDuration);
 
         int needed = magazineSize - currentAmmo;
         int toLoad = Mathf.Min(needed, reserveAmmo);

@@ -5,10 +5,12 @@ using UnityEngine.InputSystem;
 /// <summary>
 /// Botella de la mano izquierda. El Bartender llama a Give(ticket) y la botella aparece en la
 /// mano con el color del ticket. Con ella puedes:
-/// - Beber (F): se activa el efecto del ticket durante effectDuration segundos (de momento solo
-///   se ve el temporizador en el HUD; los efectos de verdad se engancharán a OnEffectStarted/Ended).
-/// - Lanzar (Q): sale una botella física (ThrownBottle) que se rompe al chocar y deja un charco.
+/// - Beber (F): se aplica el efecto de beber de esa botella (BottleEffect). Si dura un tiempo,
+///   sale el temporizador en el HUD.
+/// - Lanzar (Q): se aplica su efecto sobre ti (si tiene) y sale una botella física (ThrownBottle)
+///   que se rompe al chocar: impacto en área y charco según el BottleEffect.
 ///
+/// Qué hace cada botella lo dice la BottleEffectLibrary (ticket → efecto).
 /// En los dos casos la botella se gasta y se desbloquea la ruleta (TicketInventory.Unlock).
 /// </summary>
 public class BottleHolder : MonoBehaviour
@@ -16,8 +18,10 @@ public class BottleHolder : MonoBehaviour
     [SerializeField] private GameObject bottleModel;
     [SerializeField] private Key drinkKey = Key.F;
     [SerializeField] private Key throwKey = Key.Q;
-    [Tooltip("Duración del efecto en segundos.")]
-    [SerializeField] private float effectDuration = 10f;
+
+    [Header("Efectos")]
+    [Tooltip("Tabla ticket → efecto de la botella.")]
+    [SerializeField] private BottleEffectLibrary effectLibrary;
 
     [Header("Lanzar")]
     [Tooltip("Prefab de la botella que sale volando (con ThrownBottle, Rigidbody y Collider).")]
@@ -30,22 +34,24 @@ public class BottleHolder : MonoBehaviour
     [Tooltip("Velocidad de giro de la botella en el aire (rad/s).")]
     [SerializeField] private float throwSpin = 8f;
 
-
     [Header("Pruebas")]
-    [Tooltip("Ticket para probar sin pasar por la ruleta ni el barman: en Play, menú ⋮ del componente → TEST: Dar botella.")]
+    [Tooltip("Ticket para probar sin pasar por la ruleta ni el barman: en Play, menú ⋮ del componente → TEST: Dar botella, o tecla T.")]
     [SerializeField] private TicketData testTicket;
 
-    /// <summary>Al beber. Aquí se engancharán las bonificaciones según el ticket.</summary>
+    /// <summary>Al BEBER cualquier botella (lo usa, por ejemplo, la barra de blackout).</summary>
     public event Action<TicketData> OnEffectStarted;
-    /// <summary>Cuando se acaba el efecto (o lo sustituye otra botella).</summary>
+    /// <summary>Cuando se acaba el temporizador del efecto (o lo sustituye otra botella).</summary>
     public event Action<TicketData> OnEffectEnded;
 
     private TicketData current;
     private LiquidWobble bottleLiquid;
     private Collider playerCollider;
     private PlayerController playerController;
+    private PlayerBuffs playerBuffs;
 
+    // Temporizador del último efecto bebido (solo para el HUD).
     private TicketData activeEffect;
+    private float effectDuration;
     private float effectEndTime;
 
     public bool HasBottle => current != null;
@@ -68,6 +74,7 @@ public class BottleHolder : MonoBehaviour
         // El CharacterController también es un Collider: la botella lanzada lo ignorará.
         playerCollider = GetComponentInParent<CharacterController>();
         playerController = GetComponentInParent<PlayerController>();
+        playerBuffs = GetComponentInParent<PlayerBuffs>();
     }
 
     public void Give(TicketData ticket)
@@ -88,10 +95,9 @@ public class BottleHolder : MonoBehaviour
         if (testTicket != null) Give(testTicket);
     }
 
-
     private void Update()
     {
-        UpdateEffect();
+        UpdateEffectTimer();
 
         // TEST: con la T te das la botella de prueba (solo si hay testTicket y no llevas ya una).
         if (testTicket != null && !HasBottle && Keyboard.current != null && Keyboard.current[Key.T].wasPressedThisFrame)
@@ -105,27 +111,41 @@ public class BottleHolder : MonoBehaviour
             Throw();
     }
 
+    private BottleEffect GetEffect(TicketData ticket)
+    {
+        return effectLibrary != null ? effectLibrary.Get(ticket) : null;
+    }
+
     // ---------------- BEBER ----------------
 
     private void Drink()
     {
         TicketData drunk = ReleaseBottle();
+        BottleEffect effect = GetEffect(drunk);
         Debug.Log($"[Botella] Has bebido botella {drunk.displayName}");
-        StartEffect(drunk);
+
+        OnEffectStarted?.Invoke(drunk);
+
+        if (playerBuffs != null)
+            playerBuffs.ApplyDrinkEffect(effect);
+
+        // El temporizador del HUD solo tiene sentido si el efecto dura un tiempo.
+        if (effect != null && effect.HasTimedDrinkEffect)
+            StartEffectTimer(drunk, effect.drinkDuration);
     }
 
-    private void StartEffect(TicketData ticket)
+    private void StartEffectTimer(TicketData ticket, float duration)
     {
         // Si ya había un efecto, se termina antes de empezar el nuevo (no se acumulan).
         if (HasActiveEffect)
             OnEffectEnded?.Invoke(activeEffect);
 
         activeEffect = ticket;
-        effectEndTime = Time.time + effectDuration;
-        OnEffectStarted?.Invoke(ticket);
+        effectDuration = duration;
+        effectEndTime = Time.time + duration;
     }
 
-    private void UpdateEffect()
+    private void UpdateEffectTimer()
     {
         if (!HasActiveEffect || Time.time < effectEndTime) return;
 
@@ -144,6 +164,11 @@ public class BottleHolder : MonoBehaviour
         Quaternion spawnRotation = bottleModel.transform.rotation;
 
         TicketData thrown = ReleaseBottle();
+        BottleEffect effect = GetEffect(thrown);
+
+        if (playerBuffs != null)
+            playerBuffs.ApplyThrowSelfEffect(effect);
+
         if (thrownBottlePrefab == null) return;
 
         Transform aim = playerCamera != null ? playerCamera.transform : transform;
@@ -154,7 +179,7 @@ public class BottleHolder : MonoBehaviour
             velocity += playerController.Velocity; // si lanzas corriendo, la botella lleva tu inercia
 
         ThrownBottle bottle = Instantiate(thrownBottlePrefab, spawnPosition, spawnRotation);
-        bottle.Launch(velocity, throwSpin, thrown, playerCollider);
+        bottle.Launch(velocity, throwSpin, thrown, effect, playerCollider);
     }
 
     // ---------------- COMÚN ----------------
