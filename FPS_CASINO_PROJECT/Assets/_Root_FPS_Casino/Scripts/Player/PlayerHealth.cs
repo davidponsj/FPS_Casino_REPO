@@ -79,6 +79,16 @@ public class PlayerHealth : MonoBehaviour, IDamageable
         Heal(maxHealth * percent01);
     }
 
+    /// <summary>Muerte instantánea, ignorando el multiplicador de daño (p.ej. por beber demasiado).</summary>
+    public void Kill()
+    {
+        if (IsDead) return;
+
+        currentHealth = 0f;
+        OnHealthChanged?.Invoke(currentHealth, maxHealth);
+        Die();
+    }
+
     private void Die()
     {
         IsDead = true;
