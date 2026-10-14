@@ -1,13 +1,19 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
 /// Botella lanzada. Vuela con física (Rigidbody), con el líquido moviéndose dentro gracias a
-/// LiquidWobble, y al chocar con cualquier cosa se rompe: suelta las partículas de cristal y
-/// líquido (BottleShatterEffect) y deja un charco del color de la botella en el suelo (BottlePuddle).
+/// LiquidWobble, y al chocar con cualquier cosa se rompe:
+/// - Partículas de cristal y líquido (BottleShatterEffect).
+/// - Impacto en área si su BottleEffect lo tiene (daño o muerte instantánea).
+/// - Charco del color de la botella en el suelo (BottlePuddle), con los efectos del BottleEffect.
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
 public class ThrownBottle : MonoBehaviour
 {
+    // Daño "infinito" para el instakill: cualquier enemigo muere con esto.
+    private const float KillDamage = 999999f;
+
     [Header("Rotura")]
     [Tooltip("Velocidad mínima del choque para romperse. 0 = se rompe con cualquier contacto.")]
     [SerializeField] private float minBreakSpeed = 0f;
@@ -21,9 +27,12 @@ public class ThrownBottle : MonoBehaviour
     [SerializeField] private LayerMask groundMask = ~0;
     [Tooltip("Distancia máxima hacia abajo para buscar suelo donde dejar el charco (si rompe contra una pared).")]
     [SerializeField] private float puddleGroundSearch = 4f;
+    [Tooltip("Capas a las que afecta el impacto (enemigos).")]
+    [SerializeField] private LayerMask impactMask = ~0;
 
     private Rigidbody rb;
     private TicketData ticket;
+    private BottleEffect effect;
     private bool broken;
 
     private Color LiquidColor
@@ -44,9 +53,10 @@ public class ThrownBottle : MonoBehaviour
     }
 
     /// <summary>Lo llama BottleHolder justo después de instanciarla.</summary>
-    public void Launch(Vector3 velocity, float spin, TicketData bottleTicket, Collider ownerCollider)
+    public void Launch(Vector3 velocity, float spin, TicketData bottleTicket, BottleEffect bottleEffect, Collider ownerCollider)
     {
         ticket = bottleTicket;
+        effect = bottleEffect;
 
         // Que no choque con el propio jugador al salir de la mano.
         if (ownerCollider != null)
@@ -84,12 +94,35 @@ public class ThrownBottle : MonoBehaviour
 
         if (shatterEffectPrefab != null)
         {
-            BottleShatterEffect effect = Instantiate(shatterEffectPrefab, point, Quaternion.LookRotation(normal));
-            effect.Play(LiquidColor);
+            BottleShatterEffect shatter = Instantiate(shatterEffectPrefab, point, Quaternion.LookRotation(normal));
+            shatter.Play(LiquidColor);
         }
 
-        SpawnPuddle(point);
+        if (effect != null && effect.HasImpact)
+            ApplyImpact(point);
+
+        // Sin efecto (botella sin configurar) dejamos el charco por defecto; con efecto, solo si tiene charco.
+        if (effect == null || effect.puddleLifetime > 0f)
+            SpawnPuddle(point);
+
         Destroy(gameObject);
+    }
+
+    /// <summary>Daño (o muerte) a los enemigos dentro del radio del impacto. El jugador no se hace daño.</summary>
+    private void ApplyImpact(Vector3 point)
+    {
+        // Un enemigo puede tener varios colliders: con el HashSet cada uno recibe el golpe una sola vez.
+        HashSet<IDamageable> damaged = new HashSet<IDamageable>();
+
+        foreach (Collider hit in Physics.OverlapSphere(point, effect.impactRadius, impactMask, QueryTriggerInteraction.Ignore))
+        {
+            if (hit.GetComponentInParent<PlayerHealth>() != null) continue;
+
+            IDamageable target = hit.GetComponentInParent<IDamageable>();
+            if (target == null || !damaged.Add(target)) continue;
+
+            target.TakeDamage(effect.impactKills ? KillDamage : effect.impactDamage);
+        }
     }
 
     private void SpawnPuddle(Vector3 point)
@@ -110,6 +143,6 @@ public class ThrownBottle : MonoBehaviour
         Quaternion rotation = Quaternion.FromToRotation(Vector3.up, hit.normal) * Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
 
         BottlePuddle puddle = Instantiate(puddlePrefab, position, rotation);
-        puddle.Init(LiquidColor, ticket);
+        puddle.Init(LiquidColor, ticket, effect);
     }
 }

@@ -141,12 +141,19 @@ public class SlotMachine : MonoBehaviour, IInteractable
             return;
         }
 
-        StartCoroutine(SpinRoutine(bet));
+        StartCoroutine(SpinRoutine(bet, GetLuck(interactor)));
+    }
+
+    /// <summary>Suerte extra del jugador (botella morada): probabilidad de que la tirada sea premio seguro.</summary>
+    private float GetLuck(GameObject interactor)
+    {
+        PlayerBuffs buffs = interactor != null ? interactor.GetComponentInParent<PlayerBuffs>() : null;
+        return buffs != null ? buffs.SlotLuck : 0f;
     }
 
     // ---------------- Giro ----------------
 
-    private IEnumerator SpinRoutine(int bet)
+    private IEnumerator SpinRoutine(int bet, float luck)
     {
         spinning = true;
         HideResult();
@@ -159,9 +166,12 @@ public class SlotMachine : MonoBehaviour, IInteractable
         float[] total = new float[count];
         float[] duration = new float[count];
 
+        // Con suerte, todos los cilindros copian al primero: tres iguales = premio.
+        bool luckyWin = UnityEngine.Random.value < luck;
+
         for (int i = 0; i < count; i++)
         {
-            results[i] = PickWeightedIndex();
+            results[i] = (luckyWin && i > 0) ? results[0] : PickWeightedIndex();
             start[i] = reelAngles[i];
 
             float target = results[i] * step;
