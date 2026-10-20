@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.Events;
@@ -6,6 +7,24 @@ using TMPro;
 
 public class ATMScreen : MonoBehaviour
 {
+    [Serializable]
+    public class MenuOption
+    {
+        public TMP_Text text;
+        public UnityEvent onSelect;
+
+        [NonSerialized] public float baseSize;
+        [NonSerialized] public MenuTriangle marker;
+    }
+
+    [Serializable]
+    public class MenuPage
+    {
+        public string name;
+        public GameObject root;
+        public MenuOption[] options;
+    }
+
     [Header("Pantalla")]
     [SerializeField] private CanvasGroup screenGroup;
     [SerializeField] private Light screenLight;          // Opcional
@@ -13,40 +32,29 @@ public class ATMScreen : MonoBehaviour
     [SerializeField] private float lightIntensity = 1.5f;
 
     [Header("Menú")]
-    [SerializeField] private TMP_Text[] options;
+    [Tooltip("Página 0 = menú principal")]
+    [SerializeField] private MenuPage[] pages;
     [Tooltip("Cámara del menú. Vacío = Camera.main")]
     [SerializeField] private Camera menuCamera;
-    [Tooltip("Cuánto crece el texto seleccionado. 1.15 = 15% más grande")]
-    [SerializeField] private float selectedScale = 1.15f;
+    [Tooltip("Cuánto crece el texto seleccionado. 1.05 = 5% más grande")]
+    [SerializeField] private float selectedScale = 1.05f;
     [Tooltip("Tamaño de la flecha respecto al tamaño de letra")]
     [SerializeField] private float markerSize = 0.6f;
     [Tooltip("Separación entre la flecha y el texto")]
     [SerializeField] private float markerGap = 10f;
 
-    [Header("Acciones")]
-    [SerializeField] private UnityEvent onControles;
-    [SerializeField] private UnityEvent onMusicaSonido;
-    [SerializeField] private UnityEvent onVolver;
+    private const int None = -1;
 
-    private float[] baseSizes;
-    private MenuTriangle[] markers;
-    private int selected;
+    private int currentPage;
+    private int selected = None;
     private bool isOn;
     private Coroutine fadeRoutine;
+
+    private MenuOption[] Options => pages[currentPage].options;
 
     private void Awake()
     {
         if (menuCamera == null) menuCamera = Camera.main;
-
-        baseSizes = new float[options.Length];
-        markers = new MenuTriangle[options.Length];
-        for (int i = 0; i < options.Length; i++)
-        {
-            baseSizes[i] = options[i].fontSize;
-            markers[i] = CreateMarker(options[i]);
-        }
-
-        RefreshOptions();
 
         screenGroup.alpha = 0f;
         if (screenLight != null)
@@ -54,13 +62,30 @@ public class ATMScreen : MonoBehaviour
             screenLight.intensity = 0f;
             screenLight.enabled = false;
         }
+
+        for (int p = 0; p < pages.Length; p++)
+        {
+            for (int o = 0; o < pages[p].options.Length; o++)
+            {
+                var option = pages[p].options[o];
+                if (option.text == null)
+                {
+                    Debug.LogWarning($"[ATMScreen] Falta el texto en Pages > Element {p} ({pages[p].name}) > Options > Element {o}", this);
+                    continue;
+                }
+
+                option.baseSize = option.text.fontSize;
+                option.marker = CreateMarker(option.text);
+            }
+        }
+
+        ShowPage(0);
     }
 
     public void TurnOn()
     {
         isOn = true;
-        selected = 0;
-        RefreshOptions();
+        ShowPage(0);
         StartFade(1f);
     }
 
@@ -70,9 +95,24 @@ public class ATMScreen : MonoBehaviour
         StartFade(0f);
     }
 
+    public void ShowPage(int index)
+    {
+        if (index < 0 || index >= pages.Length) return;
+
+        for (int i = 0; i < pages.Length; i++)
+        {
+            if (pages[i].root != null)
+                pages[i].root.SetActive(i == index);
+        }
+
+        currentPage = index;
+        selected = None;
+        RefreshOptions();
+    }
+
     private void Update()
     {
-        if (!isOn) return;
+        if (!isOn || Options.Length == 0) return;
 
         var mouse = Mouse.current;
         if (mouse != null && menuCamera != null)
@@ -83,19 +123,16 @@ public class ATMScreen : MonoBehaviour
             if (moved || clicked)
             {
                 int hovered = GetHoveredOption(mouse.position.ReadValue());
-                if (hovered >= 0)
+                if (hovered != selected)
                 {
-                    if (hovered != selected)
-                    {
-                        selected = hovered;
-                        RefreshOptions();
-                    }
+                    selected = hovered;
+                    RefreshOptions();
+                }
 
-                    if (clicked)
-                    {
-                        Confirm();
-                        return;
-                    }
+                if (clicked && selected != None)
+                {
+                    Confirm();
+                    return;
                 }
             }
         }
@@ -107,57 +144,55 @@ public class ATMScreen : MonoBehaviour
             Move(-1);
         else if (kb.sKey.wasPressedThisFrame || kb.downArrowKey.wasPressedThisFrame)
             Move(1);
-        else if (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame
-                 || kb.spaceKey.wasPressedThisFrame || kb.eKey.wasPressedThisFrame)
+        else if (selected != None &&
+                 (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame
+                  || kb.spaceKey.wasPressedThisFrame || kb.eKey.wasPressedThisFrame))
             Confirm();
     }
 
     private int GetHoveredOption(Vector2 screenPos)
     {
-        for (int i = 0; i < options.Length; i++)
+        for (int i = 0; i < Options.Length; i++)
         {
-            if (RectTransformUtility.RectangleContainsScreenPoint(options[i].rectTransform, screenPos, menuCamera))
+            var text = Options[i].text;
+            if (text != null && RectTransformUtility.RectangleContainsScreenPoint(text.rectTransform, screenPos, menuCamera))
                 return i;
         }
-        return -1;
+        return None;
     }
 
     private void Move(int direction)
     {
-        selected = (selected + direction + options.Length) % options.Length;
+        if (selected == None)
+            selected = direction > 0 ? 0 : Options.Length - 1;
+        else
+            selected = (selected + direction + Options.Length) % Options.Length;
+
         RefreshOptions();
     }
 
     private void Confirm()
     {
-        switch (selected)
-        {
-            case 0:
-                Debug.Log("ATM: Controles");
-                onControles.Invoke();
-                break;
-            case 1:
-                Debug.Log("ATM: Música y Sonido");
-                onMusicaSonido.Invoke();
-                break;
-            case 2:
-                onVolver.Invoke();
-                break;
-        }
+        var option = Options[selected];
+        if (option.text != null) Debug.Log("ATM: " + option.text.text);
+        option.onSelect.Invoke();
     }
 
     private void RefreshOptions()
     {
-        for (int i = 0; i < options.Length; i++)
+        for (int i = 0; i < Options.Length; i++)
         {
+            var option = Options[i];
+            if (option.text == null || option.marker == null) continue;
+
             bool isSelected = i == selected;
 
-            options[i].fontStyle = isSelected ? FontStyles.Bold : FontStyles.Normal;
-            options[i].fontSize = baseSizes[i] * (isSelected ? selectedScale : 1f);
+            option.text.fontStyle = isSelected ? FontStyles.Bold : FontStyles.Normal;
+            option.text.fontSize = option.baseSize * (isSelected ? selectedScale : 1f);
 
-            float size = options[i].fontSize * markerSize;
-            markers[i].rectTransform.sizeDelta = new Vector2(size, size);
-            markers[i].Filled = isSelected;
+            float size = option.text.fontSize * markerSize;
+            option.marker.rectTransform.sizeDelta = new Vector2(size, size);
+            option.marker.Filled = isSelected;
         }
     }
 
