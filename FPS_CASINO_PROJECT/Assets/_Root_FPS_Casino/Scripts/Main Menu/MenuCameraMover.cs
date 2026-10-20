@@ -9,6 +9,7 @@ public class MenuCameraMover : MonoBehaviour
     private Vector3 startPosition;
     private Quaternion startRotation;
     private Coroutine routine;
+    private CameraFocusTarget currentFocus;
 
     public bool IsMoving { get; private set; }
     public bool IsZoomed { get; private set; }
@@ -21,15 +22,21 @@ public class MenuCameraMover : MonoBehaviour
         startRotation = menuCamera.transform.rotation;
     }
 
-    public void MoveTo(Transform target)
+    public void MoveTo(CameraFocusTarget focus)
     {
-        if (target == null || IsMoving) return;
-        StartMove(target.position, target.rotation, true);
+        if (focus == null || focus.ViewPoint == null || IsMoving) return;
+
+        currentFocus = focus;
+        StartMove(focus.ViewPoint.position, focus.ViewPoint.rotation, true);
     }
 
     public void ReturnToStart()
     {
         if (IsMoving || !IsZoomed) return;
+
+        if (currentFocus != null) currentFocus.NotifyLeaving();
+        currentFocus = null;
+
         StartMove(startPosition, startRotation, false);
     }
 
@@ -63,5 +70,7 @@ public class MenuCameraMover : MonoBehaviour
 
         IsZoomed = zoomed;
         IsMoving = false;
+
+        if (zoomed && currentFocus != null) currentFocus.NotifyArrived();
     }
 }

@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.InputSystem;
 using TMPro;
 
 public class ATMScreen : MonoBehaviour
@@ -13,24 +14,39 @@ public class ATMScreen : MonoBehaviour
 
     [Header("Menú")]
     [SerializeField] private TMP_Text[] options;
-    [SerializeField] private string selectedMarker = "▶ ";
-    [SerializeField] private string unselectedMarker = "▷ ";
+    [Tooltip("Cámara del menú. Vacío = Camera.main")]
+    [SerializeField] private Camera menuCamera;
+    [Tooltip("Cuánto crece el texto seleccionado. 1.15 = 15% más grande")]
+    [SerializeField] private float selectedScale = 1.15f;
+    [Tooltip("Tamaño de la flecha respecto al tamaño de letra")]
+    [SerializeField] private float markerSize = 0.6f;
+    [Tooltip("Separación entre la flecha y el texto")]
+    [SerializeField] private float markerGap = 10f;
 
     [Header("Acciones")]
     [SerializeField] private UnityEvent onControles;
     [SerializeField] private UnityEvent onMusicaSonido;
     [SerializeField] private UnityEvent onVolver;
 
-    private string[] labels;
+    private float[] baseSizes;
+    private MenuTriangle[] markers;
     private int selected;
     private bool isOn;
     private Coroutine fadeRoutine;
 
     private void Awake()
     {
-        labels = new string[options.Length];
+        if (menuCamera == null) menuCamera = Camera.main;
+
+        baseSizes = new float[options.Length];
+        markers = new MenuTriangle[options.Length];
         for (int i = 0; i < options.Length; i++)
-            labels[i] = options[i].text;
+        {
+            baseSizes[i] = options[i].fontSize;
+            markers[i] = CreateMarker(options[i]);
+        }
+
+        RefreshOptions();
 
         screenGroup.alpha = 0f;
         if (screenLight != null)
@@ -58,13 +74,52 @@ public class ATMScreen : MonoBehaviour
     {
         if (!isOn) return;
 
-        if (Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow))
+        var mouse = Mouse.current;
+        if (mouse != null && menuCamera != null)
+        {
+            bool moved = mouse.delta.ReadValue().sqrMagnitude > 0f;
+            bool clicked = mouse.leftButton.wasPressedThisFrame;
+
+            if (moved || clicked)
+            {
+                int hovered = GetHoveredOption(mouse.position.ReadValue());
+                if (hovered >= 0)
+                {
+                    if (hovered != selected)
+                    {
+                        selected = hovered;
+                        RefreshOptions();
+                    }
+
+                    if (clicked)
+                    {
+                        Confirm();
+                        return;
+                    }
+                }
+            }
+        }
+
+        var kb = Keyboard.current;
+        if (kb == null) return;
+
+        if (kb.wKey.wasPressedThisFrame || kb.upArrowKey.wasPressedThisFrame)
             Move(-1);
-        else if (Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow))
+        else if (kb.sKey.wasPressedThisFrame || kb.downArrowKey.wasPressedThisFrame)
             Move(1);
-        else if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter)
-                 || Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.E))
+        else if (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame
+                 || kb.spaceKey.wasPressedThisFrame || kb.eKey.wasPressedThisFrame)
             Confirm();
+    }
+
+    private int GetHoveredOption(Vector2 screenPos)
+    {
+        for (int i = 0; i < options.Length; i++)
+        {
+            if (RectTransformUtility.RectangleContainsScreenPoint(options[i].rectTransform, screenPos, menuCamera))
+                return i;
+        }
+        return -1;
     }
 
     private void Move(int direction)
@@ -94,7 +149,34 @@ public class ATMScreen : MonoBehaviour
     private void RefreshOptions()
     {
         for (int i = 0; i < options.Length; i++)
-            options[i].text = (i == selected ? selectedMarker : unselectedMarker) + labels[i];
+        {
+            bool isSelected = i == selected;
+
+            options[i].fontStyle = isSelected ? FontStyles.Bold : FontStyles.Normal;
+            options[i].fontSize = baseSizes[i] * (isSelected ? selectedScale : 1f);
+
+            float size = options[i].fontSize * markerSize;
+            markers[i].rectTransform.sizeDelta = new Vector2(size, size);
+            markers[i].Filled = isSelected;
+        }
+    }
+
+    private MenuTriangle CreateMarker(TMP_Text text)
+    {
+        var go = new GameObject("Flecha", typeof(RectTransform), typeof(CanvasRenderer));
+        go.layer = text.gameObject.layer;
+        go.transform.SetParent(text.transform, false);
+
+        var rt = (RectTransform)go.transform;
+        rt.anchorMin = new Vector2(0f, 0.5f);
+        rt.anchorMax = new Vector2(0f, 0.5f);
+        rt.pivot = new Vector2(1f, 0.5f);
+        rt.anchoredPosition = new Vector2(-markerGap, 0f);
+
+        var tri = go.AddComponent<MenuTriangle>();
+        tri.raycastTarget = false;
+        tri.color = text.color;
+        return tri;
     }
 
     private void StartFade(float target)

@@ -72,7 +72,7 @@ public class MenuHoverManager : MonoBehaviour
         var focus = target.GetComponent<CameraFocusTarget>();
         if (focus != null && cameraMover != null)
         {
-            cameraMover.MoveTo(focus.ViewPoint);
+            cameraMover.MoveTo(focus);
             return;
         }
 
