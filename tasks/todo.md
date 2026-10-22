@@ -28,7 +28,7 @@ Detalle de cada tarea (qué, criterios "Hecho cuando", dependencias) en `tasks/p
 ## 4. code-core
 - [x] T4.1 WeightedRandom + test
 - [x] T4.2 Puntos (D2, B4)
-- [ ] T4.3 Player (sin controller): summary, depuración, Inspector
+- [x] T4.3 Player (sin controller): summary, depuración, Inspector
 - [ ] T4.4 PlayerController: Inspector + depuración
 - [ ] **Checkpoint 4:** V + commit
 

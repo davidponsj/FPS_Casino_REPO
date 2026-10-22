@@ -12,8 +12,14 @@ using UnityEngine;
 /// </summary>
 public class PlayerPoints : MonoBehaviour
 {
-    [Tooltip("Puntos con los que empiezas. No cuentan para el ranking (no los has ganado).")]
+    [Header("Puntos")]
+    [Tooltip("Puntos con los que empiezas. No cuentan para el ranking (no los has ganado). 500 = una tirada de ruleta y poco más.")]
+    [Min(0)]
     [SerializeField] private int startingPoints = 0;
+
+    [Header("Depuración")]
+    [Tooltip("Muestra los puntos sobre el jugador en la vista Scene (y en Game con el botón Gizmos activado).")]
+    [SerializeField] private bool showDebug;
 
     /// <summary>Se dispara cuando cambia cualquiera de los dos contadores.</summary>
     public event Action OnPointsChanged;
@@ -60,4 +66,13 @@ public class PlayerPoints : MonoBehaviour
 
     [ContextMenu("TEST: Gastar 100 puntos")]
     private void TestSpend() => TrySpend(100);
+
+#if UNITY_EDITOR
+    private void OnDrawGizmos()
+    {
+        if (!showDebug) return;
+        UnityEditor.Handles.Label(transform.position + Vector3.up * 2.45f,
+            $"Puntos: {currentPoints} (ganados en total: {totalEarned})");
+    }
+#endif
 }

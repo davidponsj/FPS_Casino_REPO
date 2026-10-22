@@ -2,20 +2,27 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// Vida del jugador. Implementa IDamageable, así que cualquier cosa que ya haga daño
-/// (balas, explosiones, y los enemigos cuando existan) puede dañar al jugador sin saber nada de él.
+/// Vida del jugador. Va en el Player. Implementa IDamageable, así que cualquier cosa que haga daño
+/// (balas, explosiones, y los enemigos cuando ataquen) puede dañar al jugador sin saber nada de él.
 ///
-/// Todo cambio de vida pasa por TakeDamage / Heal y avisa con eventos (OnHealthChanged,
-/// OnDamaged, OnHealed, OnDied): la barra de vida, los sonidos o la pantalla de muerte se
-/// enganchan a esos eventos en vez de mirar la vida cada frame.
+/// Todo cambio de vida pasa por TakeDamage / Heal / Kill y avisa con eventos (OnHealthChanged,
+/// OnDamaged, OnHealed, OnDied): la barra de vida (HealthBarHUD), los sonidos o la pantalla de muerte
+/// se enganchan a esos eventos en vez de mirar la vida cada frame.
 /// </summary>
 public class PlayerHealth : MonoBehaviour, IDamageable
 {
+    [Header("Vida")]
+    [Tooltip("Vida con la que empiezas y tope al curarte. 100 = normal.")]
+    [Min(1f)]
     [SerializeField] private float maxHealth = 100f;
+
+    [Header("Depuración")]
+    [Tooltip("Muestra la vida sobre el jugador en la vista Scene (y en Game con el botón Gizmos activado).")]
+    [SerializeField] private bool showDebug;
 
     /// <summary>(vida actual, vida máxima). Se dispara en cualquier cambio de vida.</summary>
     public event Action<float, float> OnHealthChanged;
-    /// <summary>Daño recibido de verdad (ya aplicado el multiplicador).</summary>
+    /// <summary>Daño recibido.</summary>
     public event Action<float> OnDamaged;
     /// <summary>Vida curada de verdad (sin contar lo que sobrepasa el máximo).</summary>
     public event Action<float> OnHealed;
@@ -27,12 +34,6 @@ public class PlayerHealth : MonoBehaviour, IDamageable
     public float MaxHealth => maxHealth;
     public float Health01 => maxHealth > 0f ? currentHealth / maxHealth : 0f;
     public bool IsDead { get; private set; }
-
-    /// <summary>
-    /// Multiplicador del daño que recibes (1 = normal, 0.5 = la mitad). Pensado para efectos
-    /// futuros (escudos, dificultad...). No lo toques directamente desde varios sitios a la vez.
-    /// </summary>
-    public float DamageTakenMultiplier { get; set; } = 1f;
 
     private void Awake()
     {
@@ -49,10 +50,9 @@ public class PlayerHealth : MonoBehaviour, IDamageable
     {
         if (IsDead || amount <= 0f) return;
 
-        float damage = amount * DamageTakenMultiplier;
-        currentHealth = Mathf.Max(currentHealth - damage, 0f);
+        currentHealth = Mathf.Max(currentHealth - amount, 0f);
 
-        OnDamaged?.Invoke(damage);
+        OnDamaged?.Invoke(amount);
         OnHealthChanged?.Invoke(currentHealth, maxHealth);
 
         if (currentHealth <= 0f)
@@ -73,13 +73,13 @@ public class PlayerHealth : MonoBehaviour, IDamageable
         OnHealthChanged?.Invoke(currentHealth, maxHealth);
     }
 
-    /// <summary>Cura un porcentaje de la vida MÁXIMA (0.3 = un 30%). Lo usará la botella verde.</summary>
+    /// <summary>Cura un porcentaje de la vida MÁXIMA (0.3 = un 30%). Lo usa la botella verde.</summary>
     public void HealPercent(float percent01)
     {
         Heal(maxHealth * percent01);
     }
 
-    /// <summary>Muerte instantánea, ignorando el multiplicador de daño (p.ej. por beber demasiado).</summary>
+    /// <summary>Muerte instantánea, sin pasar por el daño (p. ej. por el blackout de beber demasiado).</summary>
     public void Kill()
     {
         if (IsDead) return;
@@ -92,7 +92,6 @@ public class PlayerHealth : MonoBehaviour, IDamageable
     private void Die()
     {
         IsDead = true;
-        Debug.Log("[Vida] El jugador ha muerto");
         OnDied?.Invoke();
     }
 
@@ -101,4 +100,13 @@ public class PlayerHealth : MonoBehaviour, IDamageable
 
     [ContextMenu("TEST: Curar 30%")]
     private void TestHeal() => HealPercent(0.3f);
+
+#if UNITY_EDITOR
+    private void OnDrawGizmos()
+    {
+        if (!showDebug) return;
+        string text = IsDead ? "Vida: MUERTO" : $"Vida: {currentHealth:0}/{maxHealth:0}";
+        UnityEditor.Handles.Label(transform.position + Vector3.up * 2.6f, text);
+    }
+#endif
 }

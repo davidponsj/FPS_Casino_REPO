@@ -14,15 +14,23 @@ using UnityEngine;
 /// </summary>
 public class PlayerBlackout : MonoBehaviour
 {
+    [Header("Referencias")]
+    [Tooltip("De aquí sabe cuándo te bebes una botella. Si está vacío, usa el BottleHolder del mismo objeto.")]
     [SerializeField] private BottleHolder bottleHolder;
+    [Tooltip("Al que mata el blackout. Si está vacío, usa el PlayerHealth del mismo objeto.")]
     [SerializeField] private PlayerHealth playerHealth;
 
+    [Header("Barra")]
     [Tooltip("Botellas seguidas que provocan el blackout. Con 3, cada botella sube un tercio de la barra.")]
     [Min(1)]
     [SerializeField] private int bottlesToBlackout = 3;
     [Tooltip("Segundos que tarda la barra en vaciarse ENTERA (de 100% a 0%). Con 60 y 3 botellas, cada botella baja en 20 s.")]
     [Min(0.1f)]
     [SerializeField] private float secondsToEmpty = 60f;
+
+    [Header("Depuración")]
+    [Tooltip("Muestra sobre el jugador, en la vista Scene, cuántas botellas lleva en el cuerpo y el % de la barra.")]
+    [SerializeField] private bool showDebug;
 
     /// <summary>(nivel 0-1). Se dispara cada vez que cambia la barra.</summary>
     public event Action<float> OnBlackoutChanged;
@@ -81,7 +89,6 @@ public class PlayerBlackout : MonoBehaviour
     private void TriggerBlackout()
     {
         blackedOut = true;
-        Debug.Log("[Blackout] Demasiadas botellas seguidas: el jugador muere");
         OnBlackout?.Invoke();
 
         if (playerHealth != null)
@@ -90,4 +97,15 @@ public class PlayerBlackout : MonoBehaviour
 
     [ContextMenu("TEST: Beber una botella (sin efecto)")]
     private void TestDrink() => OnBottleDrunk(null);
+
+#if UNITY_EDITOR
+    private void OnDrawGizmos()
+    {
+        if (!showDebug) return;
+        string text = blackedOut
+            ? "Borrachera: BLACKOUT"
+            : $"Borrachera: {bottlesInBody:0.0}/{bottlesToBlackout} botellas ({Blackout01:P0})";
+        UnityEditor.Handles.Label(transform.position + Vector3.up * 2.3f, text);
+    }
+#endif
 }

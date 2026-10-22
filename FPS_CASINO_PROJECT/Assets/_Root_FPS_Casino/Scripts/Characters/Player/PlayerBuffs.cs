@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Mejoras (y penalizaciones) temporales del jugador. Cada una tiene un valor y una hora de fin;
+/// Mejoras (y penalizaciones) temporales del jugador. Va en el Player. Cada una tiene un valor y una hora de fin;
 /// pasada esa hora vuelve sola a su valor normal, sin corrutinas ni temporizadores.
 ///
 /// Los demás scripts solo LEEN de aquí:
@@ -18,7 +18,13 @@ public class PlayerBuffs : MonoBehaviour
     // Valor de cada estadística cuando no hay ningún efecto activo (mismo orden que el enum).
     private static readonly float[] NeutralValues = { 1f, 1f, 1f, 0f, 0f };
 
+    [Header("Referencias")]
+    [Tooltip("Para las botellas que curan o matan. Si está vacío, usa el PlayerHealth del mismo objeto.")]
     [SerializeField] private PlayerHealth playerHealth;
+
+    [Header("Depuración")]
+    [Tooltip("Muestra sobre el jugador, en la vista Scene, los efectos activos con su valor y los segundos que les quedan.")]
+    [SerializeField] private bool showDebug;
 
     private readonly float[] values = new float[NeutralValues.Length];
     private readonly float[] endTimes = new float[NeutralValues.Length];
@@ -87,4 +93,24 @@ public class PlayerBuffs : MonoBehaviour
                 break;
         }
     }
+
+#if UNITY_EDITOR
+    private void OnDrawGizmos()
+    {
+        if (!showDebug) return;
+
+        string text = "Efectos:";
+        bool any = false;
+        for (int i = 0; i < values.Length; i++)
+        {
+            float left = endTimes[i] - Time.time;
+            if (left <= 0f) continue;
+            text += $"\n  {(Stat)i} = {values[i]:0.##} ({left:0.0} s)";
+            any = true;
+        }
+        if (!any) text += " ninguno";
+
+        UnityEditor.Handles.Label(transform.position + Vector3.up * 2.15f, text);
+    }
+#endif
 }

@@ -173,6 +173,10 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
     - Ningún `Debug.Log` de información; con la casilla activa, sobre el jugador se ven vida, puntos, borrachera y efecto.
     - Todos los campos con `[Tooltip]` y `[Header]`.
     - Los valores de PF_Player no cambian.
+  - **Hecho (2026-10-22).**
+    - **Renombres `campo viejo → nuevo`: ninguno.** Los 9 campos ya decían lo que son; se añadieron `[Header]`, `[Tooltip]` y `[Min]`.
+    - Depuración: cada script dibuja su línea sobre el jugador, a alturas distintas (vida 2,6 · puntos 2,45 · borrachera 2,3 · efectos 2,15). PlayerInteractor dibuja el rayo y lo que miras.
+    - Fuera: el `Debug.Log` del prompt (B3), el de la muerte y el del blackout, y `DamageTakenMultiplier` (D8: siempre valía 1 y nadie lo cambiaba).
 - **T4.4 PlayerController: Inspector y depuración** (S, cp1252).
   - Qué: tooltips y headers que falten, y depuración en la Scene (estado de movimiento, velocidad, momentum, coyote time, pared del wallrun). Sin tocar la lógica.
   - Hecho cuando: el diff solo toca atributos y el dibujo de depuración, y el movimiento se siente igual.
