@@ -8,7 +8,7 @@ RESULTS="$(cd "$(dirname "$0")" && pwd)/test-results.xml"
 LOG="$(mktemp)"
 trap 'rm -f "$LOG"' EXIT
 
-[ -f "$PROJ/Temp/UnityLockfile" ] && { echo "Unity tiene el proyecto abierto: ciérralo antes."; exit 2; }
+source "$(dirname "$0")/unity_closed.sh"
 rm -f "$RESULTS"
 "$UNITY" -batchmode -nographics -projectPath "$PROJ" -runTests -testPlatform EditMode -testResults "$RESULTS" -logFile "$LOG"
 code=$?

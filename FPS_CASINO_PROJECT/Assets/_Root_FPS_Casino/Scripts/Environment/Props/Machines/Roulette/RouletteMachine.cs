@@ -134,7 +134,7 @@ public class RouletteMachine : MonoBehaviour, IInteractable
         spinning = true;
         onSpinStart?.Invoke();
 
-        int winner = PickWeightedIndex();
+        int winner = WeightedRandom.PickIndex(segments, s => s.weight);
 
         float jitter = UnityEngine.Random.Range(-0.35f, 0.35f) * StepAngle;
         float targetAngle = 90f - (winner + 0.5f) * StepAngle + jitter;
@@ -191,21 +191,6 @@ public class RouletteMachine : MonoBehaviour, IInteractable
 
         float s = (k - c) / (1f - c);
         return (cruiseArea + brakeArea * (1f - Mathf.Pow(1f - s, p))) / total;
-    }
-
-    private int PickWeightedIndex()
-    {
-        float total = 0f;
-        foreach (var s in segments) total += s.weight;
-
-        float roll = UnityEngine.Random.Range(0f, total);
-        float acc = 0f;
-        for (int i = 0; i < segments.Length; i++)
-        {
-            acc += segments[i].weight;
-            if (roll <= acc) return i;
-        }
-        return segments.Length - 1;
     }
 
     private void PlaceBall(float angleDeg, float radius)

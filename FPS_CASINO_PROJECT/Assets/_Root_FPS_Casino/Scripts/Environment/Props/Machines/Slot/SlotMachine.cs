@@ -171,7 +171,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
 
         for (int i = 0; i < count; i++)
         {
-            results[i] = (luckyWin && i > 0) ? results[0] : PickWeightedIndex();
+            results[i] = (luckyWin && i > 0) ? results[0] : WeightedRandom.PickIndex(symbols, s => s.weight);
             start[i] = reelAngles[i];
 
             float target = results[i] * step;
@@ -242,21 +242,6 @@ public class SlotMachine : MonoBehaviour, IInteractable
 
         Debug.Log($"[Tragaperras] ¡Has ganado! x{multiplier} = {won} puntos");
         ShowResult($"¡Has ganado! x{multiplier}\n{won} puntos");
-    }
-
-    private int PickWeightedIndex()
-    {
-        float total = 0f;
-        foreach (var s in symbols) total += s.weight;
-
-        float roll = UnityEngine.Random.Range(0f, total);
-        float acc = 0f;
-        for (int i = 0; i < symbols.Length; i++)
-        {
-            acc += symbols[i].weight;
-            if (roll <= acc) return i;
-        }
-        return symbols.Length - 1;
     }
 
     // ---------------- Texto de resultado ----------------

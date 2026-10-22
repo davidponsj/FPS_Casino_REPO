@@ -6,7 +6,7 @@ PROJ="$(cd "$(dirname "$0")/../FPS_CASINO_PROJECT" && pwd)"
 LOG="$(mktemp)"
 trap 'rm -f "$LOG"' EXIT
 
-[ -f "$PROJ/Temp/UnityLockfile" ] && { echo "Unity tiene el proyecto abierto: ciérralo antes."; exit 2; }
+source "$(dirname "$0")/unity_closed.sh"
 "$UNITY" -batchmode -nographics -quit -projectPath "$PROJ" -logFile "$LOG"
 code=$?
 grep -E "(error|warning) CS" "$LOG" | sort -u
