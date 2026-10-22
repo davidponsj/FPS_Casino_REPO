@@ -9,8 +9,8 @@ using UnityEngine.Serialization;
 ///
 ///  - Navegación: ir a un punto con repath limitado, parar, girar, colocar (Warp), detectar atascos.
 ///  - Sensación arcade: aceleración y giro altos, variación individual de velocidad.
-///  - Cuerpo: radio, peso y colliders que usa el CrowdSolver para el contacto físico.
-///    El enemigo nunca resuelve colisiones por su cuenta: se apunta al CrowdSolver y él lo corrige.
+///  - Cuerpo: radio, peso y colliders que usa el HordeCollision para el contacto físico.
+///    El enemigo nunca resuelve colisiones por su cuenta: se apunta al HordeCollision y él lo corrige.
 /// </summary>
 [RequireComponent(typeof(NavMeshAgent))]
 [RequireComponent(typeof(Rigidbody))]
@@ -134,7 +134,7 @@ public class EnemyMovement : MonoBehaviour
     /// <summary>Radio del cuerpo en el plano (el del agente, escalado).</summary>
     public float Radius => agent.radius * Mathf.Max(transform.lossyScale.x, transform.lossyScale.z);
 
-    /// <summary>Peso relativo para el CrowdSolver: con más peso, cede menos.</summary>
+    /// <summary>Peso relativo para el HordeCollision: con más peso, cede menos.</summary>
     public float Weight => weight;
 
     public Collider[] Colliders => colliders;
@@ -173,12 +173,12 @@ public class EnemyMovement : MonoBehaviour
 
     private void OnEnable()
     {
-        CrowdSolver.Register(this);
+        HordeCollision.Register(this);
     }
 
     private void OnDisable()
     {
-        CrowdSolver.Unregister(this);
+        HordeCollision.Unregister(this);
     }
 
     private void Update()
@@ -315,7 +315,7 @@ public class EnemyMovement : MonoBehaviour
     /// Anclado = pegado al jugador. Más prioridad de avoidance y más peso:
     /// los que pasan le rodean y el jugador tiene que empujar más para apartarle.
     /// Además apaga su avoidance (RVO): pegado al jugador, la avoidance lo hace deslizarse de lado
-    /// alrededor de sus vecinos y acaba dando vueltas. El contacto ya lo resuelve el CrowdSolver.
+    /// alrededor de sus vecinos y acaba dando vueltas. El contacto ya lo resuelve el HordeCollision.
     /// </summary>
     public void SetAnchored(bool anchored)
     {
@@ -351,7 +351,7 @@ public class EnemyMovement : MonoBehaviour
     }
 
     // ---------------------------------------------------------------
-    //  API para el CrowdSolver
+    //  API para el HordeCollision
     // ---------------------------------------------------------------
 
     /// <summary>El jugador le está empujando (velocidad en m/s). Se queda con el empujón más fuerte del frame.</summary>

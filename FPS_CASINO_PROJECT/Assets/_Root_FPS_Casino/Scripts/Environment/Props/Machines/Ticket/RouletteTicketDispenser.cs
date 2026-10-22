@@ -1,7 +1,7 @@
 using System.Collections;
 using UnityEngine;
 
-public class TicketSpawner : MonoBehaviour
+public class RouletteTicketDispenser : MonoBehaviour
 {
     [SerializeField] private Transform spawnPoint;
     [SerializeField] private float slideDistance = 0.25f;

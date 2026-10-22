@@ -12,7 +12,7 @@ using UnityEngine.Serialization;
 ///              hasta que se libere un hueco. Con menos de ~16 zombis no debería verse.
 ///
 /// Regla de oro: un zombi nunca se aleja del jugador para "recolocarse". Solo avanza o espera.
-/// El contacto físico (no solaparse, no empujar al jugador) no es cosa de la IA: lo resuelve el CrowdSolver.
+/// El contacto físico (no solaparse, no empujar al jugador) no es cosa de la IA: lo resuelve el HordeCollision.
 ///
 /// Los estados son clases anidadas: viven en este archivo y pueden usar los campos privados de HunterAI.
 /// </summary>
@@ -35,7 +35,7 @@ public class HunterAI : EnemyBase
     [Header("Melee")]
     [Tooltip("A esta distancia del jugador intenta pegarse (pide ficha de ataque).")]
     [SerializeField] private float engageRange = 1.6f;
-    [Tooltip("Distancia a la que se queda pegado. No bajar de la distancia de contacto del CrowdSolver (~1.1 con radios 0.5).")]
+    [Tooltip("Distancia a la que se queda pegado. No bajar de la distancia de contacto del HordeCollision (~1.1 con radios 0.5).")]
     [SerializeField] private float meleeDistance = 1.15f;
     [Tooltip("Si el jugador se aleja más que esto, suelta la ficha y vuelve a aproximarse. Mayor que Engage Range.")]
     [SerializeField] private float engageExitRange = 2.6f;
@@ -51,7 +51,7 @@ public class HunterAI : EnemyBase
     [Header("Estados")]
     [Tooltip("Tiempo mínimo en un estado antes de cambiar. Evita oscilaciones.")]
     [SerializeField] private float stateMinDuration = 0.3f;
-    [Tooltip("Distancia de parada si el jugador no tiene AttackSlotManager (persigue directo).")]
+    [Tooltip("Distancia de parada si el jugador no tiene HordeAttackSlots (persigue directo).")]
     [SerializeField] private float fallbackStoppingDistance = 1.5f;
 
     [Header("Feedback visual")]
@@ -60,7 +60,7 @@ public class HunterAI : EnemyBase
     [SerializeField] private Color engagedColor = new Color(1f, 0.55f, 0f);
 
     private StateMachine<HunterAI> machine;
-    private AttackSlotManager slots;
+    private HordeAttackSlots slots;
 
     private ChaseState chase;
     private ApproachState approach;
@@ -99,10 +99,10 @@ public class HunterAI : EnemyBase
         base.Start();
 
         if (Target != null)
-            slots = Target.GetComponent<AttackSlotManager>();
+            slots = Target.GetComponent<HordeAttackSlots>();
 
         if (slots == null)
-            Debug.LogWarning($"{name}: el jugador no tiene AttackSlotManager. Persigue directamente (se apilará).", this);
+            Debug.LogWarning($"{name}: el jugador no tiene HordeAttackSlots. Persigue directamente (se apilará).", this);
 
         machine.ChangeState(chase, force: true);
     }
@@ -217,7 +217,7 @@ public class HunterAI : EnemyBase
             if (!owner.Movement.MoveAlongLane(owner.Target.position, owner.GetChaseLane(), owner.laneLookahead))
                 owner.Movement.MoveTo(owner.Target.position);
 
-            AttackSlotManager slots = owner.slots;
+            HordeAttackSlots slots = owner.slots;
             if (slots == null || owner.DistanceToTarget > slots.ClaimRange) return;
 
             // Pedir puesto calcula rutas: solo cuando de verdad podemos cambiar de estado.
@@ -253,7 +253,7 @@ public class HunterAI : EnemyBase
 
         public override void Tick()
         {
-            AttackSlotManager slots = owner.slots;
+            HordeAttackSlots slots = owner.slots;
 
             if (owner.Target == null || slots == null)
             {
@@ -394,7 +394,7 @@ public class HunterAI : EnemyBase
 
         public override void Tick()
         {
-            AttackSlotManager slots = owner.slots;
+            HordeAttackSlots slots = owner.slots;
 
             if (owner.Target == null || slots == null)
             {

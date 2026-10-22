@@ -18,7 +18,7 @@ using UnityEngine.Serialization;
 ///  - Anillos exteriores (presión): donde se quedan los que no caben delante o no pueden llegar
 ///    (p. ej. el jugador está en una zona cerrada: le rodean por fuera).
 /// </summary>
-public class AttackSlotManager : MonoBehaviour
+public class HordeAttackSlots : MonoBehaviour
 {
     [Serializable]
     private class Ring

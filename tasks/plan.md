@@ -201,6 +201,7 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
     - El `.cs` está borrado.
     - El ticket sigue saliendo de la ruleta.
 - **T6.4 Inspector y depuración de la ruleta y el barman** (S): RouletteMachine, RouletteTicketDispenser y Bartender.
+  - Pendiente de T2.2: `RouletteMachine.ticketSpawner` → `ticketDispenser` (`FormerlySerializedAs`). Revisar el warning de `outerRadius`.
 - **T6.5 Inspector y depuración de la tragaperras** (S): SlotMachine, SlotBetButton y SlotLeverAnimator.
 - **Checkpoint 6:** V + ciclo ruleta → ticket → barman → botella → ruleta, tragaperras con y sin puntos + commit.
 

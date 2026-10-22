@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-public class MenuTriangle : MaskableGraphic
+public class MenuArrow : MaskableGraphic
 {
     [SerializeField] private bool filled = true;
     [Tooltip("Grosor del borde cuando no está relleno")]

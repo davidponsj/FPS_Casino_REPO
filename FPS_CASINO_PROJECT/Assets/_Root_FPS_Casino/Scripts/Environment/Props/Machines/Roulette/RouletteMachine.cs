@@ -42,7 +42,7 @@ public class RouletteMachine : MonoBehaviour, IInteractable
     [SerializeField, Range(1.5f, 6f)] private float brakingPower = 2.5f;
 
     [Header("Spawner de tickets")]
-    [SerializeField] private TicketSpawner ticketSpawner;
+    [SerializeField] private RouletteTicketDispenser ticketSpawner;
 
     [Header("Botella (para saber si la tienes en la mano)")]
     [SerializeField] private BottleHolder bottleHolder;

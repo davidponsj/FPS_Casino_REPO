@@ -16,7 +16,7 @@ using UnityEngine;
 ///  3. Enemigo ↔ enemigo: separación blanda, repartida según el peso de cada uno.
 /// </summary>
 [RequireComponent(typeof(CharacterController))]
-public class CrowdSolver : MonoBehaviour
+public class HordeCollision : MonoBehaviour
 {
     [Header("Enemigo ↔ enemigo (colisión blanda)")]
     [Tooltip("Hueco extra entre dos enemigos, además de sus radios.")]
@@ -44,7 +44,7 @@ public class CrowdSolver : MonoBehaviour
     private static readonly List<EnemyMovement> agents = new List<EnemyMovement>();
     private static readonly Dictionary<Collider, EnemyMovement> colliderOwners = new Dictionary<Collider, EnemyMovement>();
 
-    public static CrowdSolver Instance { get; private set; }
+    public static HordeCollision Instance { get; private set; }
 
     private CharacterController controller;
 

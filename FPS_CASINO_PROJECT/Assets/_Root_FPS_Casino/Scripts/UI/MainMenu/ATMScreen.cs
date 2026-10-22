@@ -14,7 +14,7 @@ public class ATMScreen : MonoBehaviour
         public UnityEvent onSelect;
 
         [NonSerialized] public float baseSize;
-        [NonSerialized] public MenuTriangle marker;
+        [NonSerialized] public MenuArrow marker;
     }
 
     [Serializable]
@@ -196,7 +196,7 @@ public class ATMScreen : MonoBehaviour
         }
     }
 
-    private MenuTriangle CreateMarker(TMP_Text text)
+    private MenuArrow CreateMarker(TMP_Text text)
     {
         var go = new GameObject("Flecha", typeof(RectTransform), typeof(CanvasRenderer));
         go.layer = text.gameObject.layer;
@@ -208,7 +208,7 @@ public class ATMScreen : MonoBehaviour
         rt.pivot = new Vector2(1f, 0.5f);
         rt.anchoredPosition = new Vector2(-markerGap, 0f);
 
-        var tri = go.AddComponent<MenuTriangle>();
+        var tri = go.AddComponent<MenuArrow>();
         tri.raycastTarget = false;
         tri.color = text.color;
         return tri;
