@@ -48,18 +48,23 @@ public class PlayerController : MonoBehaviour
     }
 
     [Header("Referencias")]
-    [SerializeField] private Transform cameraHolder; // Empty vacío hijo del player, a la altura de los ojos
-    [SerializeField] private Camera playerCamera;     // Camera hija del cameraHolder (para el FOV kick)
+    [Tooltip("Objeto vacío hijo del Player, a la altura de los ojos. Es lo que gira arriba/abajo al mirar.")]
+    [SerializeField] private Transform cameraHolder;
+    [Tooltip("Cámara hija del Camera Holder. Se usa para el FOV (efecto de velocidad al correr, slide...).")]
+    [SerializeField] private Camera playerCamera;
+    [Tooltip("CharacterController del Player, con el pivote en los pies. Si está vacío, se coge del mismo objeto.")]
     [SerializeField] private CharacterController controller;
 
     [Header("Detección de suelo")]
     [Tooltip("Capas que cuentan como suelo / obstáculo (también se usan para comprobar el techo al levantarse del slide).")]
     [SerializeField] private LayerMask groundMask = ~0;
-    [Tooltip("Distancia extra por debajo de los pies a la que se sigue considerando que estás en el suelo.")]
+    [Tooltip("Metros por debajo de los pies a los que todavía cuentas como en el suelo. 0.15 = normal.")]
     [SerializeField] private float groundCheckDistance = 0.15f;
 
     [Header("Movimiento")]
+    [Tooltip("Velocidad andando, en m/s. 5 = paso normal.")]
     [SerializeField] private float walkSpeed = 5f;
+    [Tooltip("Velocidad esprintando, en m/s. 8.5 = carrera.")]
     [SerializeField] private float sprintSpeed = 8.5f;
     [Tooltip("Aceleración en el suelo (m/s²) hasta la velocidad objetivo.")]
     [SerializeField] private float groundAcceleration = 70f;
@@ -85,27 +90,39 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float airDeceleration = 2f;
 
     [Header("Salto y gravedad")]
+    [Tooltip("Altura del salto, en metros. 1.2 = salto normal.")]
     [SerializeField] private float jumpHeight = 1.2f;
+    [Tooltip("Gravedad en m/s² (negativa = hacia abajo). -20 = más pesada que la real (-9.8), para un salto arcade.")]
     [SerializeField] private float gravity = -20f;
-    [SerializeField] private float groundedGravity = -2f; // pequeña fuerza hacia abajo para mantener pegado al suelo
+    [Tooltip("Pequeña fuerza hacia abajo (m/s) en el suelo para no despegarte al bajar cuestas. -2 = normal.")]
+    [SerializeField] private float groundedGravity = -2f;
+    [Tooltip("Velocidad máxima de caída, en m/s. 40 = caída rápida.")]
     [SerializeField] private float maxFallSpeed = 40f;
-    [Tooltip("Margen tras salir de una plataforma en el que todavía puedes saltar.")]
+    [Tooltip("Segundos tras salir de una plataforma en los que todavía puedes saltar. 0.15 = permisivo.")]
     [SerializeField] private float coyoteTime = 0.15f;
-    [Tooltip("Margen para bufferizar el salto si lo pulsas justo antes de tocar el suelo.")]
+    [Tooltip("Segundos de margen: si pulsas saltar justo antes de tocar el suelo, saltas al aterrizar.")]
     [SerializeField] private float jumpBufferTime = 0.15f;
 
     [Header("Cámara / Mirada")]
-    [SerializeField] private float mouseSensitivity = 0.12f; // el delta del ratón viene en píxeles por frame, sensibilidad mucho menor que con Input Manager viejo
-    [SerializeField] private float gamepadSensitivity = 120f; // stick derecho: valor -1..1, se multiplica por deltaTime
+    [Tooltip("Sensibilidad del ratón. El movimiento llega en píxeles por frame, por eso el número es tan bajo. 0.12 = normal.")]
+    [SerializeField] private float mouseSensitivity = 0.12f;
+    [Tooltip("Sensibilidad del stick derecho, en grados por segundo con el stick a tope. 120 = normal.")]
+    [SerializeField] private float gamepadSensitivity = 120f;
+    [Tooltip("Grados máximos mirando hacia abajo (negativo). -85 = casi a los pies.")]
     [SerializeField] private float minPitch = -85f;
+    [Tooltip("Grados máximos mirando hacia arriba. 85 = casi al techo.")]
     [SerializeField] private float maxPitch = 85f;
 
     [Header("FOV Kick")]
+    [Tooltip("Grados de FOV que se suman al esprintar. 8 = sensación de velocidad suave.")]
     [SerializeField] private float sprintFovBoost = 8f;
+    [Tooltip("Grados de FOV que se suman durante el slide.")]
     [SerializeField] private float slideFovBoost = 12f;
+    [Tooltip("Grados de FOV que se suman durante el wallrun.")]
     [SerializeField] private float wallRunFovBoost = 10f;
     [Tooltip("FOV extra que se va sumando según la velocidad supera el sprint, hasta maxMomentumSpeed.")]
     [SerializeField] private float momentumFovBoost = 8f;
+    [Tooltip("Rapidez (1/s) con la que el FOV llega a su valor. Más alto = cambio más brusco.")]
     [SerializeField] private float fovLerpSpeed = 8f;
 
     [Header("Inclinación de cámara")]
@@ -113,14 +130,19 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float wallRunCameraTilt = 12f;
     [Tooltip("Grados de roll al moverte lateralmente.")]
     [SerializeField] private float strafeCameraTilt = 1.5f;
+    [Tooltip("Rapidez (1/s) con la que la cámara se inclina y vuelve a su sitio.")]
     [SerializeField] private float cameraTiltSpeed = 8f;
 
     [Header("Aterrizaje")]
     [Tooltip("Velocidad de caída (m/s) mínima para que la cámara haga el 'dip' al aterrizar.")]
     [SerializeField] private float landingMinImpact = 4f;
+    [Tooltip("Metros que baja la cámara al aterrizar por cada m/s de caída. 0.06 = golpe suave.")]
     [SerializeField] private float landingDipStrength = 0.06f;
+    [Tooltip("Velocidad máxima (m/s) a la que baja la cámara en el golpe del aterrizaje.")]
     [SerializeField] private float maxLandingDipVelocity = 2f;
+    [Tooltip("Rigidez del muelle que devuelve la cámara tras aterrizar. Más alto = vuelve antes.")]
     [SerializeField] private float landingSpringStiffness = 150f;
+    [Tooltip("Amortiguación de ese muelle. Bajo = la cámara rebota; alto = vuelve sin rebotar.")]
     [SerializeField] private float landingSpringDamping = 18f;
 
     [Header("Deslizamiento (Slide)")]
@@ -128,8 +150,9 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float slideSpeed = 11f;
     [Tooltip("Velocidad que se suma a la actual al iniciar el slide.")]
     [SerializeField] private float slideEntryBoost = 1.5f;
-    [Tooltip("Duración máxima del slide en llano. Cuesta abajo no se consume.")]
+    [Tooltip("Segundos máximos de slide en llano. Cuesta abajo no se gastan.")]
     [SerializeField] private float slideDuration = 0.75f;
+    [Tooltip("Segundos de espera entre un slide y el siguiente.")]
     [SerializeField] private float slideCooldown = 0.5f;
     [Tooltip("Fricción del slide (m/s²).")]
     [SerializeField] private float slideFriction = 6f;
@@ -139,8 +162,11 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float slideSteering = 60f;
     [Tooltip("Por debajo de esta velocidad el slide termina.")]
     [SerializeField] private float slideMinSpeed = 3f;
-    [SerializeField] private float slideCameraHeightOffset = -0.6f; // baja la cámara al deslizar
-    [SerializeField] private float slideControllerHeight = 1f;      // altura del CharacterController al deslizar
+    [Tooltip("Metros que baja la cámara al deslizar (negativo = hacia abajo). -0.6 = agachado.")]
+    [SerializeField] private float slideCameraHeightOffset = -0.6f;
+    [Tooltip("Altura (m) del CharacterController durante el slide.")]
+    [SerializeField] private float slideControllerHeight = 1f;
+    [Tooltip("Altura (m) del CharacterController de pie.")]
     [SerializeField] private float standingControllerHeight = 2f;
     [Tooltip("Velocidad (1/s) de la transición de altura al agacharse / levantarse.")]
     [SerializeField] private float crouchTransitionSpeed = 12f;
@@ -150,20 +176,23 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float airSlideBoostMultiplier = 1.35f;
 
     [Header("Wallrun")]
+    [Tooltip("Activa el wallrun (correr por las paredes).")]
     [SerializeField] private bool enableWallRun = true;
     [Tooltip("Capas sobre las que se puede hacer wallrun / walljump.")]
     [SerializeField] private LayerMask wallMask = ~0;
-    [Tooltip("Distancia desde la superficie de la cápsula a la que se detecta una pared.")]
+    [Tooltip("Metros desde la cápsula del jugador a los que se detecta una pared.")]
     [SerializeField] private float wallCheckDistance = 0.4f;
     [Tooltip("|normal.y| máximo para que una superficie cuente como pared (0 = totalmente vertical).")]
     [SerializeField] private float wallMaxNormalY = 0.3f;
-    [Tooltip("Altura mínima sobre el suelo para poder engancharse a una pared.")]
+    [Tooltip("Metros mínimos sobre el suelo para poder engancharte a una pared.")]
     [SerializeField] private float wallRunMinHeight = 1f;
     [Tooltip("Velocidad horizontal mínima para empezar un wallrun. Debe ser mayor que walkSpeed para que andando no te enganches: hay que llegar esprintando o con momentum.")]
     [SerializeField] private float wallRunMinSpeed = 7.5f;
     [Tooltip("Velocidad mínima que se mantiene corriendo por la pared (si llegas más rápido, se conserva con poco desgaste).")]
     [SerializeField] private float wallRunSpeed = 9.5f;
+    [Tooltip("m/s² de velocidad que se pierden en el wallrun si vas más rápido que Wall Run Speed.")]
     [SerializeField] private float wallRunMomentumDecay = 1.5f;
+    [Tooltip("Segundos máximos que aguantas corriendo por una pared.")]
     [SerializeField] private float wallRunDuration = 1.6f;
     [Tooltip("Gravedad al inicio del wallrun. Se interpola hacia la gravedad normal según se agota el tiempo.")]
     [SerializeField] private float wallRunGravity = -2f;
@@ -173,20 +202,26 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float wallRunStickForce = 2f;
     [Tooltip("Impulso hacia fuera de la pared al soltarte sin saltar.")]
     [SerializeField] private float wallRunExitPush = 1.5f;
-    [Tooltip("Tiempo tras soltarte de una pared antes de poder engancharte a otra.")]
+    [Tooltip("Segundos tras soltarte de una pared antes de poder engancharte a otra.")]
     [SerializeField] private float wallReattachTime = 0.25f;
 
     [Header("Walljump")]
+    [Tooltip("Impulso hacia arriba del walljump, en m/s.")]
     [SerializeField] private float wallJumpUpForce = 7.5f;
+    [Tooltip("Impulso hacia fuera de la pared del walljump, en m/s.")]
     [SerializeField] private float wallJumpSideForce = 7f;
     [Tooltip("Velocidad extra en la dirección en la que corrías por la pared.")]
     [SerializeField] private float wallJumpForwardBoost = 1.5f;
-    [Tooltip("Margen tras soltarte de un wallrun en el que todavía puedes hacer walljump.")]
+    [Tooltip("Segundos tras soltarte de un wallrun en los que todavía puedes hacer walljump.")]
     [SerializeField] private float wallJumpCoyoteTime = 0.2f;
     [Tooltip("Permite walljump estando pegado a una pared en el aire aunque no estés haciendo wallrun.")]
     [SerializeField] private bool enableWallKick = true;
-    [Tooltip("Tiempo tras un walljump durante el que el input aéreo no actúa, para que no anule el impulso.")]
+    [Tooltip("Segundos tras un walljump en los que tu input en el aire no actúa, para no anular el impulso.")]
     [SerializeField] private float wallJumpControlLockTime = 0.2f;
+
+    [Header("Depuración")]
+    [Tooltip("Muestra en la vista Scene el estado de movimiento, la velocidad, el momentum y el coyote time sobre el jugador, una flecha con la velocidad y la pared del wallrun.")]
+    [SerializeField] private bool showDebug;
 
     /// <summary>Se dispara cada vez que cambia el estado de movimiento. Útil para animaciones/sonido.</summary>
     public event Action<PlayerMovementState> OnStateChanged;
@@ -1031,4 +1066,26 @@ public class PlayerController : MonoBehaviour
             Gizmos.DrawLine(center, center + wallNormal);
         }
     }
+
+#if UNITY_EDITOR
+    private void OnDrawGizmos()
+    {
+        if (!showDebug) return;
+
+        // Flecha de la velocidad horizontal (0,2 m por cada m/s) y normal de la pared del wallrun.
+        Vector3 chest = transform.position + Vector3.up;
+        Gizmos.color = Color.magenta;
+        Gizmos.DrawLine(chest, chest + HorizontalVelocity * 0.2f);
+        if (isWallRunning)
+        {
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawLine(chest, chest + wallNormal);
+        }
+
+        float speed = CurrentHorizontalSpeed;
+        float momentum = Mathf.Max(0f, speed - sprintSpeed);
+        UnityEditor.Handles.Label(transform.position + Vector3.up * 2.75f,
+            $"{CurrentState} · {speed:0.0} m/s (momentum +{momentum:0.0}) · coyote {coyoteTimer:0.00} s");
+    }
+#endif
 }
