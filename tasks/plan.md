@@ -201,6 +201,11 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
   - Qué: se tocan WeaponBase, WeaponManager, AmmoHUD, ReloadHUD y DynamicCrosshair. Cada miembro se borra solo tras comprobar con grep que no se usa. WeaponManager deja de conocer a los HUDs.
   - Hecho cuando:
     - Munición, recarga y retícula se actualizan al cambiar de arma, en SCN_Gameplay y en SCN_Saez (sin editar SCN_Saez).
+  - **Hecho (2026-10-22).**
+    - Borrados (grep sin usos): `audioSource` y su `RequireComponent(AudioSource)`, `OnDryFire`, `RefillAmmo` y `HasWeaponEquipped`. Los prefabs de armas conservan su componente AudioSource, que ya no es obligatorio.
+    - Los 3 HUDs buscan el WeaponManager en `Start`, se suscriben a `OnWeaponChanged` y cogen el arma actual. Su campo `weapon` ya no sale en el Inspector; ninguna escena lo asignaba.
+    - Los overrides `ammoUI`, `reloadRadialUI` y `crosshair` de SCN_Gameplay, SCN_Mallorca y SCN_Saez quedan sin uso en el YAML; Unity los limpia al guardar la escena.
+    - Pendiente de la prueba manual (checkpoint 5): coger armas de la pared y ver la munición, la recarga y la retícula.
 - **T5.4 Inspector y depuración de las armas** (M).
   - Qué: WeaponBase, GrenadeLauncherWeapon, GrenadeProjectile y WallWeaponPickup (prompt "Coger {arma} [E]").
   - Hecho cuando: se ven el cono de dispersión, la munición y el coste de las armas de pared, y los valores de los prefabs no cambian.

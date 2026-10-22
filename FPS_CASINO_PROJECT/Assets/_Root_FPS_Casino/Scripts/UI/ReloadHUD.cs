@@ -10,15 +10,36 @@ using UnityEngine.UI;
 /// vive en el mismo GameObject que quieres ocultar, desactivarlo con SetActive detendría su
 /// propio Update() y se quedaría apagado para siempre. Image.enabled solo apaga el dibujado,
 /// el script sigue vivo y comprobando el estado cada frame.
+///
+/// El arma la saca sola del WeaponManager del jugador (evento OnWeaponChanged): no hay que asignarla.
 /// </summary>
 public class ReloadHUD : MonoBehaviour
 {
     [Header("Referencias")]
-    [Tooltip("El arma actualmente equipada. Cuando montéis cambio de arma, llamad a SetWeapon() al equipar una nueva.")]
-    [SerializeField] private WeaponBase weapon;
     [SerializeField] private Image radialImage;
 
-    public void SetWeapon(WeaponBase newWeapon)
+    private WeaponManager weaponManager;
+    private WeaponBase weapon;
+
+    private void Start()
+    {
+        weaponManager = FindAnyObjectByType<WeaponManager>();
+        if (weaponManager == null)
+        {
+            Debug.LogWarning($"[{name}] No hay ningún WeaponManager en la escena: el círculo de recarga no se mostrará.", this);
+            return;
+        }
+
+        weaponManager.OnWeaponChanged += SetWeapon;
+        SetWeapon(weaponManager.CurrentWeapon);
+    }
+
+    private void OnDestroy()
+    {
+        if (weaponManager != null) weaponManager.OnWeaponChanged -= SetWeapon;
+    }
+
+    private void SetWeapon(WeaponBase newWeapon)
     {
         weapon = newWeapon;
     }

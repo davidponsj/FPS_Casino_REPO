@@ -20,13 +20,12 @@ using UnityEngine;
 ///   - Right (Image)
 /// Cada línea debe tener su pivote apuntando hacia el centro (Top con pivot Y=0, Bottom pivot Y=1, etc.)
 /// para que al mover el anchoredPosition, la línea "crezca hacia afuera" en vez de moverse entera.
+///
+/// El arma la saca sola del WeaponManager del jugador (evento OnWeaponChanged): no hay que asignarla.
 /// </summary>
 public class DynamicCrosshair : MonoBehaviour
 {
     [Header("Referencias")]
-    [Tooltip("El arma actualmente equipada. Cuando tengáis cambio de arma, llamad a SetWeapon() al equipar una nueva.")]
-    [SerializeField] private WeaponBase weapon;
-
     [SerializeField] private RectTransform top;
     [SerializeField] private RectTransform bottom;
     [SerializeField] private RectTransform left;
@@ -44,14 +43,34 @@ public class DynamicCrosshair : MonoBehaviour
     [Tooltip("Canvas en el que está la retícula. Si lo dejas vacío, lo busca en los padres.")]
     [SerializeField] private Canvas canvas;
 
+    private WeaponManager weaponManager;
+    private WeaponBase weapon;
+
     private void Awake()
     {
         if (canvas == null)
             canvas = GetComponentInParent<Canvas>();
     }
 
-    /// <summary>Llamar a esto al cambiar de arma (o pasar null al quedarte sin arma).</summary>
-    public void SetWeapon(WeaponBase newWeapon)
+    private void Start()
+    {
+        weaponManager = FindAnyObjectByType<WeaponManager>();
+        if (weaponManager == null)
+        {
+            Debug.LogWarning($"[{name}] No hay ningún WeaponManager en la escena: la retícula no se mostrará.", this);
+            return;
+        }
+
+        weaponManager.OnWeaponChanged += SetWeapon;
+        SetWeapon(weaponManager.CurrentWeapon);
+    }
+
+    private void OnDestroy()
+    {
+        if (weaponManager != null) weaponManager.OnWeaponChanged -= SetWeapon;
+    }
+
+    private void SetWeapon(WeaponBase newWeapon)
     {
         weapon = newWeapon;
     }

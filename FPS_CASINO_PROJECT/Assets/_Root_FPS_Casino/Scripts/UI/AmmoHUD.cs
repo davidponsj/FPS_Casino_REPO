@@ -8,19 +8,39 @@ using UnityEngine;
 /// Mientras recargas, el número del cargador se oculta (para que el círculo de recarga,
 /// colocado en el mismo sitio, lo "sustituya" visualmente) y vuelve a aparecer al terminar.
 /// La reserva se queda siempre visible.
+///
+/// El arma la saca sola del WeaponManager del jugador (evento OnWeaponChanged): no hay que asignarla.
 /// </summary>
 public class AmmoHUD : MonoBehaviour
 {
     [Header("Referencias")]
-    [Tooltip("El arma actualmente equipada. Cuando montéis cambio de arma, llamad a SetWeapon() al equipar una nueva.")]
-    [SerializeField] private WeaponBase weapon;
     [SerializeField] private TMP_Text magazineText;
     [SerializeField] private TMP_Text reserveText;
     [Tooltip("Opcional: el símbolo '/' entre cargador y reserva, si lo tienes como texto aparte. También se ocultará durante la recarga.")]
     [SerializeField] private GameObject separator;
 
-    /// <summary>Llamar a esto al cambiar de arma equipada.</summary>
-    public void SetWeapon(WeaponBase newWeapon)
+    private WeaponManager weaponManager;
+    private WeaponBase weapon;
+
+    private void Start()
+    {
+        weaponManager = FindAnyObjectByType<WeaponManager>();
+        if (weaponManager == null)
+        {
+            Debug.LogWarning($"[{name}] No hay ningún WeaponManager en la escena: la munición no se mostrará.", this);
+            return;
+        }
+
+        weaponManager.OnWeaponChanged += SetWeapon;
+        SetWeapon(weaponManager.CurrentWeapon);
+    }
+
+    private void OnDestroy()
+    {
+        if (weaponManager != null) weaponManager.OnWeaponChanged -= SetWeapon;
+    }
+
+    private void SetWeapon(WeaponBase newWeapon)
     {
         Unsubscribe();
         weapon = newWeapon;

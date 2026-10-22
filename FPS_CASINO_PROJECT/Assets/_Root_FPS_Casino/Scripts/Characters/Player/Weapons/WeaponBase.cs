@@ -13,7 +13,6 @@ using UnityEngine.InputSystem;
 /// Conecta OnFire y OnReload desde el Player Input (Events > Player > Fire / Reload),
 /// igual que hicimos con Move/Look/Jump/Slide.
 /// </summary>
-[RequireComponent(typeof(AudioSource))]
 public abstract class WeaponBase : MonoBehaviour
 {
     [Header("Referencias")]
@@ -85,11 +84,10 @@ public abstract class WeaponBase : MonoBehaviour
     protected int shotsInBurst;   // disparos seguidos sin soltar el gatillo (se reinicia tras burstResetTime sin disparar)
     protected float lastShotTime;
 
-    protected AudioSource audioSource;
     protected PlayerBuffs buffs;          // mejoras temporales de las botellas (cadencia, recarga, munición)
     protected float currentReloadDuration; // duración de la recarga en curso (con el multiplicador ya aplicado)
 
-    /// <summary>Se dispara cada vez que cambia currentAmmo o reserveAmmo (disparo, recarga, RefillAmmo).</summary>
+    /// <summary>Se dispara cada vez que cambia currentAmmo o reserveAmmo (disparo o recarga).</summary>
     public event Action OnAmmoChanged;
     /// <summary>Se dispara justo al empezar a recargar.</summary>
     public event Action OnReloadStarted;
@@ -120,7 +118,6 @@ public abstract class WeaponBase : MonoBehaviour
     {
         currentAmmo = magazineSize;
         reserveAmmo = startingReserveAmmo;
-        audioSource = GetComponent<AudioSource>();
 
         if (playerController == null)
             playerController = GetComponentInParent<PlayerController>();
@@ -276,10 +273,7 @@ public abstract class WeaponBase : MonoBehaviour
         bool infiniteMagazine = buffs != null && buffs.InfiniteMagazine;
 
         if (currentAmmo <= 0 && !infiniteMagazine)
-        {
-            OnDryFire();
             return;
-        }
 
         // Con la botella de munición infinita el cargador no baja.
         if (!infiniteMagazine)
@@ -314,9 +308,6 @@ public abstract class WeaponBase : MonoBehaviour
     /// </summary>
     protected abstract void Fire();
 
-    /// <summary>Se llama cuando pulsas disparo con el cargador vacío. Por defecto no hace nada; cada arma puede sonar "click".</summary>
-    protected virtual void OnDryFire() { }
-
     // ---------------- RECARGA ----------------
 
     protected virtual void TryReload()
@@ -346,13 +337,5 @@ public abstract class WeaponBase : MonoBehaviour
         isReloading = false;
         OnAmmoChanged?.Invoke();
         OnReloadFinished?.Invoke();
-    }
-
-    /// <summary>Rellena cargador y reserva al máximo. Lo usará el sistema de "coger arma de la pared".</summary>
-    public virtual void RefillAmmo(int reserveAmount)
-    {
-        currentAmmo = magazineSize;
-        reserveAmmo = reserveAmount;
-        OnAmmoChanged?.Invoke();
     }
 }

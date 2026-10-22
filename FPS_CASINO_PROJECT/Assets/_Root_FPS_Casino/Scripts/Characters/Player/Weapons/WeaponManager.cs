@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -9,6 +10,9 @@ using UnityEngine.InputSystem;
 ///
 /// Empiezas sin arma (currentWeapon null): disparar/recargar con las manos vacías
 /// simplemente no hace nada, sin necesidad de comprobarlo en ningún otro sitio.
+///
+/// Al equipar avisa con OnWeaponChanged: la munición, el círculo de recarga y la retícula
+/// (AmmoHUD, ReloadHUD, DynamicCrosshair) se suscriben solos, así que aquí no hay que conocerlos.
 /// </summary>
 public class WeaponManager : MonoBehaviour
 {
@@ -18,13 +22,10 @@ public class WeaponManager : MonoBehaviour
     [SerializeField] private PlayerController playerController;
     [SerializeField] private Camera playerCamera;
 
-    [Header("UI (opcional, pero recomendado)")]
-    [SerializeField] private AmmoHUD ammoUI;
-    [SerializeField] private ReloadHUD reloadRadialUI;
-    [SerializeField] private DynamicCrosshair crosshair;
+    /// <summary>Se dispara al equipar un arma nueva, con esa arma.</summary>
+    public event Action<WeaponBase> OnWeaponChanged;
 
     public WeaponBase CurrentWeapon { get; private set; }
-    public bool HasWeaponEquipped => CurrentWeapon != null;
 
     private void Awake()
     {
@@ -50,9 +51,7 @@ public class WeaponManager : MonoBehaviour
         CurrentWeapon = Instantiate(weaponPrefab, weaponSocket);
         CurrentWeapon.Initialize(playerController, playerCamera);
 
-        if (ammoUI != null) ammoUI.SetWeapon(CurrentWeapon);
-        if (reloadRadialUI != null) reloadRadialUI.SetWeapon(CurrentWeapon);
-        if (crosshair != null) crosshair.SetWeapon(CurrentWeapon);
+        OnWeaponChanged?.Invoke(CurrentWeapon);
     }
 
     // ---------------- INPUT (Player Input > Invoke Unity Events) ----------------
