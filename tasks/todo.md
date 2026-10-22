@@ -14,7 +14,7 @@ Detalle de cada tarea (qué, criterios "Hecho cuando", dependencias) en `tasks/p
 - [ ] **Checkpoint 1:** V + commit
 
 ## 2. move-scripts
-- [ ] T2.1 Mover scripts a su carpeta
+- [x] T2.1 Mover scripts a su carpeta
 - [ ] T2.2 HordeAttackSlots, HordeCollision, RouletteTicketDispenser, MenuArrow
 - [ ] T2.3 AmmoHUD, HealthBarHUD, BlackoutBarHUD, ReloadHUD
 - [ ] **Checkpoint 2:** V + commit
