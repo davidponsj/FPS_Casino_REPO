@@ -7,10 +7,10 @@ Detalle de cada tarea (qué, criterios "Hecho cuando", dependencias) en `tasks/p
 - [x] T0.1 Script check_refs + línea base
 - [x] T0.2 Compilar en batch
 - [x] T0.3 Tests EditMode (o self-checks si no se puede)
-- [ ] **Checkpoint 0:** comandos probados + revisión con David
+- [x] **Checkpoint 0:** comandos probados + revisión con David
 
 ## 1. folders
-- [ ] T1.1 Corregir faltas en nombres de carpetas
+- [x] T1.1 Corregir faltas en nombres de carpetas
 - [ ] **Checkpoint 1:** V + commit
 
 ## 2. move-scripts

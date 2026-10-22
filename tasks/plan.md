@@ -101,6 +101,9 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
     - Las 5 carpetas tienen el nombre nuevo.
     - `check_refs` no da nada nuevo.
     - No se ha borrado ninguna carpeta.
+  - **Hecho (2026-10-22).** 55 renombres sin cambios de contenido; los GUID se conservan.
+    - `Adressables` y `Design/Lightning` están vacías y git no las versiona: se renombraron con `mv` y solo su `.meta` va en git. Los compañeros recibirán el `.meta` nuevo y Unity creará la carpeta.
+    - La carpeta vacía con el nombre viejo puede quedarse en sus discos: Unity le crea un `.meta` nuevo y avisa. Se borra a mano.
 - **Checkpoint 1:** V + commit "Corrige nombres de carpetas".
 
 ### 2. move-scripts (depende de: tooling)
