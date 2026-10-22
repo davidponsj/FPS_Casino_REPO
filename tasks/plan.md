@@ -1,31 +1,230 @@
-# Plan: IA Hunter + hordas por rondas
+# Plan: Limpieza y reorganización (FPS Casino)
 
-Basado en `SPEC.md` (aprobado). Rama: `dev-davidmallorca`.
+Spec: `SPEC.md` (raíz del repo). Rama: `dev-davidmallorca_V2`.
+Estado: **spec cerrada con David el 2026-10-22. Plan pendiente de su aprobación. No se ha tocado nada del proyecto.**
+Para empezar: David escribe `/build` (o `/build auto`). Se trabaja bloque a bloque, con un commit por bloque (preguntando antes), y nunca con Unity abierto mientras se mueven archivos.
+(El plan anterior, el de la IA Hunter, está en git: commit 3f74066.)
 
-## Resumen
-Copiar la Hunter de `Practica_IAs` al casino, darle una vida de un golpe (`EnemyHealth`) y hacerla aparecer por rondas con `RoundManager` + `RoundHUD`. Todo se prueba en `SCN_Mallorca` (copia de `SCN_Main`).
+## Cómo retomar
+1. `git branch --show-current` → `dev-davidmallorca_V2`. `git status` limpio (salvo SPEC.md y tasks/, que están sin commitear).
+2. Leer `SPEC.md` (decisiones 1-12 y tabla "Scripts que cambian").
+3. Ir a la primera casilla sin marcar de `tasks/todo.md`.
 
-## Decisiones
-- **Copiar con `.meta`** → se mantienen los GUID y el prefab Hunter (variante de `Enemy_Base`) sigue apuntando a sus scripts y a `M_Red`.
-- **Capa del enemigo**: en práctica es la 7 (`Enemy`), pero en el casino la 7 es `Wall` (el jugador haría wallrun sobre ellos). El casino ya tiene `Enemy` en la capa **12** → cambio `m_Layer: 7 → 12` en el prefab copiado. ProjectSettings no se toca.
-- **Las armas no se tocan**: `hitMask = ~0` y `GetComponentInParent<IDamageable>()` ya alcanzan al enemigo.
-- **Montaje de escena en el Editor (tú)**: hornear NavMesh y añadir componentes en escena es fiable en el Editor y frágil editando YAML. Yo dejo todo listo en un prefab `Hordas.prefab` (RoundManager + puntos de spawn hijos + Canvas con RoundHUD) y una lista de pasos cortos. Tú: arrastrar el prefab, hornear, añadir 2 componentes al jugador.
-- **El tag `Player`** ya está en `Prefabs/Characters/Player.prefab` → `EnemyBase.FindPlayer()` funciona sin cambios.
+## Datos ya comprobados (no hace falta repetir)
+- **Scripts en Windows-1252** (conservar codificación; si las tildes dan guerra, quitarlas): PlayerController, EnemyBase, WeaponBase, PistolWeapon, IDamageable, MuzzleFlash, BulletTracerEffect, DynamicCrosshair, AmmoUI, ReloadRadialUI.
+  - **Con BOM UTF-8:** EnemyMovement, AttackSlotManager, CrowdSolver, HunterAI, StateMachine.
+  - **El resto:** UTF-8 sin BOM.
+  - **Cómo editar los cp1252:** `iconv -f WINDOWS-1252 -t UTF-8` a un temporal, editar y volver con `iconv -f UTF-8 -t WINDOWS-1252`.
+- **Uso de cada script** (GUID buscado en `.unity`, `.prefab` y `.asset`). Lo importante:
+  - `PistolWeapon` → PF_Lanzacartas. `SniperWeapon` → Sniper.prefab. `TommyGunWeapon` → TommyGun.prefab. `ShotgunWeapon` → Shotgun.prefab (las tres en `Prefabs/Characters/Test/`).
+  - `HunterAI` → PF_EnemyHunter. `EnemyBase` es abstracta: no está en ningún prefab.
+  - `AttackSlotManager` y `CrowdSolver` → PF_Player.
+  - `TestPointsWallet` → SCN_Ruben (no tocar la escena).
+  - `TicketPickup` → PF_TicketTest. Ese prefab es el `worldPrefab` de los 6 Ticket_*.asset: **no se borra**, solo se le quita el componente.
+  - `BottleEffectLibrary` → SO_BottleLibrary.asset. `BottleHolder.effectLibrary` lo apunta (en PF_Player y en escenas).
+  - `MenuTriangle` → no está en ningún asset: se crea por código.
+  - Escenas de compañeros con scripts nuestros: SCN_Ruben (BottleHolder, PlayerInteractor, TestPointsWallet, TicketHUD, TicketInventory) y SCN_Saez (BottleHolder, PlayerHealth, PlayerPoints, DynamicCrosshair, AmmoUI, ReloadRadialUI). **No se editan.** Todo cambio tiene que funcionar sin tocarlas: `FormerlySerializedAs`, GUIDs conservados y nada de campos nuevos que haya que asignar a mano en escena.
+- `New Material*.mat` (Materials/Test) los usan escenas y prefabs → se quedan.
+- Unity 6000.3.24f1 en `/c/Program Files/Unity/Hub/Editor/6000.3.24f1/Editor/Unity.exe`.
 
-## Grafo de dependencias
+## Riesgos y cómo se cubren
+| Riesgo | Mitigación |
+|---|---|
+| "Missing Script" o referencias perdidas al mover o juntar | Mover siempre con el `.meta`; script `check_refs` tras cada bloque; Unity cerrado al mover. |
+| Valores del Inspector perdidos al renombrar campos | `[FormerlySerializedAs]` en cada campo renombrado. Comprobar 2-3 valores en el Inspector tras cada bloque. |
+| Escenas de compañeros rotas | Ningún campo nuevo obligatorio en escena. Si una UI necesita a otro componente, lo busca sola (`FindAnyObjectByType`) cuando no está asignado. |
+| Tests: un `.asmdef` de tests no puede ver Assembly-CSharp (los scripts del juego no tienen asmdef) | En `tooling` se prueba poner los tests sin asmdef en una carpeta `Editor/` (van a Assembly-CSharp-Editor). Si NUnit no está disponible ahí, se mantiene el `Debug.Assert` de RoundManager y se añade otro igual para `WeightedRandom`; se avisa a David. |
+| Input de botellas (D10): las acciones nuevas se conectan con Unity Events en el Player Input de PF_Player | Se añaden las acciones al `.inputactions` y los métodos `OnDrink`/`OnThrow`. **La conexión en el Inspector la hace David** (2 clics por acción, instrucciones en la tarea). Hasta entonces se mantiene la lectura directa del teclado como respaldo. |
+| Cambiar de nombre una carpeta solo en mayúsculas (`Inputkeys` → `InputKeys`) en Windows | Dos pasos: `git mv Inputkeys tmp && git mv tmp InputKeys`, y lo mismo con el `.meta`. |
+| La spec dice "60 → 52 scripts", pero hoy hay **64** `.cs` en `Scripts/` | Se borran 8 (EnemyBase, 3 armas, 2 interfaces, BottleEffectLibrary, TicketPickup) y se añade WeightedRandom: **64 → 57** (+ los tests). Corregido en la spec. |
+| La spec pone los tests con `.asmdef`, pero la decisión 12 dice "sin .asmdef" y un asmdef de tests no ve Assembly-CSharp | Se usa la vía sin asmdef (carpeta `Editor/`), como dice T0.3. Corregido en la spec. |
+
+## Bloques y tareas
+Reglas:
+- Cada tarea toca como mucho **5 archivos de código**. Los YAML de prefabs y assets que solo cambian por un GUID no cuentan, ni los `git mv` sin cambios de código.
+- Cada tarea deja el proyecto **compilando**.
+- Cada bloque termina en un **checkpoint**: verificación V, checklist manual y commit (preguntando antes).
+- Toda tarea de "Inspector + depuración" sigue la tabla de la decisión 10 (qué dibuja cada script en la Scene) de la spec y la decisión 11. Antes del commit se apunta aquí, bajo la tarea, la lista `campo viejo → campo nuevo` de cada script para que David la revise.
+- Los bloques de riesgo alto (D1 en `code-weapons` y D11 en `code-enemies`, que cambian GUIDs de scripts en prefabs) llevan además una comprobación de valores del Inspector antes y después.
+
+**Verificación estándar (V):**
+1. `bash tasks/check_refs.sh` no da nada nuevo respecto a la línea base.
+2. Compilar en batch sin `error CS`.
+3. Abrir Unity: 0 errores en la consola.
+4. Checklist manual del bloque (todo.md).
+
+### Grafo de dependencias
 ```
-T0 ruleta (independiente)
-T1 SCN_Mallorca ─────────────────────────┐
-T2 copiar IA (scripts + prefabs + capa) ─┼─→ T3 EnemyHealth ─→ T4 RoundManager+RoundHUD+Hordas.prefab ─→ T5 montaje (Editor)
+tooling ─┬─ folders
+         ├─ move-scripts ── code-core ─┬─ code-weapons ── code-ui-menu ─┐
+         └─ rename-assets ─────────────┴─ code-casino ── code-bottles ── code-enemies ─┴─ docs
 ```
+`folders`, `move-scripts` y `rename-assets` solo dependen de `tooling`; se hacen en ese orden para que los commits salgan limpios.
+Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como dice el mapa de la spec, porque el cambio se hace en `EnemyMovement`.
 
-## Riesgos
-| Riesgo | Impacto | Mitigación |
-|---|---|---|
-| Nombres de clase chocan con el casino (`StateMachine`, `State<T>`, `EnemyBase`) | Alto: no compila | Comprobado al copiar con grep; si choca, renombrar solo en los nuevos |
-| Capas/masks serializados en `EnemyMovement`/`CrowdSolver` apuntan a capas de práctica | Medio: se atraviesan o no detectan | Revisar masks del prefab al copiar y ajustarlos a capas del casino |
-| `SCN_Main` cambia en `dev` después de copiarla | Bajo | `SCN_Mallorca` es solo de pruebas; se recopia si hace falta |
-| Charcos/granadas matan de un golpe también | Bajo (esperado) | Aceptado en el spec |
+### 0. tooling (depende de: nada)
+- **T0.1 Script de referencias rotas** (S).
+  - Qué: `tasks/check_refs.sh` lista los GUIDs usados en `Assets/**/*.unity|prefab|asset|mat|controller` que no aparecen en ningún `.meta` de `Assets/`, `Packages/` ni `Library/PackageCache`.
+  - Hecho cuando:
+    - El script corre en menos de 1 minuto.
+    - Su salida se guarda en `tasks/check_refs_baseline.txt`.
+    - Las roturas previas que salgan se apuntan aquí; no son nuestras.
+  - **Hecho (2026-10-22).** Tarda unos 7 s. Su prueba es `bash tasks/check_refs_test.sh`, que debe decir OK. Comprobación en cada V: `bash tasks/check_refs.sh | diff - tasks/check_refs_baseline.txt` (sin salida = nada nuevo).
+  - Línea base: 13 GUIDs que ya faltaban, todos inofensivos:
+    - 7 shaders de depuración de probe volumes en `Settings/PC_Renderer.asset` que esta versión de URP ya no trae.
+    - 4 componentes viejos en `Settings/DefaultVolumeProfile.asset`.
+    - 1 script del pack en 2 materiales de `ExternalPacks/LowPolyWeapons_LITE`.
+    - Ninguno está en archivos que vayamos a tocar.
+- **T0.2 Compilación en batch** (XS).
+  - Hecho cuando: el comando de la spec da 0 `error CS` con el proyecto tal cual y se apunta aquí cuánto tarda.
+- **T0.3 Tests EditMode** (S).
+  - Qué: `Scripts/Tests/Editor/RoundManagerTests.cs` (sin asmdef) prueba `EnemiesForRound` con los valores del `Debug.Assert` actual.
+  - Hecho cuando:
+    - `-runTests` da verde, o
+    - si NUnit no está disponible, se decide con David seguir con self-checks y se apunta aquí.
+- **Checkpoint 0:** baseline guardada, comandos de compilar y de tests probados. **Revisión con David** antes de mover nada.
 
-## Tareas
-Ver `tasks/todo.md`.
+### 1. folders (depende de: tooling)
+- **T1.1 Corregir faltas en nombres de carpetas** (XS, solo `git mv`).
+  - Qué: `ScripteableObjects` → `ScriptableObjects`, `PhisicMaterials` → `PhysicMaterials`, `Assets/Adressables` → `Addressables`, `Design/Lightning` → `Lighting`, `Art/Sprites/Inputkeys` → `InputKeys`, cada una con su `.meta`.
+  - Hecho cuando:
+    - Las 5 carpetas tienen el nombre nuevo.
+    - `check_refs` no da nada nuevo.
+    - No se ha borrado ninguna carpeta.
+- **Checkpoint 1:** V + commit "Corrige nombres de carpetas".
+
+### 2. move-scripts (depende de: tooling)
+- **T2.1 Mover scripts a su carpeta** (S, solo `git mv`).
+  - Qué: `RouletteMachine` → `Machines/Roulette/`; `RoundManager` → `Scripts/Managers/`; `IDamageable` → `Utilities/`; `TicketHUD`, `BottleEffectHUD` y `DynamicCrosshair` → `Scripts/UI/`.
+  - Hecho cuando: los 6 están en su sitio con el `.meta` y el GUID sin cambiar.
+- **T2.2 Renombrar scripts de la horda, el ticket y el menú** (M).
+  - Qué: `AttackSlotManager` → `HordeAttackSlots`, `CrowdSolver` → `HordeCollision`, `TicketSpawner` → `RouletteTicketDispenser`, `MenuTriangle` → `MenuArrow`. Se renombran archivo y clase, y se actualiza quien los use (grep).
+  - Hecho cuando:
+    - grep de los nombres viejos en `Assets/**/*.cs` da 0 resultados.
+    - Compila.
+    - PF_Player sigue teniendo los dos componentes de la horda.
+- **T2.3 Renombrar los HUDs** (M).
+  - Qué: `AmmoUI` → `AmmoHUD`, `HealthBarUI` → `HealthBarHUD`, `BlackoutBarUI` → `BlackoutBarHUD`, `ReloadRadialUI` → `ReloadHUD`. Los campos de `WeaponManager` que los referencian llevan `FormerlySerializedAs`. `AmmoUI` y `ReloadRadialUI` están en cp1252.
+  - Hecho cuando:
+    - Compila.
+    - Las referencias de WeaponManager en PF_Player siguen asignadas.
+    - Los 4 HUDs se ven en SCN_Gameplay.
+- **Checkpoint 2:** V + commit "Mueve y renombra scripts".
+
+### 3. rename-assets (depende de: tooling)
+- **T3.1 Ruleta** (S, assets).
+  - Qué: `SM_Ruleta` → `SM_Roulette`, `M_Ruleta` → `M_Roulette`, `Textures/Ruleta` → `Roulette`, `T_Ruleta_A/N` → `T_Roulette_A/N`, `RT_Ruleta_M` → `T_Roulette_M`.
+  - Hecho cuando: la ruleta se ve igual en SCN_Gameplay y no queda ningún asset con "Ruleta" fuera de Test.
+- **T3.2 Lanzacartas y botella** (S, assets).
+  - Qué: `SM_Weapon_LanzaCartasV2_.fbx` → `SM_Lanzacartas.fbx`, `Textures/LanzaCartas` → `Lanzacartas`, `PF_LanzaCartasWall` → `PF_Lanzacartas_Wall`, `Bottle.fbx` → `SM_Bottle.fbx`.
+  - Hecho cuando: el Lanzacartas en mano y en la pared, y la botella, se ven igual; no quedan `LanzaCartas` ni `V2_`.
+- **T3.3 ScriptableObjects, M_Liquid y T_InputKeys** (S, assets).
+  - Qué: `SO_Bottle<Color>` → `SO_BottleEffect_<Color>` y `Ticket_<Color>` → `SO_Ticket_<Color>`, con los colores en inglés. `M_Liquid.mat` → `Art/3D/Materials/`. `TM_ImputKeys.png` → `T_InputKeys.png`.
+  - Hecho cuando:
+    - Los 12 SO tienen el nombre nuevo.
+    - SO_BottleLibrary sigue apuntando a todos.
+    - El líquido de la botella se ve igual.
+- **Checkpoint 3:** V (sobre todo los modelos y materiales) + commit "Renombra assets a la convención".
+
+### 4. code-core (depende de: move-scripts)
+- **T4.1 WeightedRandom** (S).
+  - Qué: `Utilities/WeightedRandom.cs` con `Pick(IReadOnlyList<T>, Func<T,float> weight)`, más su test (o self-check). RouletteMachine y SlotMachine pasan a usarlo.
+  - Hecho cuando:
+    - Test en verde, con pesos 0, un solo elemento y una distribución aproximada en 10 000 tiradas.
+    - No queda código de pesos duplicado en las máquinas.
+- **T4.2 Puntos (D2, B4)** (M).
+  - Qué: las máquinas cogen el `PlayerPoints` del jugador que interactúa. El texto de la tragaperras escucha `OnPointsChanged`. Se borran `IPointsService` e `IPointsReceiver`. `TestPointsWallet` queda como MonoBehaviour suelto.
+  - Hecho cuando:
+    - Compila.
+    - La tragaperras y la ruleta cobran y pagan igual que antes.
+    - La tragaperras no tiene `Update` para los puntos.
+    - SCN_Ruben no da Missing Script.
+- **T4.3 Player sin el controller (D9, B3, decisiones 10 y 11)** (M).
+  - Qué: PlayerHealth, PlayerPoints, PlayerInteractor, PlayerBuffs y PlayerBlackout reciben `<summary>`, casilla "Mostrar depuración" y repaso del Inspector.
+  - Hecho cuando:
+    - Ningún `Debug.Log` de información; con la casilla activa, sobre el jugador se ven vida, puntos, borrachera y efecto.
+    - Todos los campos con `[Tooltip]` y `[Header]`.
+    - Los valores de PF_Player no cambian.
+- **T4.4 PlayerController: Inspector y depuración** (S, cp1252).
+  - Qué: tooltips y headers que falten, y depuración en la Scene (estado de movimiento, velocidad, momentum, coyote time, pared del wallrun). Sin tocar la lógica.
+  - Hecho cuando: el diff solo toca atributos y el dibujo de depuración, y el movimiento se siente igual.
+- **Checkpoint 4:** V + commit "Limpia puntos y scripts del jugador".
+
+### 5. code-weapons (depende de: code-core) — riesgo alto
+- **Antes de empezar:** apuntar los valores de Inspector de PF_Lanzacartas, Sniper, TommyGun y Shotgun (daño, cadencia, munición, dispersión, perdigones).
+- **T5.1 HitscanWeapon (D1)** (S, cp1252).
+  - Qué: `PistolWeapon.cs` → `HitscanWeapon.cs`, conservando el `.meta`. Campos `automatic` y `pelletsPerShot` (`FormerlySerializedAs("pelletCount")`). La lógica de disparo automático se trae de TommyGun.
+  - Hecho cuando: compila y el Lanzacartas dispara igual.
+- **T5.2 Los otros 3 prefabs pasan a HitscanWeapon** (S).
+  - Qué: cambiar el GUID de `m_Script` en los 3 prefabs; `automatic: 1` en TommyGun. Borrar Sniper/TommyGun/ShotgunWeapon (.cs + .meta).
+  - Hecho cuando:
+    - Los 4 prefabs muestran los valores apuntados.
+    - La Tommy dispara en automático y la escopeta con perdigones.
+    - `check_refs` no da nada nuevo.
+- **T5.3 Código muerto y OnWeaponChanged (D7, D8)** (M).
+  - Qué: se tocan WeaponBase, WeaponManager, AmmoHUD, ReloadHUD y DynamicCrosshair. Cada miembro se borra solo tras comprobar con grep que no se usa. WeaponManager deja de conocer a los HUDs.
+  - Hecho cuando:
+    - Munición, recarga y retícula se actualizan al cambiar de arma, en SCN_Gameplay y en SCN_Saez (sin editar SCN_Saez).
+- **T5.4 Inspector y depuración de las armas** (M).
+  - Qué: WeaponBase, GrenadeLauncherWeapon, GrenadeProjectile y WallWeaponPickup (prompt "Coger {arma} [E]").
+  - Hecho cuando: se ven el cono de dispersión, la munición y el coste de las armas de pared, y los valores de los prefabs no cambian.
+- **T5.5 Inspector de los efectos** (S).
+  - Qué: MuzzleFlash, BulletTracerEffect y BulletImpactEffect (los dos primeros en cp1252).
+  - Hecho cuando: los efectos se ven igual y las tildes no se rompen.
+- **Checkpoint 5:** V + las 5 armas como antes + commit "Junta las armas hitscan en HitscanWeapon".
+
+### 6. code-casino (depende de: code-core, rename-assets)
+- **T6.1 TicketData lleva su BottleEffect (D3)** (M).
+  - Qué: rellenar los 6 SO_Ticket según SO_BottleLibrary (leerla antes de borrarla). BottleHolder y ThrownBottle usan `ticket.bottleEffect`. Borrar BottleEffectLibrary; **preguntar** antes de borrar SO_BottleLibrary.
+  - Hecho cuando: cada color de ticket da la misma botella que antes.
+- **T6.2 Una sola regla de bloqueo de la ruleta (D4)** (M).
+  - Qué: se tocan TicketInventory, RouletteMachine, RouletteTicketDispenser, Bartender y BottleHolder.
+  - Hecho cuando:
+    - La ruleta está bloqueada exactamente si hay ticket esperando, ticket en el inventario o botella en la mano.
+    - No quedan Lock/Unlock.
+- **T6.3 Fuera TicketPickup (D5)** (XS + YAML).
+  - Hecho cuando:
+    - PF_TicketTest no tiene el componente.
+    - El `.cs` está borrado.
+    - El ticket sigue saliendo de la ruleta.
+- **T6.4 Inspector y depuración de la ruleta y el barman** (S): RouletteMachine, RouletteTicketDispenser y Bartender.
+- **T6.5 Inspector y depuración de la tragaperras** (S): SlotMachine, SlotBetButton y SlotLeverAnimator.
+- **Checkpoint 6:** V + ciclo ruleta → ticket → barman → botella → ruleta, tragaperras con y sin puntos + commit.
+
+### 7. code-bottles (depende de: code-casino)
+- **T7.1 Input Drink y Throw (D10)** (S).
+  - Qué: las acciones en `PlayerControls.inputactions` y `BottleHolder.OnDrink/OnThrow`. Se mantiene el teclado directo como respaldo hasta que David conecte los eventos.
+  - Hecho cuando: con los eventos conectados, F bebe y Q lanza. Después se quita el respaldo y la T queda como `[ContextMenu]`.
+- **T7.2 Código muerto, Inspector y depuración de botellas** (M).
+  - Qué: BottleHolder, ThrownBottle, BottlePuddle, BottleShatterEffect y LiquidWobble.
+  - Hecho cuando: se ven la botella actual y el radio y los segundos del charco, y `FillAmount` y `Ticket` están borrados tras el grep.
+- **Checkpoint 7:** V + beber y lanzar las 6 botellas + commit.
+
+### 8. code-enemies (depende de: code-bottles) — riesgo alto
+- **Antes de empezar:** apuntar los valores de Inspector de PF_EnemyHunter (y de PF_EnemyBase).
+- **T8.1 EnemyAI (D11)** (M).
+  - Qué: `HunterAI.cs` → `EnemyAI.cs` (conserva el `.meta`) con EnemyBase dentro. `FindPlayer` sale a EnemyAI estático o a RoundManager. HordeAttackSlots usa EnemyAI. Borrar EnemyBase (cp1252).
+  - Hecho cuando: PF_EnemyHunter tiene los valores apuntados, y la horda persigue, rodea y hace cola igual que antes en SCN_Mallorca.
+- **T8.2 El charco ralentiza (B1) y código muerto de EnemyMovement** (S).
+  - Hecho cuando: un enemigo en el charco va más lento y vuelve a su velocidad al salir, y no hay memoria nueva por frame.
+- **T8.3 Inspector y depuración de EnemyAI, EnemyMovement y EnemyHealth** (S).
+- **T8.4 Inspector y depuración de RoundManager, HordeAttackSlots y HordeCollision; comentarios de StateMachine** (M).
+- **Checkpoint 8:** V + 3 rondas en SCN_Mallorca y SCN_Gameplay + commit "Junta EnemyBase y HunterAI en EnemyAI".
+
+### 9. code-ui-menu (depende de: code-weapons)
+- **T9.1 HUDs, parte 1** (M): AmmoHUD, ReloadHUD, DynamicCrosshair, HealthBarHUD y BlackoutBarHUD. Solo `<summary>` e Inspector, sin depuración.
+- **T9.2 HUDs, parte 2** (S): PointsHUD, RoundHUD, TicketHUD, BottleEffectHUD y MenuArrow.
+- **T9.3 Botón Salir (B5) y menú, parte 1** (S): QuitGameTarget, ATMScreen y MenuCameraMover.
+  - Hecho cuando: "Salir" para el Play Mode en el editor y cierra el juego en una build.
+- **T9.4 Menú, parte 2** (S): MenuHoverManager, HoverOutline y CameraFocusTarget.
+- **Checkpoint 9:** V + recorrido completo del menú + commit.
+
+### 10. docs (depende de: todo)
+- **T10.1** Actualizar `FPS_CASINO_PROJECT/CLAUDE.local.md`: rutas, nombres nuevos, codificación y depuración visual.
+- **T10.2** Pedir a David que ejecute `/graphify Assets`.
+- **T10.3** Pasada por los criterios de éxito de la spec, marcándolos uno a uno.
+- **Checkpoint final:** todos los criterios en verde y revisión con David antes del push o del PR.
+
+## Preguntas abiertas
+Ninguna por ahora.
+

@@ -1,63 +1,85 @@
-# Tareas: IA Hunter + hordas
+# TODO: Limpieza y reorganización
 
-Rutas relativas a `FPS_CASINO_PROJECT/Assets/_Root_FPS_Casino/`.
+Detalle de cada tarea (qué, criterios "Hecho cuando", dependencias) en `tasks/plan.md`. Spec en `SPEC.md`.
+**Estado (2026-10-22):** plan revisado (criterios de aceptación, tareas de ≤5 archivos, checkpoints), falta que David lo apruebe. Nada del proyecto tocado. Siguiente paso: `/build`.
 
-## Fase 0: limpiar
+## 0. tooling
+- [x] T0.1 Script check_refs + línea base
+- [ ] T0.2 Compilar en batch
+- [ ] T0.3 Tests EditMode (o self-checks si no se puede)
+- [ ] **Checkpoint 0:** comandos probados + revisión con David
 
-- [x] **T0: Subir lo de la ruleta** (c6bea5e)
-  - Acceptance: commit solo con `M_Ruleta.mat`, `Models/Props/`, `Textures/Ruleta/` (+ `.meta`); push a `origin dev-davidmallorca` tras confirmar.
-  - Verify: `git status` limpio; `git log -1 --stat` solo esos archivos.
-  - Files: los 6 untracked de la ruleta. · Size: XS
+## 1. folders
+- [ ] T1.1 Corregir faltas en nombres de carpetas
+- [ ] **Checkpoint 1:** V + commit
 
-## Fase 1: la Hunter existe en el casino
+## 2. move-scripts
+- [ ] T2.1 Mover scripts a su carpeta
+- [ ] T2.2 HordeAttackSlots, HordeCollision, RouletteTicketDispenser, MenuArrow
+- [ ] T2.3 AmmoHUD, HealthBarHUD, BlackoutBarHUD, ReloadHUD
+- [ ] **Checkpoint 2:** V + commit
 
-- [x] **T1: Crear SCN_Mallorca** (0e85ab5)
-  - Acceptance: `Design/Testing/SCN_Mallorca.unity` = copia de `SCN_Main` (sin copiar su `.meta`, Unity le da GUID nuevo).
-  - Verify: Unity la abre y se ve igual que Main; `SCN_Main` sin cambios en `git status`.
-  - Files: 1 nuevo. · Size: XS
+## 3. rename-assets
+- [ ] T3.1 Ruleta
+- [ ] T3.2 Lanzacartas y botella
+- [ ] T3.3 ScriptableObjects, M_Liquid, T_InputKeys
+- [ ] **Checkpoint 3:** V (modelos y materiales iguales) + commit
 
-- [x] **T2: Copiar la IA Hunter** (9735b2c, falta confirmar compilación en Unity)
-  - Acceptance:
-    - `Scripts/Enemies/` ← `EnemyBase`, `EnemyMovement`, `StateMachine`, `Hunter/{HunterAI, AttackSlotManager, CrowdSolver}` con `.meta`.
-    - `Prefabs/Enemies/` ← `Enemy_Base`, `Enemy_Hunter` con `.meta`; `Art/.../Materials` ← `M_Red` si no existe.
-    - Capa del prefab 7 → 12 (`Enemy`); masks revisados.
-  - Verify: Unity compila sin errores; el prefab Hunter abre sin "Missing script".
-  - Files: ~6 scripts, 2 prefabs, 1 material. · Size: M
+## 4. code-core
+- [ ] T4.1 WeightedRandom + test
+- [ ] T4.2 Puntos (D2, B4)
+- [ ] T4.3 Player (sin controller): summary, depuración, Inspector
+- [ ] T4.4 PlayerController: Inspector + depuración
+- [ ] **Checkpoint 4:** V + commit
 
-- [x] **T3: EnemyHealth (muere de un golpe)** (fd6311a)
-  - Acceptance: `Scripts/Enemies/EnemyHealth.cs` implementa `IDamageable`, evento `OnDied`, `Destroy` al primer daño; añadido a `Enemy_Base.prefab` (la Hunter lo hereda).
-  - Verify: Hunter arrastrada a SCN_Mallorca → un disparo la elimina; sin errores.
-  - Files: 1 nuevo + prefab Hunter. · Size: S
+## 5. code-weapons (riesgo alto)
+- [ ] Apuntar valores del Inspector de las 4 armas hitscan
+- [ ] T5.1 HitscanWeapon
+- [ ] T5.2 GUIDs en prefabs + borrar las 3 armas viejas
+- [ ] T5.3 Código muerto + OnWeaponChanged
+- [ ] T5.4 Inspector + depuración de armas
+- [ ] T5.5 Inspector de efectos (MuzzleFlash, Tracer, Impact)
+- [ ] **Checkpoint 5:** V + las 5 armas como antes + commit
 
-### Checkpoint A
-- [ ] Compila limpio · Hunter en SCN_Mallorca persigue al jugador (tras hornear NavMesh) y muere de un tiro · revisar contigo.
+## 6. code-casino
+- [ ] T6.1 TicketData con su BottleEffect, fuera Library
+- [ ] T6.2 Regla única de bloqueo de la ruleta
+- [ ] T6.3 Fuera TicketPickup
+- [ ] T6.4 Inspector + depuración: ruleta, dispensador, barman
+- [ ] T6.5 Inspector + depuración: tragaperras
+- [ ] **Checkpoint 6:** V + ciclo completo del casino + commit
 
-## Fase 2: rondas
+## 7. code-bottles
+- [ ] T7.1 Input Drink/Throw (+ David conecta los eventos)
+- [ ] T7.2 Código muerto + Inspector + depuración
+- [ ] **Checkpoint 7:** V + las 6 botellas + commit
 
-- [x] **T4: RoundManager + RoundHUD** (8e774d5) — sin Hordas.prefab: los spawns son de la escena, se montan en T5
-  - Acceptance:
-    - `Scripts/Enemies/RoundManager.cs`: total ronda N = `enemigosRonda1 + extraPorRonda*(N-1)` (6, +3); máx. 24 vivos; 1 s entre spawns; 10 s descanso; spawn en punto aleatorio; evento `OnRoundStarted(int)`.
-    - `Scripts/UI/RoundHUD.cs`: texto "Ronda N" (patrón `PointsHUD`).
-    - `Prefabs/Enemies/Hordas.prefab`: RoundManager + 4 puntos de spawn hijos + Canvas con RoundHUD.
-  - Verify: compila; prefab sin referencias vacías.
-  - Files: 2 scripts + 1 prefab. · Size: S-M
+## 8. code-enemies (riesgo alto)
+- [ ] Apuntar valores del Inspector de PF_EnemyHunter
+- [ ] T8.1 EnemyAI (EnemyBase + HunterAI)
+- [ ] T8.2 Charco ralentiza (IMovementModifiable) + código muerto
+- [ ] T8.3 Inspector + depuración: EnemyAI, EnemyMovement, EnemyHealth
+- [ ] T8.4 Inspector + depuración: RoundManager, HordeAttackSlots, HordeCollision, StateMachine
+- [ ] **Checkpoint 8:** V + 3 rondas + commit
 
-- [x] **T4b: Rondas tipo CoD + spawn dinámico** (d47e9aa, falta confirmar compilación en Unity) — ver "Cambio (2026-10-21)" en `SPEC.md`
-  - Acceptance:
-    - `RoundManager.cs`: total por ronda con la fórmula CoD (6, 8, 13, 18, 24, 27… R10 33); retraso 2 s × 0,95 por ronda, mín. 0,08 s.
-    - Spawn en anillo 10–25 m alrededor del jugador: en NavMesh, fuera de la vista, camino ≤ 1,5 × máx., direcciones separadas ≥ 45° de los últimos 3; fallback al más lejano.
-    - Se quitan `spawnPoints`, `enemiesFirstRound`, `extraEnemiesPerRound`, `secondsBetweenSpawns`. `RoundHUD` sin cambios.
-    - Sin asignaciones por spawn/frame; `Debug.Assert` de la curva en editor.
-  - Verify: compila sin errores; en Play no salta ningún Assert; las pruebas de T5.
-  - Files: `Scripts/Enemies/RoundManager.cs`. · Size: S-M
+## 9. code-ui-menu
+- [ ] T9.1 HUDs parte 1
+- [ ] T9.2 HUDs parte 2 + MenuArrow
+- [ ] T9.3 Botón Salir (B5) + ATMScreen + MenuCameraMover
+- [ ] T9.4 MenuHoverManager, HoverOutline, CameraFocusTarget
+- [ ] **Checkpoint 9:** V + menú completo + commit
 
-- [x] **T5: Montaje en SCN_Mallorca** (42e9389) — probado en Play: funciona
-  - [x] NavMeshSurface horneado (Humanoid, Physics Colliders); compila y Hunter sin "Missing script".
-  - [x] Objeto `RoundManager` con `Enemy_Hunter` asignado (sin puntos de spawn).
-  - [x] `RoundHUD` + `RoundText` dentro de `UI_Canva.prefab` (renombrado de `Canvas.prefab`, mismo GUID); texto vacío por defecto.
-  - [x] `AttackSlotManager` + `CrowdSolver` en `Player.prefab` (decisión B: avisar al equipo en el PR).
-  - Verify: las 6 pruebas manuales de `SPEC.md`.
-  - Files: `SCN_Mallorca.unity`. · Size: S
+## 10. docs
+- [ ] T10.1 CLAUDE.local.md
+- [ ] T10.2 /graphify Assets (David)
+- [ ] T10.3 Criterios de éxito
+- [ ] **Checkpoint final:** revisión con David antes del push/PR
 
-### Checkpoint final
-- [x] 6 pruebas de SPEC.md pasan · `git diff --stat` sin cambios en `.cs/.prefab/.unity` previos · commit (preguntar push).
+## Checklist manual (tras cada bloque, en SCN_Gameplay / SCN_Mallorca / SCN_MainMenu)
+- [ ] Moverse, sprint, slide, wallrun, walljump
+- [ ] Coger arma de pared; disparar las 5 armas; recargar; retícula y munición en el HUD
+- [ ] Ruleta → ticket → barman → beber (F) / lanzar (Q) → charco → ruleta de nuevo
+- [ ] Tragaperras: apostar, ganar o perder, puntos en el HUD
+- [ ] Rondas: spawns, muertes de un golpe, contador de ronda
+- [ ] Menú: hover, zoom al cajero, opciones, Salir
+- [ ] Consola limpia al jugar; con "Mostrar depuración" activa se ve el estado en la Scene
