@@ -77,6 +77,11 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
     - Ninguno está en archivos que vayamos a tocar.
 - **T0.2 Compilación en batch** (XS).
   - Hecho cuando: el comando de la spec da 0 `error CS` con el proyecto tal cual y se apunta aquí cuánto tarda.
+  - **Hecho (2026-10-22).**
+    - Comando: `bash tasks/compile.sh`. Tarda unos 20 s y sale con código ≠ 0 si no compila. Avisa si Unity tiene el proyecto abierto.
+    - Probado con un script roto temporal: detecta el `error CS` y sale con código 1.
+    - Línea base: 0 errores, 1 warning (`RouletteMachine.outerRadius` sin usar, CS0414; se revisa en T6.4).
+    - Los warnings solo salen cuando Unity recompila, es decir, cuando ha cambiado algún `.cs`.
 - **T0.3 Tests EditMode** (S).
   - Qué: `Scripts/Tests/Editor/RoundManagerTests.cs` (sin asmdef) prueba `EnemiesForRound` con los valores del `Debug.Assert` actual.
   - Hecho cuando:
