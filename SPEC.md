@@ -146,7 +146,7 @@ Scripts/
     Enemies/          EnemyAI, EnemyHealth, EnemyMovement, StateMachine
       Hunter/         HordeAttackSlots, HordeCollision
     Player/           PlayerController, PlayerHealth, PlayerPoints, PlayerInteractor, PlayerBuffs, PlayerBlackout, PlayerControls.inputactions
-      Bottles/        BottleEffect, BottleHolder, ThrownBottle, BottlePuddle, BottleShatterEffect, LiquidWobble, IMovementModifiable
+      Bottles/        BottleEffect, BottleHolder, ThrownBottle, BottlePuddle, BottleShatterEffect, LiquidWobble
       Weapons/        WeaponBase, HitscanWeapon, GrenadeLauncherWeapon, GrenadeProjectile, WeaponManager,
                       WallWeaponPickup, MuzzleFlash, BulletTracerEffect, BulletImpactEffect
   Environment/Props/Machines/
@@ -158,7 +158,8 @@ Scripts/
   ScriptableObjects/  BottleTypes/ (SO_BottleEffect_Yellow...)  Tickets/ (SO_Ticket_Yellow...)
   UI/                 AmmoHUD, ReloadHUD, DynamicCrosshair, HealthBarHUD, BlackoutBarHUD, PointsHUD, RoundHUD, TicketHUD, BottleEffectHUD
     MainMenu/         ATMScreen, MenuArrow, MenuCameraMover, MenuHoverManager, HoverOutline, CameraFocusTarget, QuitGameTarget
-  Utilities/          IInteractable, IDamageable, WeightedRandom
+  Utilities/          WeightedRandom
+    Interfaces/       IInteractable, IDamageable, IMovementModifiable (todas las interfaces: la "I" es de Interface)
 
 Prefabs/              (sin cambios de sitio; lo de Test se queda igual)
   Characters/Weapons/Guns/WallGuns/  PF_LanzaCartasWall → PF_Lanzacartas_Wall
