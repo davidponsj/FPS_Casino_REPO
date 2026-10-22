@@ -6,7 +6,7 @@ Detalle de cada tarea (qué, criterios "Hecho cuando", dependencias) en `tasks/p
 ## 0. tooling
 - [x] T0.1 Script check_refs + línea base
 - [x] T0.2 Compilar en batch
-- [ ] T0.3 Tests EditMode (o self-checks si no se puede)
+- [x] T0.3 Tests EditMode (o self-checks si no se puede)
 - [ ] **Checkpoint 0:** comandos probados + revisión con David
 
 ## 1. folders

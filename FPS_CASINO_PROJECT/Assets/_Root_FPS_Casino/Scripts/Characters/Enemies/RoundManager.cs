@@ -91,14 +91,6 @@ public class RoundManager : MonoBehaviour
         // Cacheados para no crear uno nuevo en cada espera.
         waitForFreeSlot = new WaitUntil(() => AliveCount < maxAlive);
         waitForRoundCleared = new WaitUntil(() => AliveCount == 0);
-
-#if UNITY_EDITOR
-        // Autocomprobación de la curva con los valores conocidos de CoD.
-        Debug.Assert(EnemiesForRound(1) == 6 && EnemiesForRound(2) == 8 && EnemiesForRound(3) == 13
-                     && EnemiesForRound(4) == 18 && EnemiesForRound(5) == 24 && EnemiesForRound(6) == 27
-                     && EnemiesForRound(10) == 33 && EnemiesForRound(20) == 60 && EnemiesForRound(30) == 105,
-            "RoundManager: la curva de enemigos por ronda no da los valores esperados.");
-#endif
     }
 
     private IEnumerator Start()

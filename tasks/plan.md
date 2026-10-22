@@ -49,7 +49,7 @@ Reglas:
 
 **Verificación estándar (V):**
 1. `bash tasks/check_refs.sh` no da nada nuevo respecto a la línea base.
-2. Compilar en batch sin `error CS`.
+2. `bash tasks/compile.sh` sin `error CS` y `bash tasks/test.sh` en verde (Unity cerrado).
 3. Abrir Unity: 0 errores en la consola.
 4. Checklist manual del bloque (todo.md).
 
@@ -87,6 +87,11 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
   - Hecho cuando:
     - `-runTests` da verde, o
     - si NUnit no está disponible, se decide con David seguir con self-checks y se apunta aquí.
+  - **Hecho (2026-10-22).** NUnit funciona sin asmdef en `Scripts/Tests/Editor/`.
+    - Comando: `bash tasks/test.sh`. Unos 30 s; muestra el resumen y los tests que fallan, y sale con código 2 si falla alguno.
+    - Probado en rojo con un valor falso (ronda 1 = 7): falló solo ese caso. Con el valor real: 9/9 en verde.
+    - Se quitó el `Debug.Assert` de `RoundManager.Awake`: lo sustituye el test.
+    - `tasks/test-results.xml` está ignorado en `.git/info/exclude` (no se toca el `.gitignore` del equipo).
 - **Checkpoint 0:** baseline guardada, comandos de compilar y de tests probados. **Revisión con David** antes de mover nada.
 
 ### 1. folders (depende de: tooling)
