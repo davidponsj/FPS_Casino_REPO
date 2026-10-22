@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// Base común para todas las armas del juego (pistola, subfusil, escopeta, lanzagranadas, sniper).
@@ -18,21 +19,36 @@ public abstract class WeaponBase : MonoBehaviour
     [Header("Referencias")]
     [Tooltip("Punto en la punta del cañón. Desde aquí salen los efectos visuales (no el raycast, que sale de la cámara para que apunte donde de verdad miras).")]
     [SerializeField] protected Transform muzzlePoint;
+    [Tooltip("Cámara del jugador, de la que sale el raycast. Si está vacío, la pone el WeaponManager al equipar el arma.")]
     [SerializeField] protected Camera playerCamera;
+    [Tooltip("Para saber tu velocidad (dispersión al moverte). Si está vacío, lo pone el WeaponManager al equipar el arma.")]
     [SerializeField] protected PlayerController playerController;
 
     [Header("Munición")]
+    [Tooltip("Balas por cargador. 12 = pistola, 50 = Tommy Gun.")]
+    [Min(1)]
     [SerializeField] protected int magazineSize = 12;
+    [Tooltip("Balas de reserva con las que sale el arma, sin contar el cargador. 60 = cinco cargadores de pistola.")]
+    [Min(0)]
     [SerializeField] protected int startingReserveAmmo = 60;
-    [SerializeField] protected float reloadTime = 1.4f;
+    [Tooltip("Segundos que tarda en recargar. 1.4 = recarga normal; 2.2 = escopeta.")]
+    [Min(0f)]
+    [FormerlySerializedAs("reloadTime")]
+    [SerializeField] protected float reloadSeconds = 1.4f;
 
     [Header("Cadencia")]
-    [Tooltip("Disparos por segundo.")]
+    [Tooltip("Disparos por segundo como máximo. 4 = semiautomática rápida; 14 = Tommy Gun; 0.8 = sniper de cerrojo.")]
+    [Min(0.01f)]
     [SerializeField] protected float fireRate = 4f;
 
     [Header("Alcance y daño")]
+    [Tooltip("Metros que alcanza la bala. 100 = cruza la sala; 35 = escopeta.")]
+    [Min(0f)]
     [SerializeField] protected float range = 100f;
-    [SerializeField] protected LayerMask hitMask = ~0; // por defecto, choca con todo
+    [Tooltip("Capas con las que choca la bala. Everything = todo.")]
+    [SerializeField] protected LayerMask hitMask = ~0;
+    [Tooltip("Daño de cada bala (de cada perdigón en la escopeta). 25 = cuatro balas para 100 de vida.")]
+    [Min(0f)]
     [SerializeField] protected float damage = 25f;
 
     [Header("Dispersión (estilo CS)")]
@@ -60,8 +76,10 @@ public abstract class WeaponBase : MonoBehaviour
     [SerializeField] protected float spreadPerShot = 0.6f;
     [Tooltip("Cuánto más fuerte pega cada bala seguida sin soltar el gatillo (0.15 = un 15% más que la anterior). Pon 0 para que todas las balas abran siempre lo mismo.")]
     [SerializeField] protected float consecutiveShotGrowth = 0f;
-    [Tooltip("Si pasa más de este tiempo sin disparar, la racha de 'balas seguidas' se reinicia.")]
-    [SerializeField] protected float burstResetTime = 0.3f;
+    [Tooltip("Segundos sin disparar tras los que la racha de 'balas seguidas' se reinicia. 0.3 = soltar un momento el gatillo.")]
+    [Min(0f)]
+    [FormerlySerializedAs("burstResetTime")]
+    [SerializeField] protected float burstResetSeconds = 0.3f;
     [Tooltip("Tope de cuánto puede acumular el recoil, independientemente del movimiento.")]
     [SerializeField] protected float maxRecoilSpread = 3f;
     [Tooltip("Segundos sin disparar antes de que el recoil empiece a recuperarse. Así, disparando seguido, la dispersión se va acumulando.")]
@@ -70,9 +88,16 @@ public abstract class WeaponBase : MonoBehaviour
     [SerializeField] protected float spreadRecoveryRate = 3f;
 
     [Header("Efectos (opcionales, compartidos por todas las armas)")]
+    [Tooltip("Línea de luz que va del cañón al impacto. Vacío = sin trazador.")]
     [SerializeField] protected BulletTracerEffect tracerPrefab;
+    [Tooltip("Efecto que aparece donde da la bala (agujero y chispas). Vacío = sin efecto.")]
     [SerializeField] protected GameObject impactEffectPrefab;
+    [Tooltip("Fogonazo del cañón, hijo del arma. Vacío = sin fogonazo.")]
     [SerializeField] protected MuzzleFlash muzzleFlash;
+
+    [Header("Depuración")]
+    [Tooltip("Muestra en la vista Scene el cono de dispersión a 5 m, la munición, la recarga y los últimos impactos.")]
+    [SerializeField] protected bool showDebug;
 
     protected int currentAmmo;
     protected int reserveAmmo;
@@ -81,7 +106,7 @@ public abstract class WeaponBase : MonoBehaviour
     protected float reloadStartTime;
     protected float currentSpreadDegrees;
     protected float recoilSpread; // dispersión extra acumulada por disparos recientes, se recupera sola
-    protected int shotsInBurst;   // disparos seguidos sin soltar el gatillo (se reinicia tras burstResetTime sin disparar)
+    protected int shotsInBurst;   // disparos seguidos sin soltar el gatillo (se reinicia tras burstResetSeconds sin disparar)
     protected float lastShotTime;
 
     protected PlayerBuffs buffs;          // mejoras temporales de las botellas (cadencia, recarga, munición)
@@ -229,6 +254,9 @@ public abstract class WeaponBase : MonoBehaviour
 
             tracerEndPoint = hit.point;
             result = hit;
+#if UNITY_EDITOR
+            RememberImpact(hit.point);
+#endif
         }
         else
         {
@@ -285,7 +313,7 @@ public abstract class WeaponBase : MonoBehaviour
 
         // Si llevas un rato sin disparar, la racha se reinicia; si no, este disparo
         // cuenta como "uno más seguido" y pega más fuerte que el anterior.
-        if (Time.time - lastShotTime > burstResetTime)
+        if (Time.time - lastShotTime > burstResetSeconds)
             shotsInBurst = 0;
         lastShotTime = Time.time;
 
@@ -324,7 +352,7 @@ public abstract class WeaponBase : MonoBehaviour
         isReloading = true;
         reloadStartTime = Time.time;
         // La duración se fija al empezar: si la botella de recarga se acaba a mitad, esta recarga no cambia.
-        currentReloadDuration = reloadTime * (buffs != null ? buffs.ReloadTimeMultiplier : 1f);
+        currentReloadDuration = reloadSeconds * (buffs != null ? buffs.ReloadTimeMultiplier : 1f);
         OnReloadStarted?.Invoke();
 
         yield return new WaitForSeconds(currentReloadDuration);
@@ -338,4 +366,39 @@ public abstract class WeaponBase : MonoBehaviour
         OnAmmoChanged?.Invoke();
         OnReloadFinished?.Invoke();
     }
+
+#if UNITY_EDITOR
+    // Últimos impactos, para dibujarlos unos segundos (búfer fijo: no reserva memoria al disparar).
+    private readonly Vector3[] debugImpacts = new Vector3[8];
+    private readonly float[] debugImpactTimes = new float[8];
+    private int debugImpactIndex;
+
+    private void RememberImpact(Vector3 point)
+    {
+        debugImpacts[debugImpactIndex] = point;
+        debugImpactTimes[debugImpactIndex] = Time.time;
+        debugImpactIndex = (debugImpactIndex + 1) % debugImpacts.Length;
+    }
+
+    private void OnDrawGizmos()
+    {
+        if (!showDebug || playerCamera == null) return;
+
+        // Cono de dispersión: círculo a 5 m por el que pueden salir las balas ahora mismo.
+        Transform cam = playerCamera.transform;
+        const float distance = 5f;
+        float radius = Mathf.Tan(currentSpreadDegrees * Mathf.Deg2Rad) * distance;
+        UnityEditor.Handles.color = Color.red;
+        UnityEditor.Handles.DrawWireDisc(cam.position + cam.forward * distance, cam.forward, radius);
+
+        string reload = isReloading ? $" · recargando {currentReloadDuration * (1f - ReloadProgress01):0.0} s" : "";
+        UnityEditor.Handles.Label(cam.position + cam.forward * distance + cam.up * 0.3f,
+            $"{name}: {currentAmmo}/{reserveAmmo} · dispersión {currentSpreadDegrees:0.0}°{reload}");
+
+        Gizmos.color = Color.red;
+        for (int i = 0; i < debugImpacts.Length; i++)
+            if (debugImpactTimes[i] > 0f && Time.time - debugImpactTimes[i] < 3f)
+                Gizmos.DrawWireSphere(debugImpacts[i], 0.1f);
+    }
+#endif
 }

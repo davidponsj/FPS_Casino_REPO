@@ -9,10 +9,16 @@ using UnityEngine;
 public class WallWeaponPickup : MonoBehaviour, IInteractable
 {
     [Header("Arma")]
+    [Tooltip("Prefab del arma que se equipa al cogerla (PF_Lanzacartas...). El modelo de la pared es solo decorado.")]
     [SerializeField] private WeaponBase weaponPrefab;
+    [Tooltip("Nombre que sale en el prompt: \"Coger <nombre> [E]\".")]
     [SerializeField] private string weaponDisplayName = "Arma";
 
-    public string InteractionPrompt => $"Pick {weaponDisplayName} [E]";
+    [Header("Depuración")]
+    [Tooltip("Muestra en la vista Scene, sobre el arma de pared, qué arma da y si le falta el prefab.")]
+    [SerializeField] private bool showDebug;
+
+    public string InteractionPrompt => $"Coger {weaponDisplayName} [E]";
 
     public void Interact(GameObject interactor)
     {
@@ -31,4 +37,13 @@ public class WallWeaponPickup : MonoBehaviour, IInteractable
         // porque PlayerInteractor usa QueryTriggerInteraction.Collide.
         GetComponent<Collider>().isTrigger = true;
     }
+
+#if UNITY_EDITOR
+    private void OnDrawGizmos()
+    {
+        if (!showDebug) return;
+        string weapon = weaponPrefab != null ? weaponPrefab.name : "FALTA EL PREFAB";
+        UnityEditor.Handles.Label(transform.position + Vector3.up * 0.5f, $"{weaponDisplayName} → {weapon} (gratis)");
+    }
+#endif
 }

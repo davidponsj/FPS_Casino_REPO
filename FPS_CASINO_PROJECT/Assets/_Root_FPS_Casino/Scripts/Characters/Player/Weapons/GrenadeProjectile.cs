@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// Granada del lanzagranadas. Es un objeto físico (Rigidbody) que cae con la gravedad y rebota
@@ -8,7 +9,7 @@ using UnityEngine;
 ///
 /// - maxBounces = 0: explota al primer contacto.
 /// - maxBounces = 3: rebota en 3 superficies y explota al tocar la cuarta.
-/// Además explota sí o sí al pasar fuseTime segundos (por si se queda rodando por el suelo)
+/// Además explota sí o sí al pasar fuseSeconds segundos (por si se queda rodando por el suelo)
 /// y, si explodeOnDirectHit está activo, al darle directamente a un enemigo.
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
@@ -21,18 +22,25 @@ public class GrenadeProjectile : MonoBehaviour
     [SerializeField] private int maxBounces = 0;
     [Tooltip("Si le das directamente a algo que recibe daño (un enemigo), explota aunque le queden rebotes.")]
     [SerializeField] private bool explodeOnDirectHit = true;
-    [Tooltip("Segundos máximos antes de explotar sí o sí, aunque no haya gastado los rebotes.")]
-    [SerializeField] private float fuseTime = 4f;
-    [Tooltip("Tiempo mínimo entre dos choques para contarlos como rebotes distintos (evita contar dos veces el mismo golpe).")]
-    [SerializeField] private float minTimeBetweenBounces = 0.05f;
+    [Tooltip("Segundos máximos antes de explotar sí o sí, aunque no haya gastado los rebotes. 4 = mecha normal.")]
+    [Min(0f)]
+    [FormerlySerializedAs("fuseTime")]
+    [SerializeField] private float fuseSeconds = 4f;
+    [Tooltip("Segundos mínimos entre dos choques para contarlos como rebotes distintos (evita contar dos veces el mismo golpe). 0.05 = normal.")]
+    [Min(0f)]
+    [FormerlySerializedAs("minTimeBetweenBounces")]
+    [SerializeField] private float minSecondsBetweenBounces = 0.05f;
 
     [Header("Caída")]
     [Tooltip("Multiplica la gravedad de Unity para esta granada. 1 = normal, >1 cae antes (más arcade).")]
     [SerializeField] private float gravityMultiplier = 1.5f;
 
     [Header("Explosión")]
+    [Tooltip("Metros de radio de la explosión. 4 = una habitación pequeña.")]
+    [Min(0f)]
     [SerializeField] private float explosionRadius = 4f;
-    [Tooltip("Daño en el centro de la explosión.")]
+    [Tooltip("Daño en el centro de la explosión. 90 = casi mata a un jugador con 100 de vida.")]
+    [Min(0f)]
     [SerializeField] private float explosionDamage = 90f;
     [Tooltip("Porcentaje del daño que se hace en el borde del radio (0.2 = un 20%). Entre medias baja de forma lineal.")]
     [Range(0f, 1f)]
@@ -43,12 +51,18 @@ public class GrenadeProjectile : MonoBehaviour
     [SerializeField] private bool requireLineOfSight = true;
     [Tooltip("Empuje a los objetos con Rigidbody que pille la explosión (cajas, botellas...).")]
     [SerializeField] private float explosionForce = 500f;
+    [Tooltip("Efecto visual de la explosión. Vacío = sin efecto.")]
     [SerializeField] private GameObject explosionEffectPrefab;
+
+    [Header("Depuración")]
+    [Tooltip("Muestra en la vista Scene el radio de la explosión, los rebotes que lleva y los segundos que le quedan.")]
+    [SerializeField] private bool showDebug;
 
     private Rigidbody rb;
     private int bouncesDone;
     private float lastBounceTime = -1f;
     private bool hasExploded;
+    private float explodeTime; // hora a la que explota sí o sí
 
     private void Awake()
     {
@@ -64,7 +78,8 @@ public class GrenadeProjectile : MonoBehaviour
             Physics.IgnoreCollision(GetComponent<Collider>(), ownerCollider);
 
         rb.linearVelocity = velocity;
-        Invoke(nameof(ExplodeAtCurrentPosition), fuseTime);
+        explodeTime = Time.time + fuseSeconds;
+        Invoke(nameof(ExplodeAtCurrentPosition), fuseSeconds);
     }
 
     private void FixedUpdate()
@@ -88,7 +103,7 @@ public class GrenadeProjectile : MonoBehaviour
             return;
         }
 
-        if (Time.time - lastBounceTime < minTimeBetweenBounces) return;
+        if (Time.time - lastBounceTime < minSecondsBetweenBounces) return;
         lastBounceTime = Time.time;
 
         bouncesDone++;
@@ -161,4 +176,16 @@ public class GrenadeProjectile : MonoBehaviour
         Gizmos.color = new Color(1f, 0.5f, 0f, 0.4f);
         Gizmos.DrawWireSphere(transform.position, explosionRadius);
     }
+
+#if UNITY_EDITOR
+    private void OnDrawGizmos()
+    {
+        if (!showDebug || !Application.isPlaying) return;
+
+        Gizmos.color = new Color(1f, 0.5f, 0f, 0.4f);
+        Gizmos.DrawWireSphere(transform.position, explosionRadius);
+        UnityEditor.Handles.Label(transform.position + Vector3.up * 0.5f,
+            $"Rebotes {bouncesDone}/{maxBounces} · explota en {Mathf.Max(0f, explodeTime - Time.time):0.0} s");
+    }
+#endif
 }

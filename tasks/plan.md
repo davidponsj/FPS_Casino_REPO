@@ -209,6 +209,19 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
 - **T5.4 Inspector y depuración de las armas** (M).
   - Qué: WeaponBase, GrenadeLauncherWeapon, GrenadeProjectile y WallWeaponPickup (prompt "Coger {arma} [E]").
   - Hecho cuando: se ven el cono de dispersión, la munición y el coste de las armas de pared, y los valores de los prefabs no cambian.
+  - **Hecho (2026-10-22).**
+    - **Renombres** (todos con `FormerlySerializedAs`; ningún override en escenas los usaba):
+      - `WeaponBase.reloadTime` → `reloadSeconds`
+      - `WeaponBase.burstResetTime` → `burstResetSeconds`
+      - `GrenadeProjectile.fuseTime` → `fuseSeconds`
+      - `GrenadeProjectile.minTimeBetweenBounces` → `minSecondsBetweenBounces`
+    - Los YAML de los prefabs siguen con la clave vieja: Unity la lee por `FormerlySerializedAs` y la reescribe al guardar el prefab.
+    - Prompt del arma de pared en español: "Coger {arma} [E]".
+    - Depuración:
+      - WeaponBase: cono de dispersión a 5 m, munición, recarga y últimos 8 impactos (búfer fijo, solo en el editor).
+      - Granada: radio, rebotes y segundos para explotar.
+      - Arma de pared: qué arma da.
+    - GrenadeLauncherWeapon ya tenía tooltips en todo: sin cambios.
 - **T5.5 Inspector de los efectos** (S).
   - Qué: MuzzleFlash, BulletTracerEffect y BulletImpactEffect (los dos primeros en cp1252).
   - Hecho cuando: los efectos se ven igual y las tildes no se rompen.
