@@ -7,11 +7,10 @@ using UnityEngine;
 /// - TotalEarned: todos los puntos que has conseguido en la partida (kills, premios...). Solo suben,
 ///   aunque te gastes los otros. Es el que irá al ranking.
 ///
-/// Implementa IPointsService e IPointsReceiver (las interfaces de las máquinas de Álvaro), así que
-/// sustituye a TestPointsWallet: basta con arrastrar este componente al campo Points Source de la
-/// ruleta y de la tragaperras, sin tocar su código.
+/// Va en el Player. La ruleta y la tragaperras lo buscan en el jugador que interactúa con ellas
+/// (no hay que asignarlo a mano) y la UI se entera de los cambios con OnPointsChanged.
 /// </summary>
-public class PlayerPoints : MonoBehaviour, IPointsService, IPointsReceiver
+public class PlayerPoints : MonoBehaviour
 {
     [Tooltip("Puntos con los que empiezas. No cuentan para el ranking (no los has ganado).")]
     [SerializeField] private int startingPoints = 0;

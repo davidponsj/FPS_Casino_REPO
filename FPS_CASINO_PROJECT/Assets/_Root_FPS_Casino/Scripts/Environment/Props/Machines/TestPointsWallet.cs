@@ -1,6 +1,9 @@
 using UnityEngine;
 
-public class TestPointsWallet : MonoBehaviour, IPointsService, IPointsReceiver
+/// <summary>
+/// Monedero de prueba (lo usa SCN_Ruben). Ya no lo usa ninguna máquina: cobran del PlayerPoints del jugador.
+/// </summary>
+public class TestPointsWallet : MonoBehaviour
 {
     [SerializeField] private int startingPoints = 1000;
     private int points;

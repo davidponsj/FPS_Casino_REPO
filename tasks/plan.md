@@ -161,6 +161,12 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
     - La tragaperras y la ruleta cobran y pagan igual que antes.
     - La tragaperras no tiene `Update` para los puntos.
     - SCN_Ruben no da Missing Script.
+  - **Hecho (2026-10-22).**
+    - Las máquinas cobran y pagan con el `PlayerPoints` del jugador que interactúa. Si no lo tiene, la tirada es gratis y sale un aviso.
+    - El texto de la tragaperras busca el `PlayerPoints` en `Start` y escucha `OnPointsChanged`.
+    - Se borró el campo `pointsSource`. En SCN_Gameplay, SCN_Mallorca y SCN_Ruben queda su override en el YAML sin uso; Unity lo limpia al guardar la escena.
+    - En SCN_Ruben las máquinas usan ahora los puntos del jugador (10 000, de PF_Player) en vez de los 1000 de `TestPointsWallet`.
+    - Sin test automático: es interacción con corrutinas. Lo cubren la compilación y la prueba manual.
 - **T4.3 Player sin el controller (D9, B3, decisiones 10 y 11)** (M).
   - Qué: PlayerHealth, PlayerPoints, PlayerInteractor, PlayerBuffs y PlayerBlackout reciben `<summary>`, casilla "Mostrar depuración" y repaso del Inspector.
   - Hecho cuando:

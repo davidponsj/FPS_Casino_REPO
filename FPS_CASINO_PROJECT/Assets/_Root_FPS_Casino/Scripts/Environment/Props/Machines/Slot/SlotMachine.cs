@@ -18,8 +18,6 @@ public class SlotMachine : MonoBehaviour, IInteractable
     [SerializeField] private SlotBetButton[] betButtons;
     [SerializeField] private TMP_Text resultText;
     [SerializeField] private TMP_Text pointsText;
-    [Tooltip("Debe implementar IPointsService (e IPointsReceiver para cobrar premios)")]
-    [SerializeField] private MonoBehaviour pointsSource;
 
     [Header("Símbolos (el orden es el de los cilindros)")]
     [SerializeField]
@@ -43,14 +41,12 @@ public class SlotMachine : MonoBehaviour, IInteractable
     [Tooltip("Si está desmarcado, hay que elegir apuesta de nuevo en cada tirada")]
     [SerializeField] private bool keepBetAfterSpin = false;
 
-    private IPointsService points;
-    private IPointsReceiver receiver;
+    private PlayerPoints shownPoints;   // los que pinta pointsText
     private SlotBetButton selectedBet;
     private bool spinning;
     private float[] reelAngles;
     private Quaternion[] reelStartRotations;
     private Coroutine hideRoutine;
-    private int lastPoints = int.MinValue;
 
     public bool IsSpinning => spinning;
 
@@ -64,25 +60,8 @@ public class SlotMachine : MonoBehaviour, IInteractable
         }
     }
 
-    private void OnValidate()
-    {
-        if (pointsSource != null && !(pointsSource is IPointsService))
-        {
-            Debug.LogWarning($"{pointsSource.name} no implementa IPointsService.", this);
-            pointsSource = null;
-        }
-    }
-
     private void Awake()
     {
-        points = pointsSource as IPointsService;
-        receiver = pointsSource as IPointsReceiver;
-
-        if (points == null)
-            Debug.LogWarning("[Tragaperras] Sin sistema de puntos asignado: las tiradas serán gratis.", this);
-        else if (receiver == null)
-            Debug.LogWarning("[Tragaperras] El sistema de puntos no implementa IPointsReceiver: no se podrán cobrar premios.", this);
-
         reelAngles = new float[reels.Length];
         reelStartRotations = new Quaternion[reels.Length];
         for (int i = 0; i < reels.Length; i++)
@@ -92,14 +71,28 @@ public class SlotMachine : MonoBehaviour, IInteractable
             resultText.gameObject.SetActive(false);
     }
 
-    private void Update()
+    private void Start()
     {
-        if (points == null || pointsText == null) return;
-        if (points.CurrentPoints == lastPoints) return;
+        if (pointsText == null) return;
 
-        lastPoints = points.CurrentPoints;
-        pointsText.text = $"Puntos: {lastPoints}";
+        // Solo hay un jugador: su PlayerPoints es el que se pinta en la máquina.
+        shownPoints = FindAnyObjectByType<PlayerPoints>();
+        if (shownPoints == null)
+        {
+            Debug.LogWarning("[Tragaperras] No hay ningún PlayerPoints en la escena: el texto de puntos no se actualizará.", this);
+            return;
+        }
+
+        shownPoints.OnPointsChanged += RefreshPointsText;
+        RefreshPointsText();
     }
+
+    private void OnDestroy()
+    {
+        if (shownPoints != null) shownPoints.OnPointsChanged -= RefreshPointsText;
+    }
+
+    private void RefreshPointsText() => pointsText.text = $"Puntos: {shownPoints.CurrentPoints}";
 
     // ---------------- Apuesta ----------------
 
@@ -134,14 +127,18 @@ public class SlotMachine : MonoBehaviour, IInteractable
 
         int bet = selectedBet.BetAmount;
 
-        if (points != null && bet > 0 && !points.TrySpend(bet))
+        // Paga (y cobra el premio) el jugador que interactúa.
+        PlayerPoints points = interactor != null ? interactor.GetComponentInParent<PlayerPoints>() : null;
+        if (points == null)
+            Debug.LogWarning("[Tragaperras] El jugador no tiene PlayerPoints: la tirada será gratis y sin premio.", this);
+        else if (bet > 0 && !points.TrySpend(bet))
         {
             Debug.Log("[Tragaperras] Puntos insuficientes.");
             ShowResult("Puntos insuficientes");
             return;
         }
 
-        StartCoroutine(SpinRoutine(bet, GetLuck(interactor)));
+        StartCoroutine(SpinRoutine(bet, GetLuck(interactor), points));
     }
 
     /// <summary>Suerte extra del jugador (botella morada): probabilidad de que la tirada sea premio seguro.</summary>
@@ -153,7 +150,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
 
     // ---------------- Giro ----------------
 
-    private IEnumerator SpinRoutine(int bet, float luck)
+    private IEnumerator SpinRoutine(int bet, float luck, PlayerPoints points)
     {
         spinning = true;
         HideResult();
@@ -203,7 +200,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
             reelAngles[i] = Mathf.Repeat(reelAngles[i], 360f);
         }
 
-        EvaluateResult(results, bet);
+        EvaluateResult(results, bet, points);
 
         if (!keepBetAfterSpin) ClearBet();
         spinning = false;
@@ -215,7 +212,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
         reels[index].localRotation = reelStartRotations[index] * Quaternion.AngleAxis(angle, reelAxis);
     }
 
-    private void EvaluateResult(int[] results, int bet)
+    private void EvaluateResult(int[] results, int bet, PlayerPoints points)
     {
         string names = "";
         bool allEqual = true;
@@ -237,8 +234,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
         float multiplier = symbols[results[0]].multiplier;
         int won = Mathf.RoundToInt(bet * multiplier);
 
-        if (receiver != null) receiver.AddPoints(won);
-        else Debug.LogWarning("[Tragaperras] No se pudo cobrar el premio (falta IPointsReceiver).", this);
+        if (points != null) points.AddPoints(won);
 
         Debug.Log($"[Tragaperras] ¡Has ganado! x{multiplier} = {won} puntos");
         ShowResult($"¡Has ganado! x{multiplier}\n{won} puntos");

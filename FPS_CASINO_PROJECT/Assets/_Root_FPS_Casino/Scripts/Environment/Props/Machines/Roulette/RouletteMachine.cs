@@ -25,8 +25,6 @@ public class RouletteMachine : MonoBehaviour, IInteractable
 
     [Header("Coste")]
     [SerializeField] private int cost = 100;
-    [Tooltip("Debe implementar IPointsService (ej. TestPointsWallet)")]
-    [SerializeField] private MonoBehaviour pointsSource;
 
     [Header("Animación")]
     [SerializeField] private float outerRadius = 2.0f;
@@ -53,7 +51,6 @@ public class RouletteMachine : MonoBehaviour, IInteractable
     public UnityEvent onBlockedByTicket;
     public SegmentEvent onSpinFinished;
 
-    private IPointsService points;
     private bool spinning;
     private float currentAngle = 90f;
 
@@ -75,22 +72,6 @@ public class RouletteMachine : MonoBehaviour, IInteractable
 
             return $"Jugar a la ruleta ({cost} pts) [E]";
         }
-    }
-
-    private void OnValidate()
-    {
-        if (pointsSource != null && !(pointsSource is IPointsService))
-        {
-            Debug.LogWarning($"{pointsSource.name} no implementa IPointsService.", this);
-            pointsSource = null;
-        }
-    }
-
-    private void Awake()
-    {
-        points = pointsSource as IPointsService;
-        if (points == null)
-            Debug.LogWarning("[Ruleta] Sin sistema de puntos asignado: la tirada será gratis.", this);
     }
 
     private void Start()
@@ -119,7 +100,11 @@ public class RouletteMachine : MonoBehaviour, IInteractable
             return;
         }
 
-        if (points != null && cost > 0 && !points.TrySpend(cost))
+        // Paga el jugador que interactúa.
+        PlayerPoints points = interactor != null ? interactor.GetComponentInParent<PlayerPoints>() : null;
+        if (points == null)
+            Debug.LogWarning("[Ruleta] El jugador no tiene PlayerPoints: la tirada será gratis.", this);
+        else if (cost > 0 && !points.TrySpend(cost))
         {
             Debug.Log("[Ruleta] Puntos insuficientes.");
             onNotEnoughPoints?.Invoke();
