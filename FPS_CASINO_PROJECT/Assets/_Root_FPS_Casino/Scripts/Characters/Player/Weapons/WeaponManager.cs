@@ -19,8 +19,8 @@ public class WeaponManager : MonoBehaviour
     [SerializeField] private Camera playerCamera;
 
     [Header("UI (opcional, pero recomendado)")]
-    [SerializeField] private AmmoUI ammoUI;
-    [SerializeField] private ReloadRadialUI reloadRadialUI;
+    [SerializeField] private AmmoHUD ammoUI;
+    [SerializeField] private ReloadHUD reloadRadialUI;
     [SerializeField] private DynamicCrosshair crosshair;
 
     public WeaponBase CurrentWeapon { get; private set; }

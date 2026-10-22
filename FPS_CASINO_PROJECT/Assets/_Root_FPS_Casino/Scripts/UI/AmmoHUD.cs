@@ -9,7 +9,7 @@ using UnityEngine;
 /// colocado en el mismo sitio, lo "sustituya" visualmente) y vuelve a aparecer al terminar.
 /// La reserva se queda siempre visible.
 /// </summary>
-public class AmmoUI : MonoBehaviour
+public class AmmoHUD : MonoBehaviour
 {
     [Header("Referencias")]
     [Tooltip("El arma actualmente equipada. Cuando montéis cambio de arma, llamad a SetWeapon() al equipar una nueva.")]

@@ -11,7 +11,7 @@ using UnityEngine.UI;
 /// propio Update() y se quedaría apagado para siempre. Image.enabled solo apaga el dibujado,
 /// el script sigue vivo y comprobando el estado cada frame.
 /// </summary>
-public class ReloadRadialUI : MonoBehaviour
+public class ReloadHUD : MonoBehaviour
 {
     [Header("Referencias")]
     [Tooltip("El arma actualmente equipada. Cuando montéis cambio de arma, llamad a SetWeapon() al equipar una nueva.")]

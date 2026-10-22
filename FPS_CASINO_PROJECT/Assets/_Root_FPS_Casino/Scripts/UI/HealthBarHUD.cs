@@ -9,7 +9,7 @@ using UnityEngine.UI;
 ///
 /// Requiere Images con Image Type = Filled y Fill Method = Horizontal.
 /// </summary>
-public class HealthBarUI : MonoBehaviour
+public class HealthBarHUD : MonoBehaviour
 {
     [SerializeField] private PlayerHealth playerHealth;
     [SerializeField] private Image fillImage;

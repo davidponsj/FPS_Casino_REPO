@@ -9,7 +9,7 @@ using UnityEngine.UI;
 ///
 /// Requiere una Image con Image Type = Filled y Fill Method = Horizontal.
 /// </summary>
-public class BlackoutBarUI : MonoBehaviour
+public class BlackoutBarHUD : MonoBehaviour
 {
     [SerializeField] private PlayerBlackout blackout;
     [SerializeField] private Image fillImage;

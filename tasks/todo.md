@@ -16,7 +16,7 @@ Detalle de cada tarea (qué, criterios "Hecho cuando", dependencias) en `tasks/p
 ## 2. move-scripts
 - [x] T2.1 Mover scripts a su carpeta
 - [x] T2.2 HordeAttackSlots, HordeCollision, RouletteTicketDispenser, MenuArrow
-- [ ] T2.3 AmmoHUD, HealthBarHUD, BlackoutBarHUD, ReloadHUD
+- [x] T2.3 AmmoHUD, HealthBarHUD, BlackoutBarHUD, ReloadHUD
 - [ ] **Checkpoint 2:** V + commit
 
 ## 3. rename-assets

@@ -32,6 +32,7 @@ Para empezar: David escribe `/build` (o `/build auto`). Se trabaja bloque a bloq
 |---|---|
 | "Missing Script" o referencias perdidas al mover o juntar | Mover siempre con el `.meta`; script `check_refs` tras cada bloque; Unity cerrado al mover. |
 | Valores del Inspector perdidos al renombrar campos | `[FormerlySerializedAs]` en cada campo renombrado. Comprobar 2-3 valores en el Inspector tras cada bloque. |
+| `FormerlySerializedAs` puede no migrar los **overrides de instancias de prefab** en escenas (se guardan por `propertyPath` con el nombre del campo). Pasa, por ejemplo, con los HUDs de WeaponManager en SCN_Gameplay, SCN_Mallorca y SCN_Saez. | Antes de renombrar un campo, `grep "propertyPath: <campo>"` en los `.unity`. Si aparece: en nuestras escenas se actualiza el `propertyPath` a mano en el YAML; en las de compañeros se comprueba en Unity que el valor sigue. Si no sigue, se deja el nombre viejo del campo y se apunta. |
 | Escenas de compañeros rotas | Ningún campo nuevo obligatorio en escena. Si una UI necesita a otro componente, lo busca sola (`FindAnyObjectByType`) cuando no está asignado. |
 | Tests: un `.asmdef` de tests no puede ver Assembly-CSharp (los scripts del juego no tienen asmdef) | En `tooling` se prueba poner los tests sin asmdef en una carpeta `Editor/` (van a Assembly-CSharp-Editor). Si NUnit no está disponible ahí, se mantiene el `Debug.Assert` de RoundManager y se añade otro igual para `WeightedRandom`; se avisa a David. |
 | Input de botellas (D10): las acciones nuevas se conectan con Unity Events en el Player Input de PF_Player | Se añaden las acciones al `.inputactions` y los métodos `OnDrink`/`OnThrow`. **La conexión en el Inspector la hace David** (2 clics por acción, instrucciones en la tarea). Hasta entonces se mantiene la lectura directa del teclado como respaldo. |
@@ -122,6 +123,10 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
     - Compila.
     - Las referencias de WeaponManager en PF_Player siguen asignadas.
     - Los 4 HUDs se ven en SCN_Gameplay.
+  - **Hecho (2026-10-22).**
+    - Solo cambia el tipo de los campos de WeaponManager; sus nombres (`ammoUI`, `reloadRadialUI`) se quedan, porque T5.3 los borra.
+    - En PF_Player esos campos están vacíos: los asignan como override `SCN_Gameplay`, `SCN_Mallorca` y `SCN_Saez`, y siguen funcionando.
+    - Los 4 HUDs en SCN_Gameplay: pendiente de que David lo mire en Unity (checkpoint 2).
 - **Checkpoint 2:** V + commit "Mueve y renombra scripts".
 
 ### 3. rename-assets (depende de: tooling)

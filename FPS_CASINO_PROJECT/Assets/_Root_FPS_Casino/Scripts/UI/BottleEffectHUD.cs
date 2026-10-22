@@ -5,7 +5,7 @@ using UnityEngine.UI;
 /// <summary>
 /// Temporizador en pantalla del efecto de la botella que has bebido: un círculo del color de la
 /// botella que se va vaciando como un reloj, el nombre y los segundos que quedan.
-/// Igual que ReloadRadialUI: lee el estado cada frame (BottleHolder.EffectTimeRemaining) y
+/// Igual que ReloadHUD: lee el estado cada frame (BottleHolder.EffectTimeRemaining) y
 /// no guarda tiempos propios, así nunca se desincroniza del efecto real.
 ///
 /// Jerarquía esperada en el Canvas:
