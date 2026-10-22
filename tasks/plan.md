@@ -133,6 +133,10 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
 - **T3.1 Ruleta** (S, assets).
   - Qué: `SM_Ruleta` → `SM_Roulette`, `M_Ruleta` → `M_Roulette`, `Textures/Ruleta` → `Roulette`, `T_Ruleta_A/N` → `T_Roulette_A/N`, `RT_Ruleta_M` → `T_Roulette_M`.
   - Hecho cuando: la ruleta se ve igual en SCN_Gameplay y no queda ningún asset con "Ruleta" fuera de Test.
+  - **Hecho (2026-10-22).**
+    - Ningún prefab ni escena usa `SM_Roulette` ni `M_Roulette`: la ruleta de prueba lleva sus propios materiales. Las 3 texturas solo las usa `M_Roulette`.
+    - Se actualizó el `m_Name` interno del material.
+    - Los `.mat` van por Git LFS, y se pueden editar como texto igualmente.
 - **T3.2 Lanzacartas y botella** (S, assets).
   - Qué: `SM_Weapon_LanzaCartasV2_.fbx` → `SM_Lanzacartas.fbx`, `Textures/LanzaCartas` → `Lanzacartas`, `PF_LanzaCartasWall` → `PF_Lanzacartas_Wall`, `Bottle.fbx` → `SM_Bottle.fbx`.
   - Hecho cuando: el Lanzacartas en mano y en la pared, y la botella, se ven igual; no quedan `LanzaCartas` ni `V2_`.

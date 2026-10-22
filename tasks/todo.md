@@ -20,7 +20,7 @@ Detalle de cada tarea (qué, criterios "Hecho cuando", dependencias) en `tasks/p
 - [ ] **Checkpoint 2:** V + commit
 
 ## 3. rename-assets
-- [ ] T3.1 Ruleta
+- [x] T3.1 Ruleta
 - [ ] T3.2 Lanzacartas y botella
 - [ ] T3.3 ScriptableObjects, M_Liquid, T_InputKeys
 - [ ] **Checkpoint 3:** V (modelos y materiales iguales) + commit
