@@ -193,6 +193,10 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
     - Los 4 prefabs muestran los valores apuntados.
     - La Tommy dispara en automático y la escopeta con perdigones.
     - `check_refs` no da nada nuevo.
+  - **Hecho (2026-10-22).**
+    - Los valores de los 4 prefabs son idénticos a los de `tasks/weapon_values_before.txt`. Solo cambian `pelletCount` → `pelletsPerShot: 6` (también en el YAML) y el `automatic: 1` nuevo de TommyGun.
+    - Los 3 scripts viejos solo los usaba su propio prefab de `Test/`.
+    - Pendiente de la prueba manual (checkpoint 5): disparo automático de la Tommy y perdigones de la escopeta.
 - **T5.3 Código muerto y OnWeaponChanged (D7, D8)** (M).
   - Qué: se tocan WeaponBase, WeaponManager, AmmoHUD, ReloadHUD y DynamicCrosshair. Cada miembro se borra solo tras comprobar con grep que no se usa. WeaponManager deja de conocer a los HUDs.
   - Hecho cuando:

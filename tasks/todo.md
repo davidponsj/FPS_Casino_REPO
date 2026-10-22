@@ -35,7 +35,7 @@ Detalle de cada tarea (qué, criterios "Hecho cuando", dependencias) en `tasks/p
 ## 5. code-weapons (riesgo alto)
 - [x] Apuntar valores del Inspector de las 4 armas hitscan (tasks/weapon_values_before.txt)
 - [x] T5.1 HitscanWeapon
-- [ ] T5.2 GUIDs en prefabs + borrar las 3 armas viejas
+- [x] T5.2 GUIDs en prefabs + borrar las 3 armas viejas
 - [ ] T5.3 Código muerto + OnWeaponChanged
 - [ ] T5.4 Inspector + depuración de armas
 - [ ] T5.5 Inspector de efectos (MuzzleFlash, Tracer, Impact)
