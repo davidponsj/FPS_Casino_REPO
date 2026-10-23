@@ -65,14 +65,21 @@ public class RouletteMachine : MonoBehaviour, IInteractable
             if (ticketSpawner != null && ticketSpawner.HasTicketWaiting)
                 return $"Coger {ticketSpawner.WaitingTicketName} [E]";
 
-            var inv = TicketInventory.Instance;
-            if (inv != null && inv.HasTicket) return "Gasta tu ticket";
-            if (bottleHolder != null && bottleHolder.HasBottle) return "Usa tu botella";
-            if (inv != null && inv.IsLocked) return "Gasta tu ticket";
+            if (PlayerHasTicket) return "Gasta tu ticket";
+            if (PlayerHasBottle) return "Usa tu botella";
 
             return $"Jugar a la ruleta ({cost} pts) [E]";
         }
     }
+
+    private bool PlayerHasTicket => TicketInventory.Instance != null && TicketInventory.Instance.HasTicket;
+    private bool PlayerHasBottle => bottleHolder != null && bottleHolder.HasBottle;
+
+    /// <summary>
+    /// La única regla de bloqueo: no se puede jugar mientras haya un ticket esperando en la ruleta,
+    /// un ticket en el inventario o una botella en la mano. Al gastar la botella se desbloquea sola.
+    /// </summary>
+    private bool IsBlocked => (ticketSpawner != null && ticketSpawner.HasTicketWaiting) || PlayerHasTicket || PlayerHasBottle;
 
     private void Start()
     {
@@ -90,10 +97,8 @@ public class RouletteMachine : MonoBehaviour, IInteractable
             return;
         }
 
-        // 2) Bloqueada si tienes ticket en la mano, botella sin usar, o sigue bloqueada
-        var inventory = TicketInventory.Instance;
-        bool hasBottle = bottleHolder != null && bottleHolder.HasBottle;
-        if (inventory != null && (inventory.HasTicket || inventory.IsLocked) || hasBottle)
+        // 2) Bloqueada si tienes ticket o botella sin usar
+        if (IsBlocked)
         {
             Debug.Log("[Ruleta] Gasta tu ticket y usa tu botella antes de volver a jugar.");
             onBlockedByTicket?.Invoke();
@@ -146,14 +151,8 @@ public class RouletteMachine : MonoBehaviour, IInteractable
         Segment result = segments[winner];
         Debug.Log($"[Ruleta] Ha salido: {result.colorName} (ticket: {(result.ticket ? result.ticket.displayName : "nada")})");
 
-        if (result.ticket != null)
-        {
-            if (TicketInventory.Instance != null)
-                TicketInventory.Instance.Lock();
-
-            if (ticketSpawner != null)
-                ticketSpawner.Spawn(result);
-        }
+        if (result.ticket != null && ticketSpawner != null)
+            ticketSpawner.Spawn(result);
 
         onSpinFinished?.Invoke(result);
         spinning = false;

@@ -253,6 +253,12 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
   - Hecho cuando:
     - La ruleta está bloqueada exactamente si hay ticket esperando, ticket en el inventario o botella en la mano.
     - No quedan Lock/Unlock.
+  - **Hecho (2026-10-23).**
+    - `RouletteMachine.IsBlocked` = ticket esperando en el dispensador || ticket en el inventario || botella en la mano. Se calcula cada vez: no hay estado que se pueda quedar desincronizado.
+    - TicketInventory guarda un solo `Ticket` (antes una lista). `Consume()` + `Tickets[0]` → `Take()`, que devuelve el ticket. Fuera `IsLocked`, `Lock`, `Unlock` y `ResetState` (sin usar).
+    - Bartender: `bottleHolder.Give(inv.Take())`. BottleHolder ya no desbloquea nada: soltar la botella basta.
+    - Test `TicketInventoryTests` (un solo ticket, Take, null).
+    - Mensaje de la ruleta "Gasta tu ticket" ya no sale cuando tienes botella: sale "Usa tu botella" (antes `IsLocked` podía dar el primero).
 - **T6.3 Fuera TicketPickup (D5)** (XS + YAML).
   - Hecho cuando:
     - PF_TicketTest no tiene el componente.

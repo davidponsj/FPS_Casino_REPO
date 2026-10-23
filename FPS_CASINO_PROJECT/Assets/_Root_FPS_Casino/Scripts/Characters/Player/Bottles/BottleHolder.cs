@@ -11,7 +11,7 @@ using UnityEngine.InputSystem;
 ///   que se rompe al chocar: impacto en área y charco según el BottleEffect.
 ///
 /// Qué hace cada botella lo dice su ticket (TicketData.bottleEffect).
-/// En los dos casos la botella se gasta y se desbloquea la ruleta (TicketInventory.Unlock).
+/// En los dos casos la botella se gasta y la ruleta vuelve a estar disponible.
 /// </summary>
 public class BottleHolder : MonoBehaviour
 {
@@ -182,16 +182,12 @@ public class BottleHolder : MonoBehaviour
 
     // ---------------- COMÚN ----------------
 
-    /// <summary>Quita la botella de la mano y desbloquea la ruleta. Devuelve el ticket que tenía.</summary>
+    /// <summary>Quita la botella de la mano (con eso la ruleta deja de estar bloqueada). Devuelve el ticket que tenía.</summary>
     private TicketData ReleaseBottle()
     {
         TicketData released = current;
         current = null;
         bottleModel.SetActive(false);
-
-        if (TicketInventory.Instance != null)
-            TicketInventory.Instance.Unlock();   // ahora sí se puede volver a jugar
-
         return released;
     }
 }

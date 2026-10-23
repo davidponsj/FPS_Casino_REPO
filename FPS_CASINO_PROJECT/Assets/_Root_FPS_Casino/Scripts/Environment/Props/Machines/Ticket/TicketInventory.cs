@@ -1,15 +1,17 @@
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// El ticket que llevas encima (solo cabe uno). Lo mete el dispensador de la ruleta (TryAdd)
+/// y lo saca el barman al darte la botella (Take). TicketHUD escucha sus eventos.
+/// La ruleta mira HasTicket para saber si está bloqueada.
+/// </summary>
 public class TicketInventory : MonoBehaviour
 {
     public static TicketInventory Instance { get; private set; }
 
-    private readonly List<TicketData> tickets = new List<TicketData>();
-    public IReadOnlyList<TicketData> Tickets => tickets;
-    public bool HasTicket => tickets.Count > 0;
-    public bool IsLocked { get; private set; }
+    public TicketData Ticket { get; private set; }
+    public bool HasTicket => Ticket != null;
 
     public event Action<TicketData> OnTicketAdded;
     public event Action<TicketData> OnTicketRemoved;
@@ -20,33 +22,24 @@ public class TicketInventory : MonoBehaviour
         Instance = this;
     }
 
-    public void Lock() => IsLocked = true;
-    public void Unlock() => IsLocked = false;
-
     public bool TryAdd(TicketData ticket)
     {
         if (ticket == null || HasTicket) return false;
-        tickets.Add(ticket);
+        Ticket = ticket;
         OnTicketAdded?.Invoke(ticket);
         return true;
     }
 
-    public bool Consume()
+    /// <summary>Saca el ticket y lo devuelve, o null si no había.</summary>
+    public TicketData Take()
     {
-        if (!HasTicket) return false;
-        TicketData ticket = tickets[0];
-        tickets.RemoveAt(0);
-        IsLocked = false;
+        TicketData ticket = Ticket;
+        if (ticket == null) return null;
+        Ticket = null;
         OnTicketRemoved?.Invoke(ticket);
-        return true;
+        return ticket;
     }
 
-    public void ResetState()
-    {
-        tickets.Clear();
-        IsLocked = false;
-    }
-
-    [ContextMenu("TEST: Consumir ticket")]
-    private void TestConsume() => Consume();
+    [ContextMenu("TEST: Quitar ticket")]
+    private void TestTake() => Take();
 }

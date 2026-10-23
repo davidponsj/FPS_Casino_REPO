@@ -32,9 +32,6 @@ public class Bartender : MonoBehaviour, IInteractable
             return;
         }
 
-        TicketData ticket = inv.Tickets[0];
-        inv.Consume();   // quita el ticket (esto desbloquea la ruleta...)
-        inv.Lock();      // ...así que la volvemos a bloquear hasta beber la botella
-        bottleHolder.Give(ticket);
+        bottleHolder.Give(inv.Take());
     }
 }
