@@ -42,7 +42,7 @@ Detalle de cada tarea (qué, criterios "Hecho cuando", dependencias) en `tasks/p
 - [ ] **Checkpoint 5:** V + las 5 armas como antes + commit
 
 ## 6. code-casino
-- [x] T6.1 TicketData con su BottleEffect, fuera Library (falta borrar SO_BottleLibrary)
+- [x] T6.1 TicketData con su BottleEffect, fuera Library
 - [ ] T6.2 Regla única de bloqueo de la ruleta
 - [ ] T6.3 Fuera TicketPickup
 - [ ] T6.4 Inspector + depuración: ruleta, dispensador, barman
