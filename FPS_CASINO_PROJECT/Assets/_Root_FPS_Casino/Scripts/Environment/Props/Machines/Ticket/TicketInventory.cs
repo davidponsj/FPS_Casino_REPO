@@ -10,6 +10,10 @@ public class TicketInventory : MonoBehaviour
 {
     public static TicketInventory Instance { get; private set; }
 
+    [Header("Depuración")]
+    [Tooltip("Muestra el ticket que llevas (o \"vacío\") en la vista Scene (y en Game con el botón Gizmos activado).")]
+    [SerializeField] private bool showDebug;
+
     public TicketData Ticket { get; private set; }
     public bool HasTicket => Ticket != null;
 
@@ -42,4 +46,13 @@ public class TicketInventory : MonoBehaviour
 
     [ContextMenu("TEST: Quitar ticket")]
     private void TestTake() => Take();
+
+#if UNITY_EDITOR
+    private void OnDrawGizmos()
+    {
+        if (!showDebug) return;
+        UnityEditor.Handles.Label(transform.position + Vector3.up * 2.6f,
+            $"Ticket: {(HasTicket ? Ticket.displayName : "vacío")}");
+    }
+#endif
 }

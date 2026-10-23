@@ -268,6 +268,18 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
     - De paso: quitada de PF_Player la línea `effectLibrary:` que apuntaba a SO_BottleLibrary (T6.1). check_refs vuelve a la línea base.
 - **T6.4 Inspector y depuración de la ruleta y el barman** (S): RouletteMachine, RouletteTicketDispenser y Bartender.
   - Pendiente de T2.2: `RouletteMachine.ticketSpawner` → `ticketDispenser` (`FormerlySerializedAs`). Revisar el warning de `outerRadius`.
+  - **Hecho (2026-10-23).**
+    - **Renombres** (todos con `FormerlySerializedAs`; en escenas solo hay overrides de `bottleHolder`, que no cambia):
+      - RouletteMachine: `ticketSpawner` → `ticketDispenser`, `cost` → `spinCost`, `pocketRadius` → `ballRadiusMeters`, `ballHeight` → `ballHeightMeters`, `minDuration` → `minSpinSeconds`, `maxDuration` → `maxSpinSeconds`.
+      - RouletteTicketDispenser: `slideDistance` → `slideDistanceMeters`, `slideDuration` → `slideSeconds`.
+    - Borrado `RouletteMachine.outerRadius` (no se usaba: era el warning CS0414). PF_RouletteTest guarda aún la línea; Unity la quita al guardar.
+    - Tooltips, `[Header]` y `[Min]` en todos los campos; `<summary>` en los tres scripts.
+    - Fuera los `Debug.Log` de la ruleta y el barman. Avisos (`LogWarning`) si falta la bola, el dispensador o el TicketInventory.
+    - Depuración ("Mostrar depuración"):
+      - RouletteMachine: coste, estado (girando / bloqueada por qué / libre) y último resultado.
+      - RouletteTicketDispenser: ticket esperando o "vacío".
+      - Bartender: qué lleva el jugador.
+      - TicketInventory: ticket actual o "vacío" (de la misma fila de la decisión 10).
 - **T6.5 Inspector y depuración de la tragaperras** (S): SlotMachine, SlotBetButton y SlotLeverAnimator.
 - **Checkpoint 6:** V + ciclo ruleta → ticket → barman → botella → ruleta, tragaperras con y sin puntos + commit.
 

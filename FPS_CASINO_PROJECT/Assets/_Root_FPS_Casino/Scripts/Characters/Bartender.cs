@@ -1,8 +1,18 @@
 using UnityEngine;
 
+/// <summary>
+/// El barman. Al pulsar E con un ticket en el TicketInventory, se lo quita y te da su botella
+/// (BottleHolder.Give). Con una botella ya en la mano no hace nada: primero hay que gastarla.
+/// </summary>
 public class Bartender : MonoBehaviour, IInteractable
 {
+    [Header("Referencias")]
+    [Tooltip("BottleHolder del jugador (en PF_Player): ahí aparece la botella.")]
     [SerializeField] private BottleHolder bottleHolder;
+
+    [Header("Depuración")]
+    [Tooltip("Muestra qué lleva el jugador (ticket, botella o nada) sobre el barman en la vista Scene (y en Game con el botón Gizmos activado).")]
+    [SerializeField] private bool showDebug;
 
     public string InteractionPrompt
     {
@@ -24,14 +34,21 @@ public class Bartender : MonoBehaviour, IInteractable
             return;
         }
 
-        if (bottleHolder.HasBottle) return;
-
-        if (!inv.HasTicket)
-        {
-            Debug.Log("[Bartender] No tienes ticket.");
-            return;
-        }
+        if (bottleHolder.HasBottle || !inv.HasTicket) return;
 
         bottleHolder.Give(inv.Take());
     }
+
+#if UNITY_EDITOR
+    private void OnDrawGizmos()
+    {
+        if (!showDebug) return;
+
+        var inv = TicketInventory.Instance;
+        string carried = bottleHolder != null && bottleHolder.HasBottle ? "botella en la mano"
+            : inv != null && inv.HasTicket ? $"ticket {inv.Ticket.displayName}"
+            : "nada";
+        UnityEditor.Handles.Label(transform.position + Vector3.up * 2.2f, $"Barman · el jugador lleva: {carried}");
+    }
+#endif
 }
