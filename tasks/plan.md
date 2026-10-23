@@ -258,7 +258,7 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
     - TicketInventory guarda un solo `Ticket` (antes una lista). `Consume()` + `Tickets[0]` → `Take()`, que devuelve el ticket. Fuera `IsLocked`, `Lock`, `Unlock` y `ResetState` (sin usar).
     - Bartender: `bottleHolder.Give(inv.Take())`. BottleHolder ya no desbloquea nada: soltar la botella basta.
     - Test `TicketInventoryTests` (un solo ticket, Take, null).
-    - Mensaje de la ruleta "Gasta tu ticket" ya no sale cuando tienes botella: sale "Usa tu botella" (antes `IsLocked` podía dar el primero).
+    - Los mensajes de la ruleta no cambian (mismo orden: girando → coger ticket → gasta tu ticket → usa tu botella → jugar).
 - **T6.3 Fuera TicketPickup (D5)** (XS + YAML).
   - Hecho cuando:
     - PF_TicketTest no tiene el componente.
