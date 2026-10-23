@@ -44,7 +44,7 @@ Detalle de cada tarea (qué, criterios "Hecho cuando", dependencias) en `tasks/p
 ## 6. code-casino
 - [x] T6.1 TicketData con su BottleEffect, fuera Library
 - [x] T6.2 Regla única de bloqueo de la ruleta
-- [ ] T6.3 Fuera TicketPickup
+- [x] T6.3 Fuera TicketPickup
 - [ ] T6.4 Inspector + depuración: ruleta, dispensador, barman
 - [ ] T6.5 Inspector + depuración: tragaperras
 - [ ] **Checkpoint 6:** V + ciclo completo del casino + commit

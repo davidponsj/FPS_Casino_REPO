@@ -264,6 +264,8 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
     - PF_TicketTest no tiene el componente.
     - El `.cs` está borrado.
     - El ticket sigue saliendo de la ruleta.
+  - **Hecho (2026-10-23).** Quitado el componente de PF_TicketTest (ninguna escena lo instanciaba) y borrado `TicketPickup.cs`. El dispensador ya desactivaba el collider del ticket, así que no cambia nada en juego.
+    - De paso: quitada de PF_Player la línea `effectLibrary:` que apuntaba a SO_BottleLibrary (T6.1). check_refs vuelve a la línea base.
 - **T6.4 Inspector y depuración de la ruleta y el barman** (S): RouletteMachine, RouletteTicketDispenser y Bartender.
   - Pendiente de T2.2: `RouletteMachine.ticketSpawner` → `ticketDispenser` (`FormerlySerializedAs`). Revisar el warning de `outerRadius`.
 - **T6.5 Inspector y depuración de la tragaperras** (S): SlotMachine, SlotBetButton y SlotLeverAnimator.
