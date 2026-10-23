@@ -242,6 +242,12 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
 - **T6.1 TicketData lleva su BottleEffect (D3)** (M).
   - Qué: rellenar los 6 SO_Ticket según SO_BottleLibrary (leerla antes de borrarla). BottleHolder y ThrownBottle usan `ticket.bottleEffect`. Borrar BottleEffectLibrary; **preguntar** antes de borrar SO_BottleLibrary.
   - Hecho cuando: cada color de ticket da la misma botella que antes.
+  - **Hecho (2026-10-23)** salvo borrar SO_BottleLibrary (pendiente de que David diga sí).
+    - `TicketData.bottleId` (string vacío en los 6) → `bottleEffect` (BottleEffect). Cada SO_Ticket_X apunta a SO_BottleEffect_X, igual que en la tabla.
+    - BottleHolder lee `ticket.bottleEffect` y avisa con `LogWarning` si falta. ThrownBottle no cambia (recibe el efecto del BottleHolder).
+    - Test `TicketDataTests`: cada ticket tiene la botella de su color.
+    - PF_Player conserva la línea `effectLibrary:` en el YAML hasta que Unity guarde el prefab; no molesta.
+    - SO_BottleLibrary.asset queda con el script borrado (sale en check_refs) hasta que se borre.
 - **T6.2 Una sola regla de bloqueo de la ruleta (D4)** (M).
   - Qué: se tocan TicketInventory, RouletteMachine, RouletteTicketDispenser, Bartender y BottleHolder.
   - Hecho cuando:

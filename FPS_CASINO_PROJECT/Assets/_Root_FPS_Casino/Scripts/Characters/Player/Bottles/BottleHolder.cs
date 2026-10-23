@@ -10,7 +10,7 @@ using UnityEngine.InputSystem;
 /// - Lanzar (Q): se aplica su efecto sobre ti (si tiene) y sale una botella física (ThrownBottle)
 ///   que se rompe al chocar: impacto en área y charco según el BottleEffect.
 ///
-/// Qué hace cada botella lo dice la BottleEffectLibrary (ticket → efecto).
+/// Qué hace cada botella lo dice su ticket (TicketData.bottleEffect).
 /// En los dos casos la botella se gasta y se desbloquea la ruleta (TicketInventory.Unlock).
 /// </summary>
 public class BottleHolder : MonoBehaviour
@@ -18,10 +18,6 @@ public class BottleHolder : MonoBehaviour
     [SerializeField] private GameObject bottleModel;
     [SerializeField] private Key drinkKey = Key.F;
     [SerializeField] private Key throwKey = Key.Q;
-
-    [Header("Efectos")]
-    [Tooltip("Tabla ticket → efecto de la botella.")]
-    [SerializeField] private BottleEffectLibrary effectLibrary;
 
     [Header("Lanzar")]
     [Tooltip("Prefab de la botella que sale volando (con ThrownBottle, Rigidbody y Collider).")]
@@ -113,7 +109,9 @@ public class BottleHolder : MonoBehaviour
 
     private BottleEffect GetEffect(TicketData ticket)
     {
-        return effectLibrary != null ? effectLibrary.Get(ticket) : null;
+        if (ticket != null && ticket.bottleEffect == null)
+            Debug.LogWarning($"[Botellas] El ticket {ticket.displayName} no tiene BottleEffect asignado.", ticket);
+        return ticket != null ? ticket.bottleEffect : null;
     }
 
     // ---------------- BEBER ----------------
