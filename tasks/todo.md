@@ -38,7 +38,7 @@ Detalle de cada tarea (qué, criterios "Hecho cuando", dependencias) en `tasks/p
 - [x] T5.2 GUIDs en prefabs + borrar las 3 armas viejas
 - [x] T5.3 Código muerto + OnWeaponChanged
 - [x] T5.4 Inspector + depuración de armas
-- [ ] T5.5 Inspector de efectos (MuzzleFlash, Tracer, Impact)
+- [x] T5.5 Inspector de efectos (MuzzleFlash, Tracer, Impact)
 - [ ] **Checkpoint 5:** V + las 5 armas como antes + commit
 
 ## 6. code-casino

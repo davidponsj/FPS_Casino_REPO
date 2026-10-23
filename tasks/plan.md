@@ -225,6 +225,17 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
 - **T5.5 Inspector de los efectos** (S).
   - Qué: MuzzleFlash, BulletTracerEffect y BulletImpactEffect (los dos primeros en cp1252).
   - Hecho cuando: los efectos se ven igual y las tildes no se rompen.
+  - **Hecho (2026-10-23).**
+    - **Renombres** (todos con `FormerlySerializedAs`; ningún override en escenas ni prefabs los usaba):
+      - `MuzzleFlash.flashDuration` → `flashSeconds`
+      - `BulletTracerEffect.duration` → `visibleSeconds`
+      - `BulletTracerEffect.width` → `widthMeters`
+      - `BulletImpactEffect.decalSizeRange` → `decalSizeMeters`
+      - `BulletImpactEffect.decalLifetime` → `decalSeconds`
+      - `BulletImpactEffect.decalFadeTime` → `decalFadeSeconds`
+      - `BulletImpactEffect.particlesLifetime` → `particlesSeconds`
+    - Tooltips con unidad y ejemplo en todos los campos y `[Header]` en los dos que no tenían. Sin depuración (decisión 10).
+    - MuzzleFlash y BulletTracerEffect siguen en Windows-1252.
 - **Checkpoint 5:** V + las 5 armas como antes + commit "Junta las armas hitscan en HitscanWeapon".
 
 ### 6. code-casino (depende de: code-core, rename-assets)

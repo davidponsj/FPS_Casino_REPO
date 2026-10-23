@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// Fogonazo simple hecho con una Light, sin necesidad de sprites/texturas. Colócala como
@@ -8,7 +9,11 @@ using UnityEngine;
 [RequireComponent(typeof(Light))]
 public class MuzzleFlash : MonoBehaviour
 {
-    [SerializeField] private float flashDuration = 0.05f;
+    [Header("Fogonazo")]
+    [Tooltip("Segundos que la luz está encendida en cada disparo. 0.05 = un destello corto.")]
+    [FormerlySerializedAs("flashDuration")]
+    [SerializeField] private float flashSeconds = 0.05f;
+    [Tooltip("Intensidad de la luz durante el destello. 6 = se nota en paredes cercanas; más alto ilumina más lejos.")]
     [SerializeField] private float flashIntensity = 6f;
 
     private Light flashLight;
@@ -29,7 +34,7 @@ public class MuzzleFlash : MonoBehaviour
     {
         flashLight.intensity = flashIntensity;
         flashLight.enabled = true;
-        yield return new WaitForSeconds(flashDuration);
+        yield return new WaitForSeconds(flashSeconds);
         flashLight.enabled = false;
     }
 }

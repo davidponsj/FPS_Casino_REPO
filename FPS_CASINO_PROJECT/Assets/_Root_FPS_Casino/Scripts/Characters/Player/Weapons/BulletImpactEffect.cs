@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// Impacto de bala. Va en la raíz del prefab BulletImpact, que tiene como hijos varias capas de
@@ -17,17 +18,22 @@ public class BulletImpactEffect : MonoBehaviour
     [Header("Agujero de bala (decal)")]
     [Tooltip("Quad hijo con el material del agujero. Opcional: sin él, el efecto solo son partículas.")]
     [SerializeField] private Renderer decalRenderer;
+    [Tooltip("Color del agujero. La transparencia (A) marca lo oscuro que se ve: 0.85 = casi opaco.")]
     [SerializeField] private Color decalColor = new Color(0.05f, 0.05f, 0.05f, 0.85f);
-    [Tooltip("Tamaño mínimo y máximo del agujero, en metros.")]
-    [SerializeField] private Vector2 decalSizeRange = new Vector2(0.05f, 0.09f);
-    [Tooltip("Segundos que dura el agujero (y por tanto el efecto entero).")]
-    [SerializeField] private float decalLifetime = 8f;
-    [Tooltip("Segundos que tarda en desvanecerse al final.")]
-    [SerializeField] private float decalFadeTime = 2f;
+    [Tooltip("Tamaño mínimo (X) y máximo (Y) del agujero, en metros. Cada impacto elige uno al azar entre los dos.")]
+    [FormerlySerializedAs("decalSizeRange")]
+    [SerializeField] private Vector2 decalSizeMeters = new Vector2(0.05f, 0.09f);
+    [Tooltip("Segundos que dura el agujero (y por tanto el efecto entero). 8 = se queda un rato en la pared.")]
+    [FormerlySerializedAs("decalLifetime")]
+    [SerializeField] private float decalSeconds = 8f;
+    [Tooltip("Segundos que tarda en desvanecerse al final de su vida. 0 = desaparece de golpe.")]
+    [FormerlySerializedAs("decalFadeTime")]
+    [SerializeField] private float decalFadeSeconds = 2f;
 
     [Header("Sin agujero")]
-    [Tooltip("Si no hay decal, segundos hasta borrar el efecto (algo más que la partícula más larga).")]
-    [SerializeField] private float particlesLifetime = 1.5f;
+    [Tooltip("Si no hay agujero, segundos hasta borrar el efecto (algo más que la partícula más larga). 1.5 = seguro.")]
+    [FormerlySerializedAs("particlesLifetime")]
+    [SerializeField] private float particlesSeconds = 1.5f;
 
     // URP usa "_BaseColor" como color principal tanto en Lit como en Unlit.
     private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
@@ -38,7 +44,7 @@ public class BulletImpactEffect : MonoBehaviour
 
     private void Awake()
     {
-        lifetime = decalRenderer != null ? decalLifetime : particlesLifetime;
+        lifetime = decalRenderer != null ? decalSeconds : particlesSeconds;
 
         if (decalRenderer == null) return;
 
@@ -46,7 +52,7 @@ public class BulletImpactEffect : MonoBehaviour
         // superficie, y le damos un giro aleatorio sobre sí mismo para que ningún agujero sea igual.
         Transform decal = decalRenderer.transform;
         decal.localRotation = Quaternion.Euler(0f, 180f, Random.Range(0f, 360f));
-        float size = Random.Range(decalSizeRange.x, decalSizeRange.y);
+        float size = Random.Range(decalSizeMeters.x, decalSizeMeters.y);
         decal.localScale = new Vector3(size, size, size);
 
         propertyBlock = new MaterialPropertyBlock();
@@ -57,11 +63,11 @@ public class BulletImpactEffect : MonoBehaviour
     {
         age += Time.deltaTime;
 
-        if (decalRenderer != null && decalFadeTime > 0f)
+        if (decalRenderer != null && decalFadeSeconds > 0f)
         {
             float remaining = lifetime - age;
-            if (remaining < decalFadeTime)
-                SetDecalAlpha(Mathf.Clamp01(remaining / decalFadeTime));
+            if (remaining < decalFadeSeconds)
+                SetDecalAlpha(Mathf.Clamp01(remaining / decalFadeSeconds));
         }
 
         if (age >= lifetime)
