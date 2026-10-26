@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// Resuelve el contacto físico de la horda en un solo sitio, una vez por frame, justo después de que
@@ -19,26 +20,31 @@ using UnityEngine;
 public class HordeCollision : MonoBehaviour
 {
     [Header("Enemigo ↔ enemigo (colisión blanda)")]
-    [Tooltip("Hueco extra entre dos enemigos, además de sus radios.")]
-    [SerializeField] private float enemyGap = 0.1f;
+    [Tooltip("Metros de hueco extra entre dos enemigos, además de sus radios. 0.1 = casi rozándose.")]
+    [SerializeField, Min(0f)] private float enemyGap = 0.1f;
 
-    [Tooltip("Velocidad máxima a la que se corrige un solape entre enemigos (m/s). Bajo = blando, alto = rígido.")]
-    [SerializeField] private float separationSpeed = 3f;
+    [Tooltip("Velocidad máxima a la que se corrige un solape entre enemigos (m/s). Bajo = blando, alto = rígido. 3 = blando.")]
+    [SerializeField, Min(0f)] private float separationSpeed = 3f;
 
     [Header("Enemigo ↔ jugador (bloquean, nunca empujan)")]
-    [Tooltip("Margen extra entre el jugador y un enemigo, además de los radios y el Skin Width del CharacterController.")]
-    [SerializeField] private float playerContactMargin = 0.02f;
+    [Tooltip("Metros de margen extra entre el jugador y un enemigo, además de los radios y el Skin Width del CharacterController.")]
+    [SerializeField, Min(0f)] private float playerContactMargin = 0.02f;
 
     [Header("Jugador → enemigo (abrirse paso)")]
+    [Tooltip("Si está marcado, el jugador aparta a los enemigos al caminar contra ellos.")]
     [SerializeField] private bool playerCanShove = true;
 
-    [Tooltip("Velocidad a la que el jugador aparta a un enemigo libre (se divide por su peso). Menor que la del jugador = se nota la resistencia.")]
-    [SerializeField] private float shoveSpeed = 2.5f;
+    [Tooltip("Velocidad en m/s a la que el jugador aparta a un enemigo libre (se divide por su peso). Menor que la del jugador = se nota la resistencia. 2.5 = cuesta un poco.")]
+    [SerializeField, Min(0f)] private float shoveSpeed = 2.5f;
 
     [Header("Otros")]
-    [Tooltip("Diferencia de altura a partir de la cual dos cuerpos no se afectan (otro piso).")]
-    [SerializeField] private float maxHeightDifference = 2f;
-    [SerializeField] private bool drawGizmos = true;
+    [Tooltip("Metros de diferencia de altura a partir de los que dos cuerpos no se afectan (otro piso). 2 = un piso.")]
+    [SerializeField, Min(0f)] private float maxHeightDifference = 2f;
+
+    [Header("Depuración")]
+    [Tooltip("Muestra el radio de contacto del jugador (ningún enemigo entra) y el radio de cada enemigo, en la vista Scene (y en Game con el botón Gizmos activado).")]
+    [FormerlySerializedAs("drawGizmos")]
+    [SerializeField] private bool showDebug;
 
     // Registro estático: los enemigos se apuntan al activarse, exista ya el solver o no.
     private static readonly List<EnemyMovement> agents = new List<EnemyMovement>();
@@ -243,11 +249,16 @@ public class HordeCollision : MonoBehaviour
 #if UNITY_EDITOR
     private void OnDrawGizmos()
     {
-        if (!drawGizmos || controller == null) return;
+        if (!showDebug || controller == null) return;
 
         // Radio de contacto con un enemigo de radio 0.5: ningún centro de enemigo entra aquí.
         UnityEditor.Handles.color = new Color(1f, 0.2f, 0.2f, 0.8f);
         UnityEditor.Handles.DrawWireDisc(transform.position, Vector3.up, ContactDistance(0.5f));
+
+        // Radio de separación de cada enemigo.
+        UnityEditor.Handles.color = new Color(1f, 1f, 1f, 0.5f);
+        foreach (EnemyMovement enemy in agents)
+            if (enemy != null) UnityEditor.Handles.DrawWireDisc(enemy.transform.position, Vector3.up, enemy.Radius + enemyGap * 0.5f);
     }
 #endif
 }

@@ -11,32 +11,43 @@ using UnityEngine.AI;
 /// </summary>
 public class RoundManager : MonoBehaviour
 {
+    [Header("Enemigo")]
+    [Tooltip("Prefab del enemigo que sale en las rondas (PF_EnemyHunter).")]
     [SerializeField] private EnemyHealth enemyPrefab;
 
     [Header("Cantidad")]
-    [Tooltip("Máximo de enemigos vivos a la vez. El resto espera a que mueran los primeros.")]
+    [Tooltip("Máximo de enemigos vivos a la vez. El resto espera a que mueran los primeros. 24 = como CoD Zombies.")]
     [SerializeField, Min(1)] private int maxAlive = 24;
 
     [Header("Tiempos")]
-    [Tooltip("Segundos entre spawns en la ronda 1.")]
+    [Tooltip("Segundos entre spawns en la ronda 1. 2 = empieza tranquilo.")]
     [SerializeField, Min(0f)] private float firstRoundSpawnDelay = 2f;
-    [Tooltip("En cada ronda el retraso entre spawns se multiplica por esto.")]
+    [Tooltip("En cada ronda el retraso entre spawns se multiplica por esto. 0.95 = cada ronda salen un 5% más rápido.")]
     [SerializeField, Range(0.5f, 1f)] private float spawnDelayMultiplier = 0.95f;
+    [Tooltip("Segundos mínimos entre spawns, por muy alta que sea la ronda. 0.08 = casi de golpe.")]
     [SerializeField, Min(0f)] private float minSpawnDelay = 0.08f;
+    [Tooltip("Segundos de descanso entre que muere el último enemigo y empieza la ronda siguiente. 10 = da tiempo a comprar.")]
     [SerializeField, Min(0f)] private float secondsBetweenRounds = 10f;
 
     [Header("Spawn alrededor del jugador")]
+    [Tooltip("Metros mínimos al jugador para aparecer. 10 = no salen encima de él.")]
     [SerializeField, Min(0f)] private float minSpawnDistance = 10f;
+    [Tooltip("Metros máximos al jugador para aparecer. Mayor que el mínimo. 25 = llegan enseguida.")]
     [SerializeField, Min(0f)] private float maxSpawnDistance = 25f;
-    [Tooltip("Longitud máxima del camino por NavMesh, en múltiplos de la distancia máxima. Evita spawns al otro lado de una pared.")]
+    [Tooltip("Longitud máxima del camino por NavMesh, en múltiplos de la distancia máxima. Evita spawns al otro lado de una pared. 1.5 = el camino puede ser un 50% más largo.")]
     [SerializeField, Min(1f)] private float maxPathFactor = 1.5f;
-    [Tooltip("Grados mínimos respecto a las direcciones de los últimos spawns. Hace que lleguen de todas partes.")]
+    [Tooltip("Grados mínimos respecto a las direcciones de los últimos spawns. Hace que lleguen de todas partes. 45 = bien repartidos.")]
     [SerializeField, Range(0f, 180f)] private float minAngleBetweenSpawns = 45f;
     [Tooltip("Capas que tapan la vista del jugador. Sin la capa Enemy, o un enemigo taparía el spawn de otro.")]
     [SerializeField] private LayerMask visionBlockers = ~0;
-    [Tooltip("Altura sobre el suelo a la que se mira si el jugador ve el punto (más o menos el pecho del enemigo).")]
-    [SerializeField] private float visibilityCheckHeight = 1f;
+    [Tooltip("Metros sobre el suelo a los que se mira si el jugador ve el punto (más o menos el pecho del enemigo).")]
+    [SerializeField, Min(0f)] private float visibilityCheckHeight = 1f;
+    [Tooltip("Puntos al azar que se prueban por cada spawn. Más = mejores sitios pero más coste. 10 = suficiente.")]
     [SerializeField, Min(1)] private int candidatesPerSpawn = 10;
+
+    [Header("Depuración")]
+    [Tooltip("Muestra sobre el jugador la ronda, vivos/máximo, los que faltan por salir y la cuenta atrás, y los anillos y últimos puntos de spawn, en la vista Scene (y en Game con el botón Gizmos activado).")]
+    [SerializeField] private bool showDebug;
 
     public event Action<int> OnRoundStarted;
 
@@ -63,6 +74,11 @@ public class RoundManager : MonoBehaviour
 
     private WaitUntil waitForFreeSlot;
     private WaitUntil waitForRoundCleared;
+
+    // Solo para la depuración.
+    private int pendingSpawns;
+    private float currentSpawnDelay;
+    private float restEndTime;
 
     /// <summary>Total de enemigos de la ronda con la fórmula de CoD Zombies en solitario (6, 8, 13, 18, 24, 27...).</summary>
     public static int EnemiesForRound(int round)
@@ -111,18 +127,22 @@ public class RoundManager : MonoBehaviour
             OnRoundStarted?.Invoke(CurrentRound);
 
             int toSpawn = EnemiesForRound(CurrentRound);
-            var spawnDelay = new WaitForSeconds(
-                SpawnDelayForRound(CurrentRound, firstRoundSpawnDelay, spawnDelayMultiplier, minSpawnDelay));
+            currentSpawnDelay = SpawnDelayForRound(CurrentRound, firstRoundSpawnDelay, spawnDelayMultiplier, minSpawnDelay);
+            var spawnDelay = new WaitForSeconds(currentSpawnDelay);
 
             for (int spawned = 0; spawned < toSpawn;)
             {
+                pendingSpawns = toSpawn - spawned;
                 yield return waitForFreeSlot;
                 if (TrySpawn()) spawned++;
                 yield return spawnDelay;
             }
+            pendingSpawns = 0;
 
             yield return waitForRoundCleared;
+            restEndTime = Time.time + secondsBetweenRounds;
             yield return new WaitForSeconds(secondsBetweenRounds);
+            restEndTime = 0f;
         }
     }
 
@@ -243,18 +263,24 @@ public class RoundManager : MonoBehaviour
         AliveCount--;
     }
 
-    private void OnDrawGizmosSelected()
-    {
-        if (player == null) return;
-
 #if UNITY_EDITOR
+    private void OnDrawGizmos()
+    {
+        if (!showDebug || player == null) return;
+
+        string phase = restEndTime > 0f
+            ? $"descanso · siguiente ronda en {Mathf.Max(0f, restEndTime - Time.time):0.0} s"
+            : $"spawn cada {currentSpawnDelay:0.00} s";
+        UnityEditor.Handles.Label(player.position + Vector3.up * 2.6f,
+            $"Ronda {CurrentRound} · vivos {AliveCount}/{maxAlive} · faltan por salir {pendingSpawns}\n{phase}");
+
         UnityEditor.Handles.color = Color.yellow;
         UnityEditor.Handles.DrawWireDisc(player.position, Vector3.up, minSpawnDistance);
         UnityEditor.Handles.DrawWireDisc(player.position, Vector3.up, maxSpawnDistance);
-#endif
 
         Gizmos.color = Color.red;
         for (int i = 0; i < recentCount; i++)
             Gizmos.DrawWireSphere(recentPositions[i], 0.5f);
     }
+#endif
 }

@@ -23,18 +23,20 @@ public class HordeAttackSlots : MonoBehaviour
     [Serializable]
     private class Ring
     {
+        [Tooltip("Puestos repartidos en este anillo. 6 = uno cada 60 grados.")]
         [Min(1)] public int slotCount = 6;
-        public float radius = 1.2f;
+        [Tooltip("Metros del jugador al anillo.")]
+        [Min(0f)] public float radius = 1.2f;
 
         [Tooltip("Exige paso libre en línea recta desde el jugador (sin pared entre medias). Úsalo en el anillo de ataque.")]
         public bool requireClearLine = true;
     }
 
     [Header("Fichas de ataque")]
-    [Tooltip("Máximo de enemigos pegados al jugador a la vez. Los demás esperan detrás.")]
+    [Tooltip("Máximo de enemigos pegados al jugador a la vez. Los demás esperan detrás. 6 = presión alta pero legible.")]
     [SerializeField, Min(1)] private int maxAttackers = 6;
-    [Tooltip("Un puesto queda bloqueado si hay un enemigo atacando a menos de esta distancia de él.")]
-    [SerializeField] private float engagedBlockRadius = 0.8f;
+    [Tooltip("Metros: un puesto queda bloqueado si hay un enemigo atacando a menos de esta distancia de él.")]
+    [SerializeField, Min(0f)] private float engagedBlockRadius = 0.8f;
 
     [Header("Anillos (el primero es el de ataque, los siguientes de presión)")]
     [SerializeField]
@@ -44,45 +46,51 @@ public class HordeAttackSlots : MonoBehaviour
         new Ring { slotCount = 10, radius = 2.4f, requireClearLine = false },
     };
 
-    [Tooltip("Cada puesto varía su radio ±esto (fijo por puesto).")]
-    [SerializeField] private float radiusJitter = 0.1f;
-    [Tooltip("Cada puesto varía su ángulo ±esto en grados (fijo por puesto).")]
-    [SerializeField] private float angleJitter = 5f;
+    [Tooltip("Metros que varía el radio de cada puesto, ± (fijo por puesto). Rompe la simetría perfecta. 0.1 = apenas se nota.")]
+    [SerializeField, Min(0f)] private float radiusJitter = 0.1f;
+    [Tooltip("Grados que varía el ángulo de cada puesto, ± (fijo por puesto). 5 = apenas se nota.")]
+    [SerializeField, Min(0f)] private float angleJitter = 5f;
     [Tooltip("Giro de los anillos en grados/segundo. Déjalo en 0: si giran, los enemigos los persiguen y orbitan.")]
     [SerializeField] private float ringRotationSpeed = 0f;
 
     [Header("Preferencias")]
-    [Tooltip("Penalización en metros por cada anillo hacia fuera. Alto = prefieren el anillo interior aunque les quede más lejos.")]
-    [SerializeField] private float ringPenalty = 6f;
+    [Tooltip("Penalización en metros por cada anillo hacia fuera. Alto = prefieren el anillo interior aunque les quede más lejos. 6 = casi siempre el interior.")]
+    [SerializeField, Min(0f)] private float ringPenalty = 6f;
 
     [Header("Cola y alcance")]
     [Tooltip("Radio de la cola: donde se quedan los que no caben en la horda (más de fichas + puestos). Si ya están más cerca, no retroceden.")]
     [FormerlySerializedAs("waitRadius")]
-    [SerializeField] private float queueRadius = 3.5f;
-    [Tooltip("Desvío angular máximo de cada enemigo en la cola, para que no se amontonen en el mismo punto.")]
+    [SerializeField, Min(0f)] private float queueRadius = 3.5f;
+    [Tooltip("Grados de desvío máximo de cada enemigo en la cola, para que no se amontonen en el mismo punto. 40 = cola en abanico.")]
     [FormerlySerializedAs("waitAngleSpread")]
-    [SerializeField] private float queueAngleSpread = 40f;
-    [Tooltip("Los enemigos a menos de esta distancia pueden reclamar un puesto.")]
-    [SerializeField] private float claimRange = 6f;
-    [Tooltip("Histéresis: un enemigo no pierde su puesto hasta superar claimRange + este margen.")]
-    [SerializeField] private float releaseMargin = 3f;
+    [SerializeField, Min(0f)] private float queueAngleSpread = 40f;
+    [Tooltip("Metros: los enemigos a menos de esta distancia del jugador pueden reclamar un puesto. 6 = empiezan a repartirse cerca.")]
+    [SerializeField, Min(0f)] private float claimRange = 6f;
+    [Tooltip("Metros de histéresis: un enemigo no pierde su puesto hasta superar Claim Range + este margen. 3 = no lo suelta por un paso atrás del jugador.")]
+    [SerializeField, Min(0f)] private float releaseMargin = 3f;
 
     [Header("Persistencia")]
-    [Tooltip("Tiempo mínimo que un enemigo conserva un puesto antes de poder cambiarlo por otro mejor.")]
-    [SerializeField] private float minHoldTime = 1.5f;
-    [Tooltip("Solo cambia de puesto si el nuevo mejora su puntuación al menos estos metros.")]
-    [SerializeField] private float switchMargin = 0.8f;
+    [Tooltip("Segundos mínimos que un enemigo conserva un puesto antes de poder cambiarlo por otro mejor. 1.5 = no cambian de sitio a cada rato.")]
+    [FormerlySerializedAs("minHoldTime")]
+    [SerializeField, Min(0f)] private float minHoldSeconds = 1.5f;
+    [Tooltip("Metros: solo cambia de puesto si el nuevo mejora su puntuación al menos esto. 0.8 = solo por cambios claros.")]
+    [SerializeField, Min(0f)] private float switchMargin = 0.8f;
 
     [Header("Validación")]
-    [SerializeField] private float refreshInterval = 0.1f;
-    [SerializeField] private float navSampleDistance = 1f;
-    [Tooltip("Si el punto navegable más cercano queda más lejos que esto del puesto ideal, el puesto no se usa.")]
-    [SerializeField] private float maxSnapDistance = 0.8f;
-    [Tooltip("Máximo de rutas que se calculan por petición. Limita el coste de CPU.")]
+    [Tooltip("Segundos entre comprobaciones de qué puestos son válidos (paredes, NavMesh). 0.1 = 10 veces por segundo.")]
+    [FormerlySerializedAs("refreshInterval")]
+    [SerializeField, Min(0.02f)] private float refreshSeconds = 0.1f;
+    [Tooltip("Metros de búsqueda del punto navegable más cercano a cada puesto.")]
+    [SerializeField, Min(0.1f)] private float navSampleDistance = 1f;
+    [Tooltip("Metros: si el punto navegable más cercano queda más lejos que esto del puesto ideal, el puesto no se usa.")]
+    [SerializeField, Min(0f)] private float maxSnapDistance = 0.8f;
+    [Tooltip("Máximo de rutas que se calculan por petición. Limita el coste de CPU. 4 = suficiente.")]
     [SerializeField, Min(1)] private int maxPathChecks = 4;
 
     [Header("Depuración")]
-    [SerializeField] private bool drawGizmos = true;
+    [Tooltip("Muestra los puestos (verde/cian libres, rojo/naranja ocupados, gris inválidos), quién tiene ficha (aro magenta), la cola, el radio de reclamo y el texto \"atacando 3/6 · con puesto 5\", en la vista Scene (y en Game con el botón Gizmos activado).")]
+    [FormerlySerializedAs("drawGizmos")]
+    [SerializeField] private bool showDebug;
 
     private class Slot
     {
@@ -158,7 +166,7 @@ public class HordeAttackSlots : MonoBehaviour
         // Recalculamos unas pocas veces por segundo, no cada frame.
         if (Time.time >= nextRefreshTime)
         {
-            nextRefreshTime = Time.time + refreshInterval;
+            nextRefreshTime = Time.time + refreshSeconds;
             Refresh();
         }
     }
@@ -256,7 +264,7 @@ public class HordeAttackSlots : MonoBehaviour
     public void Reevaluate(EnemyAI enemy)
     {
         if (!assignments.TryGetValue(enemy, out Slot current)) return;
-        if (Time.time - current.assignedAt < minHoldTime) return;
+        if (Time.time - current.assignedAt < minHoldSeconds) return;
 
         float currentScore = Score(current, enemy.transform.position);
         Slot better = FindBestReachableSlot(enemy, currentScore - switchMargin);
@@ -395,7 +403,7 @@ public class HordeAttackSlots : MonoBehaviour
 
     private void OnDrawGizmos()
     {
-        if (!drawGizmos) return;
+        if (!showDebug) return;
 
         foreach (Slot slot in slots)
         {
@@ -427,6 +435,10 @@ public class HordeAttackSlots : MonoBehaviour
 
         UnityEditor.Handles.color = new Color(0f, 0.8f, 1f, 0.4f);
         UnityEditor.Handles.DrawWireDisc(transform.position, Vector3.up, claimRange);
+
+        if (Application.isPlaying)
+            UnityEditor.Handles.Label(transform.position + Vector3.up * 2.2f,
+                $"Horda · atacando {engaged.Count}/{maxAttackers} · con puesto {assignments.Count}");
 #endif
     }
 }

@@ -59,7 +59,7 @@ Detalle de cada tarea (qué, criterios "Hecho cuando", dependencias) en `tasks/p
 - [x] T8.1 EnemyAI (EnemyBase + HunterAI)
 - [x] T8.2 Charco ralentiza (IMovementModifiable) + código muerto
 - [x] T8.3 Inspector + depuración: EnemyAI, EnemyMovement, EnemyHealth
-- [ ] T8.4 Inspector + depuración: RoundManager, HordeAttackSlots, HordeCollision, StateMachine
+- [x] T8.4 Inspector + depuración: RoundManager, HordeAttackSlots, HordeCollision, StateMachine
 - [ ] **Checkpoint 8:** V + 3 rondas + commit
 
 ## 9. code-ui-menu

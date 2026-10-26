@@ -333,6 +333,13 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
     - Tooltips con unidad y ejemplo y `[Min]` en todos los campos.
     - Depuración: EnemyAI (estado · segundos · metros al jugador + línea amarilla al destino; antes la etiqueta salía siempre en Play), EnemyMovement (velocidad real/máx., "charco ×0,5", ruta en cian, esfera roja si se atasca), EnemyHealth ("muere al primer impacto").
 - **T8.4 Inspector y depuración de RoundManager, HordeAttackSlots y HordeCollision; comentarios de StateMachine** (M).
+  - **Hecho (2026-10-26).**
+    - **Renombres** (con `FormerlySerializedAs`; sin overrides en escenas):
+      - HordeAttackSlots: `minHoldTime` → `minHoldSeconds`, `refreshInterval` → `refreshSeconds`, `drawGizmos` → `showDebug`.
+      - HordeCollision: `drawGizmos` → `showDebug`. (En PF_Player los dos estaban a 1: siguen encendidos.)
+      - RoundManager: ningún renombre; tooltips con unidad en los campos que no tenían.
+    - Depuración: RoundManager pasa de `OnDrawGizmosSelected` a la casilla (ronda · vivos/máx. · faltan por salir · spawn cada X s o cuenta atrás del descanso, anillos y últimos spawns); HordeAttackSlots añade "atacando 3/6 · con puesto 5" (no "en cola": la cola la decide cada EnemyAI y no se cuenta en ningún sitio); HordeCollision dibuja también el radio de cada enemigo.
+    - StateMachine: comentario actualizado en T8.1 (ya no nombra HunterAI ni PatrollerAI).
 - **Checkpoint 8:** V + 3 rondas en SCN_Mallorca y SCN_Gameplay + commit "Junta EnemyBase y HunterAI en EnemyAI".
 
 ### 9. code-ui-menu (depende de: code-weapons)
