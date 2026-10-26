@@ -55,7 +55,7 @@ Detalle de cada tarea (qué, criterios "Hecho cuando", dependencias) en `tasks/p
 - [ ] **Checkpoint 7:** V + las 6 botellas + commit
 
 ## 8. code-enemies (riesgo alto)
-- [ ] Apuntar valores del Inspector de PF_EnemyHunter
+- [x] Apuntar valores del Inspector de PF_EnemyHunter (tasks/enemy_values_before.txt)
 - [ ] T8.1 EnemyAI (EnemyBase + HunterAI)
 - [ ] T8.2 Charco ralentiza (IMovementModifiable) + código muerto
 - [ ] T8.3 Inspector + depuración: EnemyAI, EnemyMovement, EnemyHealth

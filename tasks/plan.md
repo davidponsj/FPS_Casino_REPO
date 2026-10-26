@@ -311,6 +311,7 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
 
 ### 8. code-enemies (depende de: code-bottles) — riesgo alto
 - **Antes de empezar:** apuntar los valores de Inspector de PF_EnemyHunter (y de PF_EnemyBase).
+  - **Hecho (2026-10-26)** en `tasks/enemy_values_before.txt`: HunterAI (16 campos), EnemyMovement (13) y los overrides de la variante (`baseSpeed: 7.22`, `m_StoppingDistance: 1.5`). Solo SCN_Mallorca instancia PF_EnemyHunter, sin overrides de la IA.
 - **T8.1 EnemyAI (D11)** (M).
   - Qué: `HunterAI.cs` → `EnemyAI.cs` (conserva el `.meta`) con EnemyBase dentro. `FindPlayer` sale a EnemyAI estático o a RoundManager. HordeAttackSlots usa EnemyAI. Borrar EnemyBase (cp1252).
   - Hecho cuando: PF_EnemyHunter tiene los valores apuntados, y la horda persigue, rodea y hace cola igual que antes en SCN_Mallorca.
