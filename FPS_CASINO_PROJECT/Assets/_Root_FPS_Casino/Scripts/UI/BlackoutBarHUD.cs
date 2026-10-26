@@ -11,7 +11,10 @@ using UnityEngine.UI;
 /// </summary>
 public class BlackoutBarHUD : MonoBehaviour
 {
+    [Header("Referencias")]
+    [Tooltip("Blackout del jugador que muestra la barra.")]
     [SerializeField] private PlayerBlackout blackout;
+    [Tooltip("Barra (Image Filled, Horizontal) que se rellena con el nivel de blackout.")]
     [SerializeField] private Image fillImage;
     [Tooltip("Opcional: texto con el porcentaje.")]
     [SerializeField] private TMP_Text percentText;
@@ -26,6 +29,8 @@ public class BlackoutBarHUD : MonoBehaviour
     [Tooltip("A partir de este nivel la barra parpadea (0.6 = con dos botellas de tres).")]
     [Range(0f, 1f)]
     [SerializeField] private float dangerThreshold = 0.6f;
+    [Tooltip("Velocidad del parpadeo en la zona de peligro. 6 = rápido, llama la atención.")]
+    [Min(0f)]
     [SerializeField] private float blinkSpeed = 6f;
 
     private float level;

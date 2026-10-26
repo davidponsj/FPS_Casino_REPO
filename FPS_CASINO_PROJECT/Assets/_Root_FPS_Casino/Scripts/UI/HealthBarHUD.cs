@@ -11,7 +11,10 @@ using UnityEngine.UI;
 /// </summary>
 public class HealthBarHUD : MonoBehaviour
 {
+    [Header("Referencias")]
+    [Tooltip("Vida del jugador que muestra la barra.")]
     [SerializeField] private PlayerHealth playerHealth;
+    [Tooltip("Barra principal (Image Filled, Horizontal). Baja al instante al recibir daño.")]
     [SerializeField] private Image fillImage;
     [Tooltip("Opcional: barra blanca/roja detrás de la principal que baja con retraso.")]
     [SerializeField] private Image delayedFillImage;
@@ -19,14 +22,18 @@ public class HealthBarHUD : MonoBehaviour
     [SerializeField] private TMP_Text healthText;
 
     [Header("Colores")]
+    [Tooltip("Color de la barra con la vida por encima del umbral.")]
     [SerializeField] private Color healthyColor = new Color(0.3f, 0.9f, 0.4f);
+    [Tooltip("Color de la barra con la vida por debajo del umbral.")]
     [SerializeField] private Color lowHealthColor = new Color(0.9f, 0.2f, 0.2f);
     [Tooltip("Por debajo de este porcentaje la barra se pone del color de vida baja.")]
     [Range(0f, 1f)]
     [SerializeField] private float lowHealthThreshold = 0.3f;
 
     [Header("Barra con retraso")]
-    [SerializeField] private float delayedFillSpeed = 0.5f; // fracción de barra por segundo
+    [Tooltip("Fracción de barra por segundo a la que baja la barra de detrás. 0.5 = media barra por segundo.")]
+    [Min(0.01f)]
+    [SerializeField] private float delayedFillSpeed = 0.5f;
 
     private float targetFill = 1f;
 

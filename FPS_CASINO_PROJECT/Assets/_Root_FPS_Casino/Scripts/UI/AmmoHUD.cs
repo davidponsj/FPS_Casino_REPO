@@ -14,7 +14,9 @@ using UnityEngine;
 public class AmmoHUD : MonoBehaviour
 {
     [Header("Referencias")]
+    [Tooltip("Texto con las balas del cargador (el '12' de '12 / 60'). Se oculta mientras recargas.")]
     [SerializeField] private TMP_Text magazineText;
+    [Tooltip("Texto con las balas de reserva (el '60' de '12 / 60'). Siempre visible.")]
     [SerializeField] private TMP_Text reserveText;
     [Tooltip("Opcional: el símbolo '/' entre cargador y reserva, si lo tienes como texto aparte. También se ocultará durante la recarga.")]
     [SerializeField] private GameObject separator;

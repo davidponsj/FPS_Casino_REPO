@@ -16,6 +16,7 @@ using UnityEngine.UI;
 public class ReloadHUD : MonoBehaviour
 {
     [Header("Referencias")]
+    [Tooltip("Image con Image Type = Filled y Fill Method = Radial 360. Se rellena mientras recargas.")]
     [SerializeField] private Image radialImage;
 
     private WeaponManager weaponManager;

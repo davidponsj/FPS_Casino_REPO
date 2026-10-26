@@ -344,6 +344,7 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
 
 ### 9. code-ui-menu (depende de: code-weapons)
 - **T9.1 HUDs, parte 1** (M): AmmoHUD, ReloadHUD, DynamicCrosshair, HealthBarHUD y BlackoutBarHUD. Solo `<summary>` e Inspector, sin depuración.
+  - **Hecho (2026-10-26).** Tooltips con unidad, `[Header]` y `[Min]` donde faltaban. Ningún renombre: los HUDs tienen overrides de instancia en escenas (también en SCN_Saez) y `FormerlySerializedAs` puede no migrarlos. AmmoHUD, ReloadHUD y DynamicCrosshair siguen en Windows-1252.
 - **T9.2 HUDs, parte 2** (S): PointsHUD, RoundHUD, TicketHUD, BottleEffectHUD y MenuArrow.
 - **T9.3 Botón Salir (B5) y menú, parte 1** (S): QuitGameTarget, ATMScreen y MenuCameraMover.
   - Hecho cuando: "Salir" para el Play Mode en el editor y cierra el juego en una build.

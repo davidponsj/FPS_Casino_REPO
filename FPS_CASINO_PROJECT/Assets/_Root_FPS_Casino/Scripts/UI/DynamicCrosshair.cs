@@ -26,15 +26,21 @@ using UnityEngine;
 public class DynamicCrosshair : MonoBehaviour
 {
     [Header("Referencias")]
+    [Tooltip("Línea de arriba (pivote Y = 0, para que crezca hacia fuera).")]
     [SerializeField] private RectTransform top;
+    [Tooltip("Línea de abajo (pivote Y = 1).")]
     [SerializeField] private RectTransform bottom;
+    [Tooltip("Línea de la izquierda (pivote X = 1).")]
     [SerializeField] private RectTransform left;
+    [Tooltip("Línea de la derecha (pivote X = 0).")]
     [SerializeField] private RectTransform right;
 
     [Header("Distancias (píxeles desde el centro)")]
-    [Tooltip("Separación con dispersión 0 (quieto). Así las 4 líneas no se tocan en el centro.")]
+    [Tooltip("Píxeles de separación con dispersión 0 (quieto). Así las 4 líneas no se tocan en el centro. 4 = retícula cerrada.")]
+    [Min(0f)]
     [SerializeField] private float minGap = 4f;
-    [Tooltip("Solo se usa si matchRealSpread está desactivado: separación con la dispersión al máximo.")]
+    [Tooltip("Píxeles de separación con la dispersión al máximo. Solo se usa si Match Real Spread está desactivado. 32 = se abre mucho.")]
+    [Min(0f)]
     [SerializeField] private float maxGap = 32f;
 
     [Header("Precisión de la retícula")]
