@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 
 /// <summary>
-/// Un estado de una IA. TOwner es la IA a la que pertenece (HunterAI, PatrollerAI...),
+/// Un estado de una IA. TOwner es la IA a la que pertenece (EnemyAI),
 /// de modo que el estado puede acceder a sus datos y componentes.
 /// </summary>
 public abstract class State<TOwner>

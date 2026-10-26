@@ -317,6 +317,9 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
 - **T8.1 EnemyAI (D11)** (M).
   - Qué: `HunterAI.cs` → `EnemyAI.cs` (conserva el `.meta`) con EnemyBase dentro. `FindPlayer` sale a EnemyAI estático o a RoundManager. HordeAttackSlots usa EnemyAI. Borrar EnemyBase (cp1252).
   - Hecho cuando: PF_EnemyHunter tiene los valores apuntados, y la horda persigue, rodea y hace cola igual que antes en SCN_Mallorca.
+  - **Hecho (2026-10-26).** `Hunter/HunterAI.cs` → `Enemies/EnemyAI.cs` con el mismo `.meta` (mismo GUID) y EnemyBase dentro; EnemyBase borrado. `FindPlayer` queda privado en EnemyAI; RoundManager busca el tag Player por su cuenta. HordeAttackSlots usa EnemyAI. Quitado `SetBaseBodyColor` (sin uso; era para los perfiles del Patroller).
+    - Valores de PF_EnemyHunter comparados con `tasks/enemy_values_before.txt`: idénticos. Test nuevo `EnemyAITests` (FlatDistance).
+    - **Falta probar en Unity (Pausa 2):** la horda persigue, rodea y hace cola igual que antes.
 - **T8.2 El charco ralentiza (B1) y código muerto de EnemyMovement** (S).
   - Hecho cuando: un enemigo en el charco va más lento y vuelve a su velocidad al salir, y no hay memoria nueva por frame.
 - **T8.3 Inspector y depuración de EnemyAI, EnemyMovement y EnemyHealth** (S).

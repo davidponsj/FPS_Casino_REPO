@@ -91,7 +91,7 @@ public class HordeAttackSlots : MonoBehaviour
         public Vector3 position;
         public Vector3 desiredPosition; // dónde debería estar (para depurar los puestos inválidos)
         public bool valid;
-        public EnemyBase occupant;
+        public EnemyAI occupant;
         public float assignedAt;
         public float radiusOffset;
         public float angleOffset;
@@ -106,8 +106,8 @@ public class HordeAttackSlots : MonoBehaviour
     private static readonly Comparison<Candidate> ByScore = (a, b) => a.score.CompareTo(b.score);
 
     private readonly List<Slot> slots = new List<Slot>();
-    private readonly Dictionary<EnemyBase, Slot> assignments = new Dictionary<EnemyBase, Slot>();
-    private readonly List<EnemyBase> engaged = new List<EnemyBase>();
+    private readonly Dictionary<EnemyAI, Slot> assignments = new Dictionary<EnemyAI, Slot>();
+    private readonly List<EnemyAI> engaged = new List<EnemyAI>();
     private readonly List<Candidate> candidates = new List<Candidate>();
 
     private NavMeshPath pathBuffer;
@@ -171,7 +171,7 @@ public class HordeAttackSlots : MonoBehaviour
     /// Pide una ficha para pegarse al jugador. Si la consigue, suelta su puesto de aproximación:
     /// a partir de ahora persigue al jugador directamente a distancia de melee.
     /// </summary>
-    public bool TryEngage(EnemyBase enemy)
+    public bool TryEngage(EnemyAI enemy)
     {
         if (engaged.Contains(enemy)) return true;
         if (engaged.Count >= maxAttackers) return false;
@@ -181,13 +181,13 @@ public class HordeAttackSlots : MonoBehaviour
         return true;
     }
 
-    public void Disengage(EnemyBase enemy)
+    public void Disengage(EnemyAI enemy)
     {
         engaged.Remove(enemy);
     }
 
     /// <summary>Suelta puesto y ficha (al morir o desactivarse).</summary>
-    public void ReleaseAll(EnemyBase enemy)
+    public void ReleaseAll(EnemyAI enemy)
     {
         Release(enemy);
         Disengage(enemy);
@@ -198,7 +198,7 @@ public class HordeAttackSlots : MonoBehaviour
     // ---------------------------------------------------------------
 
     /// <summary>Intenta reservar un puesto alcanzable. Si ya tiene uno, devuelve true.</summary>
-    public bool TryAcquire(EnemyBase enemy)
+    public bool TryAcquire(EnemyAI enemy)
     {
         if (assignments.ContainsKey(enemy)) return true;
 
@@ -209,7 +209,7 @@ public class HordeAttackSlots : MonoBehaviour
         return true;
     }
 
-    public void Release(EnemyBase enemy)
+    public void Release(EnemyAI enemy)
     {
         if (!assignments.TryGetValue(enemy, out Slot slot)) return;
 
@@ -218,7 +218,7 @@ public class HordeAttackSlots : MonoBehaviour
     }
 
     /// <summary>Posición actual del puesto del enemigo. False si no tiene (o lo perdió).</summary>
-    public bool TryGetSlotPosition(EnemyBase enemy, out Vector3 position)
+    public bool TryGetSlotPosition(EnemyAI enemy, out Vector3 position)
     {
         if (assignments.TryGetValue(enemy, out Slot slot) && slot.valid)
         {
@@ -234,7 +234,7 @@ public class HordeAttackSlots : MonoBehaviour
     /// Punto de la cola en el lado por el que viene el enemigo, con un desvío angular propio
     /// para que los que llegan por el mismo lado no se amontonen en el mismo sitio.
     /// </summary>
-    public Vector3 GetQueuePoint(EnemyBase enemy)
+    public Vector3 GetQueuePoint(EnemyAI enemy)
     {
         Vector3 center = transform.position;
         Vector3 direction = enemy.transform.position - center;
@@ -253,7 +253,7 @@ public class HordeAttackSlots : MonoBehaviour
     /// y exista otro alcanzable claramente mejor (por ejemplo, un hueco libre en el anillo interior).
     /// Calcula rutas, así que conviene llamarlo cada cierto tiempo, no cada frame.
     /// </summary>
-    public void Reevaluate(EnemyBase enemy)
+    public void Reevaluate(EnemyAI enemy)
     {
         if (!assignments.TryGetValue(enemy, out Slot current)) return;
         if (Time.time - current.assignedAt < minHoldTime) return;
@@ -273,14 +273,14 @@ public class HordeAttackSlots : MonoBehaviour
     /// <summary>Distancia al puesto + penalización por anillo. Menor = mejor.</summary>
     private float Score(Slot slot, Vector3 from)
     {
-        return EnemyBase.FlatDistance(slot.position, from) + slot.ring * ringPenalty;
+        return EnemyAI.FlatDistance(slot.position, from) + slot.ring * ringPenalty;
     }
 
     /// <summary>
     /// Ordena los puestos libres por puntuación y devuelve el primero al que el enemigo puede llegar.
     /// Solo calcula rutas para los mejores candidatos (maxPathChecks), para acotar el coste.
     /// </summary>
-    private Slot FindBestReachableSlot(EnemyBase enemy, float maxScore)
+    private Slot FindBestReachableSlot(EnemyAI enemy, float maxScore)
     {
         Vector3 from = enemy.transform.position;
 
@@ -318,7 +318,7 @@ public class HordeAttackSlots : MonoBehaviour
                pathBuffer.status == NavMeshPathStatus.PathComplete;
     }
 
-    private void Assign(Slot slot, EnemyBase enemy)
+    private void Assign(Slot slot, EnemyAI enemy)
     {
         slot.occupant = enemy;
         slot.assignedAt = Time.time;
@@ -418,7 +418,7 @@ public class HordeAttackSlots : MonoBehaviour
 
         // Los que tienen ficha de ataque: un aro magenta en los pies.
         Gizmos.color = Color.magenta;
-        foreach (EnemyBase enemy in engaged)
+        foreach (EnemyAI enemy in engaged)
             if (enemy != null) Gizmos.DrawWireSphere(enemy.transform.position + Vector3.up * 0.1f, 0.4f);
 
 #if UNITY_EDITOR

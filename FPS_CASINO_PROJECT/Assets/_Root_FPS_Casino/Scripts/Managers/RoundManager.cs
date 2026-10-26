@@ -95,7 +95,8 @@ public class RoundManager : MonoBehaviour
 
     private IEnumerator Start()
     {
-        player = EnemyBase.FindPlayer();
+        GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
+        player = playerObject != null ? playerObject.transform : null;
         playerCamera = Camera.main;
 
         if (enemyPrefab == null || player == null)

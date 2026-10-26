@@ -3,7 +3,7 @@ using UnityEngine.AI;
 using UnityEngine.Serialization;
 
 /// <summary>
-/// IA del Zombie / Hunter. Conoce siempre la posición del jugador y va a por él.
+/// IA del enemigo (el zombi). Conoce siempre la posición del jugador y va a por él.
 ///
 ///   Chase    → lejos: corre hacia el jugador.
 ///   Approach → cerca: va hacia su puesto del corro, solo para repartirse y no llegar todos por el mismo lado.
@@ -14,10 +14,21 @@ using UnityEngine.Serialization;
 /// Regla de oro: un zombi nunca se aleja del jugador para "recolocarse". Solo avanza o espera.
 /// El contacto físico (no solaparse, no empujar al jugador) no es cosa de la IA: lo resuelve el HordeCollision.
 ///
-/// Los estados son clases anidadas: viven en este archivo y pueden usar los campos privados de HunterAI.
+/// Los estados son clases anidadas: viven en este archivo y pueden usar los campos privados de EnemyAI.
+/// Todo el movimiento pasa por EnemyMovement (nunca toca el NavMeshAgent directamente).
 /// </summary>
-public class HunterAI : EnemyBase
+[RequireComponent(typeof(EnemyMovement))]
+public class EnemyAI : MonoBehaviour
 {
+    private static Transform cachedPlayer;
+
+    private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor"); // URP
+    private static readonly int ColorId = Shader.PropertyToID("_Color");         // Built-in
+
+    [Header("Visual")]
+    [Tooltip("Renderer del cuerpo, para los cambios de color por estado. Vacío = el primero que encuentre.")]
+    [SerializeField] private Renderer bodyRenderer;
+
     [Header("Persecución (carriles: de frente, pero lado a lado)")]
     [Tooltip("Separación máxima de un zombi respecto a la ruta central (m). El frente de la horda mide el doble. 0 = fila india.")]
     [SerializeField] private float laneWidth = 1.5f;
@@ -59,8 +70,10 @@ public class HunterAI : EnemyBase
     [FormerlySerializedAs("inPositionColor")]
     [SerializeField] private Color engagedColor = new Color(1f, 0.55f, 0f);
 
-    private StateMachine<HunterAI> machine;
+    private StateMachine<EnemyAI> machine;
     private HordeAttackSlots slots;
+    private MaterialPropertyBlock propertyBlock;
+    private Color baseColor = Color.white;
 
     private ChaseState chase;
     private ApproachState approach;
@@ -74,17 +87,25 @@ public class HunterAI : EnemyBase
     private float personalLane; // -1..1, fijo por zombi: su carril respecto a la ruta central
     private float wobbleSeed;
 
-    public override string CurrentStateName => machine?.Current?.Name ?? "None";
+    public EnemyMovement Movement { get; private set; }
+    public Transform Target { get; private set; }
+
+    /// <summary>Nombre del estado actual, para depuración.</summary>
+    public string CurrentStateName => machine?.Current?.Name ?? "None";
+
+    public float DistanceToTarget =>
+        Target == null ? float.PositiveInfinity : FlatDistance(transform.position, Target.position);
 
     // ---------------------------------------------------------------
     //  Ciclo de vida
     // ---------------------------------------------------------------
 
-    protected override void Awake()
+    private void Awake()
     {
-        base.Awake();
+        Movement = GetComponent<EnemyMovement>();
+        SetupVisual();
 
-        machine = new StateMachine<HunterAI>();
+        machine = new StateMachine<EnemyAI>();
         chase = new ChaseState(this);
         approach = new ApproachState(this);
         engage = new EngageState(this);
@@ -94,11 +115,13 @@ public class HunterAI : EnemyBase
         wobbleSeed = Random.value * 100f;
     }
 
-    protected override void Start()
+    private void Start()
     {
-        base.Start();
+        Target = FindPlayer();
 
-        if (Target != null)
+        if (Target == null)
+            Debug.LogWarning($"{name}: no se encontró ningún objeto con el tag Player.", this);
+        else
             slots = Target.GetComponent<HordeAttackSlots>();
 
         if (slots == null)
@@ -117,6 +140,29 @@ public class HunterAI : EnemyBase
         // Muerte, pooling o desactivación: puesto y ficha quedan libres para otro.
         if (slots != null)
             slots.ReleaseAll(this);
+    }
+
+    /// <summary>
+    /// Busca al jugador una sola vez y lo comparte entre todos los enemigos
+    /// (con 30 enemigos, una búsqueda en vez de 30).
+    /// </summary>
+    private static Transform FindPlayer()
+    {
+        if (cachedPlayer == null)
+        {
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            if (player != null) cachedPlayer = player.transform;
+        }
+
+        return cachedPlayer;
+    }
+
+    /// <summary>Distancia en el plano horizontal (ignora la altura).</summary>
+    public static float FlatDistance(Vector3 a, Vector3 b)
+    {
+        a.y = 0f;
+        b.y = 0f;
+        return Vector3.Distance(a, b);
     }
 
     // ---------------------------------------------------------------
@@ -185,11 +231,38 @@ public class HunterAI : EnemyBase
     //  Feedback visual
     // ---------------------------------------------------------------
 
-    /// <summary>Naranja mientras está pegado al jugador (el color lo gestiona EnemyBase).</summary>
+    private void SetupVisual()
+    {
+        if (bodyRenderer == null)
+            bodyRenderer = GetComponentInChildren<Renderer>();
+
+        if (bodyRenderer == null) return;
+
+        propertyBlock = new MaterialPropertyBlock();
+
+        Material material = bodyRenderer.sharedMaterial;
+        if (material != null)
+        {
+            if (material.HasProperty(BaseColorId)) baseColor = material.GetColor(BaseColorId);
+            else if (material.HasProperty(ColorId)) baseColor = material.GetColor(ColorId);
+        }
+    }
+
+    /// <summary>Cambia el color del cuerpo sin crear materiales nuevos (MaterialPropertyBlock).</summary>
+    private void SetBodyColor(Color color)
+    {
+        if (bodyRenderer == null) return;
+
+        bodyRenderer.GetPropertyBlock(propertyBlock);
+        propertyBlock.SetColor(BaseColorId, color);
+        propertyBlock.SetColor(ColorId, color);
+        bodyRenderer.SetPropertyBlock(propertyBlock);
+    }
+
+    /// <summary>Naranja mientras está pegado al jugador; al soltarse vuelve al color del material.</summary>
     private void SetEngagedVisual(bool isEngaged)
     {
-        if (isEngaged) SetBodyColor(engagedColor);
-        else ResetBodyColor();
+        SetBodyColor(isEngaged ? engagedColor : baseColor);
     }
 
     // ===============================================================
@@ -197,9 +270,9 @@ public class HunterAI : EnemyBase
     // ===============================================================
 
     /// <summary>Persecución a distancia. Al entrar en el rango de reclamo pide puesto (Approach) o hace cola (Queue).</summary>
-    private class ChaseState : State<HunterAI>
+    private class ChaseState : State<EnemyAI>
     {
-        public ChaseState(HunterAI owner) : base(owner) { }
+        public ChaseState(EnemyAI owner) : base(owner) { }
 
         public override float MinDuration => owner.stateMinDuration;
 
@@ -232,12 +305,12 @@ public class HunterAI : EnemyBase
     /// Va hacia su puesto para repartirse alrededor del jugador. Si llega a distancia de melee, se pega (Engage).
     /// Si ya está tan cerca del jugador como su puesto, se queda quieto: nunca retrocede.
     /// </summary>
-    private class ApproachState : State<HunterAI>
+    private class ApproachState : State<EnemyAI>
     {
         private bool holding;
         private float nextReevaluateTime;
 
-        public ApproachState(HunterAI owner) : base(owner) { }
+        public ApproachState(EnemyAI owner) : base(owner) { }
 
         public override float MinDuration => owner.stateMinDuration;
 
@@ -313,11 +386,11 @@ public class HunterAI : EnemyBase
     /// Tiene ficha de ataque: se pega al jugador a distancia de melee y le sigue si se mueve un poco.
     /// No sigue ningún puesto, así que ni orbita ni retrocede. Anclado: los demás le rodean.
     /// </summary>
-    private class EngageState : State<HunterAI>
+    private class EngageState : State<EnemyAI>
     {
         private bool closing;
 
-        public EngageState(HunterAI owner) : base(owner) { }
+        public EngageState(EnemyAI owner) : base(owner) { }
 
         public override float MinDuration => owner.stateMinDuration;
 
@@ -378,11 +451,11 @@ public class HunterAI : EnemyBase
     /// La horda está llena: se acerca hasta la cola y se queda ahí mirando al jugador.
     /// Si ya está más cerca que la cola, se queda donde está (no retrocede).
     /// </summary>
-    private class QueueState : State<HunterAI>
+    private class QueueState : State<EnemyAI>
     {
         private float nextAcquireTime;
 
-        public QueueState(HunterAI owner) : base(owner) { }
+        public QueueState(EnemyAI owner) : base(owner) { }
 
         public override float MinDuration => owner.stateMinDuration;
 
@@ -431,4 +504,14 @@ public class HunterAI : EnemyBase
                 owner.HoldAndFace();
         }
     }
+
+#if UNITY_EDITOR
+    // Muestra el nombre del estado sobre la cabeza del enemigo.
+    // En la vista Game hay que activar el botón "Gizmos" para verlo.
+    private void OnDrawGizmos()
+    {
+        if (!Application.isPlaying) return;
+        UnityEditor.Handles.Label(transform.position + Vector3.up * 2.4f, CurrentStateName);
+    }
+#endif
 }
