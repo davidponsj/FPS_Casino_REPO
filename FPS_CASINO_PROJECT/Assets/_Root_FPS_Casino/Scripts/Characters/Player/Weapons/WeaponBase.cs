@@ -391,8 +391,7 @@ public abstract class WeaponBase : MonoBehaviour
         UnityEditor.Handles.DrawWireDisc(cam.position + cam.forward * distance, cam.forward, radius);
 
         string reload = isReloading ? $" · recargando {currentReloadDuration * (1f - ReloadProgress01):0.0} s" : "";
-        UnityEditor.Handles.Label(cam.position + cam.forward * distance + cam.up * 0.3f,
-            $"{name}: {currentAmmo}/{reserveAmmo} · dispersión {currentSpreadDegrees:0.0}°{reload}");
+        DebugLabels.At(cam.position + cam.forward * distance + cam.up * 0.3f, 0, $"{name}: {currentAmmo}/{reserveAmmo} · dispersión {currentSpreadDegrees:0.0}°{reload}", DebugLabels.Weapon);
 
         Gizmos.color = Color.red;
         for (int i = 0; i < debugImpacts.Length; i++)

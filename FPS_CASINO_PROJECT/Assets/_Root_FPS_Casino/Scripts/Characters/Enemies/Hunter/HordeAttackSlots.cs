@@ -435,10 +435,16 @@ public class HordeAttackSlots : MonoBehaviour
 
         UnityEditor.Handles.color = new Color(0f, 0.8f, 1f, 0.4f);
         UnityEditor.Handles.DrawWireDisc(transform.position, Vector3.up, claimRange);
-
-        if (Application.isPlaying)
-            UnityEditor.Handles.Label(transform.position + Vector3.up * 2.2f,
-                $"Horda · atacando {engaged.Count}/{maxAttackers} · con puesto {assignments.Count}");
 #endif
     }
+
+#if UNITY_EDITOR
+    // Estado de la horda en el panel de arriba a la derecha, debajo de la ronda.
+    private void OnGUI()
+    {
+        if (!showDebug) return;
+        DebugLabels.Panel(DebugLabels.HordePanelLine,
+            $"horda · atacando {engaged.Count}/{maxAttackers} · con puesto {assignments.Count}", DebugLabels.AI);
+    }
+#endif
 }

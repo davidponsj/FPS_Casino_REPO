@@ -361,6 +361,9 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
 - **T10.2** Pedir a David que ejecute `/graphify Assets`.
 - **T10.3** Pasada por los criterios de éxito de la spec, marcándolos uno a uno.
   - **Hecho (2026-10-26).** Marcados en `SPEC.md`. Comprobado sin Unity: compilación, tests, check_refs, carpetas, escenas de compañeros, nombres, tooltips, casillas de depuración, `<summary>`, tildes y número de scripts (64 → 57). Quitados 5 miembros públicos sin uso. **Quedan para la Pausa 3 (David, en Unity):** la checklist manual, la consola limpia al jugar y mirar 2-3 valores del Inspector.
+- **T10.4 Textos de depuración ordenados** (añadida el 2026-10-26: al probar, los textos se solapaban).
+  - **Hecho.** Script nuevo `Utilities/DebugLabels.cs`: un bloque por personaje, con una línea reservada por script, separadas en píxeles (no en metros) y con un color por sistema y fondo oscuro. Ronda y horda pasan a un panel arriba a la derecha de la vista Game (`OnGUI`). Los ~20 scripts llaman a `DebugLabels` en vez de a `Handles.Label`.
+  - Incluye el arreglo de SCN_Ruben que hizo David (barman y ruleta → BottleHolder de PF_Player; los valores renombrados se conservaron) y PF_EnemyHunter con la depuración apagada por defecto.
 - **Checkpoint final:** todos los criterios en verde y revisión con David antes del push o del PR.
 
 ## Preguntas abiertas

@@ -105,7 +105,7 @@ public class PlayerBlackout : MonoBehaviour
         string text = blackedOut
             ? "Borrachera: BLACKOUT"
             : $"Borrachera: {bottlesInBody:0.0}/{bottlesToBlackout} botellas ({Blackout01:P0})";
-        UnityEditor.Handles.Label(transform.position + Vector3.up * 2.3f, text);
+        DebugLabels.Above(transform, DebugLabels.PlayerBlackoutLine, text, DebugLabels.Player);
     }
 #endif
 }

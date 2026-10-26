@@ -264,15 +264,21 @@ public class RoundManager : MonoBehaviour
     }
 
 #if UNITY_EDITOR
-    private void OnDrawGizmos()
+    // Ronda y spawns en el panel de arriba a la derecha de la vista Game: no son de ningún objeto.
+    private void OnGUI()
     {
         if (!showDebug || player == null) return;
 
         string phase = restEndTime > 0f
             ? $"descanso · siguiente ronda en {Mathf.Max(0f, restEndTime - Time.time):0.0} s"
             : $"spawn cada {currentSpawnDelay:0.00} s";
-        UnityEditor.Handles.Label(player.position + Vector3.up * 2.6f,
-            $"Ronda {CurrentRound} · vivos {AliveCount}/{maxAlive} · faltan por salir {pendingSpawns}\n{phase}");
+        DebugLabels.Panel(DebugLabels.RoundPanelLine,
+            $"RONDA {CurrentRound}\nvivos {AliveCount}/{maxAlive} · faltan por salir {pendingSpawns}\n{phase}", DebugLabels.AI);
+    }
+
+    private void OnDrawGizmos()
+    {
+        if (!showDebug || player == null) return;
 
         UnityEditor.Handles.color = Color.yellow;
         UnityEditor.Handles.DrawWireDisc(player.position, Vector3.up, minSpawnDistance);

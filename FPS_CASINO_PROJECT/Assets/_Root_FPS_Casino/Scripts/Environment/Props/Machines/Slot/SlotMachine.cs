@@ -296,8 +296,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
     {
         if (!showDebug) return;
         string bet = spinning ? "girando" : selectedBet != null ? $"apuesta {selectedBet.BetAmount} pts" : "sin apuesta";
-        UnityEditor.Handles.Label(transform.position + Vector3.up * 2.5f,
-            $"Tragaperras · {bet}\nÚltimo: {lastResult}");
+        DebugLabels.At(transform.position + Vector3.up * 2.5f, 0, $"Tragaperras · {bet}\nÚltimo: {lastResult}", DebugLabels.Casino);
     }
 #endif
 }

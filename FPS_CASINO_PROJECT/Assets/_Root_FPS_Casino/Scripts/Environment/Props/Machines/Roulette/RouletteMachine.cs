@@ -249,8 +249,7 @@ public class RouletteMachine : MonoBehaviour, IInteractable
             : $"{lastResult.colorName} ({(lastResult.ticket != null ? lastResult.ticket.displayName : "sin ticket")})";
 
         Vector3 center = wheelCenter ? wheelCenter.position : transform.position;
-        UnityEditor.Handles.Label(center + Vector3.up * 1.5f,
-            $"Ruleta · {spinCost} pts · {state}\nÚltimo resultado: {last}");
+        DebugLabels.At(center + Vector3.up * 1.5f, 0, $"Ruleta · {spinCost} pts · {state}\nÚltimo resultado: {last}", DebugLabels.Casino);
     }
 #endif
 }

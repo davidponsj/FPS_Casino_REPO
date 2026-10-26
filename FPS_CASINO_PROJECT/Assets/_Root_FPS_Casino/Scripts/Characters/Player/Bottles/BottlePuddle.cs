@@ -200,8 +200,7 @@ public class BottlePuddle : MonoBehaviour
         float radius = Mathf.Max(bounds.extents.x, bounds.extents.z);
         UnityEditor.Handles.color = Color.cyan;
         UnityEditor.Handles.DrawWireDisc(transform.position, transform.up, radius);
-        UnityEditor.Handles.Label(transform.position + Vector3.up * 0.5f,
-            $"Charco · radio {radius:0.0} m · quedan {Mathf.Max(0f, lifetime - age):0.0} s · enemigos dentro {enemiesInside.Count}");
+        DebugLabels.At(transform.position + Vector3.up * 0.5f, 0, $"Charco · radio {radius:0.0} m · quedan {Mathf.Max(0f, lifetime - age):0.0} s · enemigos dentro {enemiesInside.Count}", DebugLabels.Player);
     }
 #endif
 }

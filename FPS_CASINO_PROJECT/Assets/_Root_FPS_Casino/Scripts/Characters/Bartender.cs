@@ -48,7 +48,7 @@ public class Bartender : MonoBehaviour, IInteractable
         string carried = bottleHolder != null && bottleHolder.HasBottle ? "botella en la mano"
             : inv != null && inv.HasTicket ? $"ticket {inv.Ticket.displayName}"
             : "nada";
-        UnityEditor.Handles.Label(transform.position + Vector3.up * 2.2f, $"Barman · el jugador lleva: {carried}");
+        DebugLabels.At(transform.position + Vector3.up * 2.2f, 0, $"Barman · el jugador lleva: {carried}", DebugLabels.Casino);
     }
 #endif
 }

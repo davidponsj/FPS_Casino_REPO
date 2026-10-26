@@ -1081,8 +1081,7 @@ public class PlayerController : MonoBehaviour
 
         float speed = CurrentHorizontalSpeed;
         float momentum = Mathf.Max(0f, speed - sprintSpeed);
-        UnityEditor.Handles.Label(transform.position + Vector3.up * 2.75f,
-            $"{CurrentState} · {speed:0.0} m/s (momentum +{momentum:0.0}) · coyote {coyoteTimer:0.00} s");
+        DebugLabels.Above(transform, DebugLabels.PlayerControllerLine, $"{CurrentState} · {speed:0.0} m/s (momentum +{momentum:0.0}) · coyote {coyoteTimer:0.00} s", DebugLabels.Movement);
     }
 #endif
 }

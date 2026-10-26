@@ -30,7 +30,7 @@ public class EnemyHealth : MonoBehaviour, IDamageable
     private void OnDrawGizmos()
     {
         if (!showDebug) return;
-        UnityEditor.Handles.Label(transform.position + Vector3.up * 1.6f, IsDead ? "Vida · muerto" : "Vida · muere al primer impacto");
+        DebugLabels.Above(transform, DebugLabels.EnemyHealthLine, IsDead ? "Vida · muerto" : "Vida · muere al primer impacto", DebugLabels.Health);
     }
 #endif
 }

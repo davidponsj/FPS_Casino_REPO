@@ -110,7 +110,7 @@ public class PlayerBuffs : MonoBehaviour
         }
         if (!any) text += " ninguno";
 
-        UnityEditor.Handles.Label(transform.position + Vector3.up * 2.15f, text);
+        DebugLabels.Above(transform, DebugLabels.PlayerBuffsLine, text, DebugLabels.Player);
     }
 #endif
 }

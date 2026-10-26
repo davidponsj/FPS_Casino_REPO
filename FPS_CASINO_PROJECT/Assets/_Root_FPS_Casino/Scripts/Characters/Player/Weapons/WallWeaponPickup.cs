@@ -43,7 +43,7 @@ public class WallWeaponPickup : MonoBehaviour, IInteractable
     {
         if (!showDebug) return;
         string weapon = weaponPrefab != null ? weaponPrefab.name : "FALTA EL PREFAB";
-        UnityEditor.Handles.Label(transform.position + Vector3.up * 0.5f, $"{weaponDisplayName} → {weapon} (gratis)");
+        DebugLabels.At(transform.position + Vector3.up * 0.5f, 0, $"{weaponDisplayName} → {weapon} (gratis)", DebugLabels.Weapon);
     }
 #endif
 }

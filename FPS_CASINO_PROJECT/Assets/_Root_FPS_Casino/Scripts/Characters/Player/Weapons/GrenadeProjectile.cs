@@ -184,8 +184,7 @@ public class GrenadeProjectile : MonoBehaviour
 
         Gizmos.color = new Color(1f, 0.5f, 0f, 0.4f);
         Gizmos.DrawWireSphere(transform.position, explosionRadius);
-        UnityEditor.Handles.Label(transform.position + Vector3.up * 0.5f,
-            $"Rebotes {bouncesDone}/{maxBounces} · explota en {Mathf.Max(0f, explodeTime - Time.time):0.0} s");
+        DebugLabels.At(transform.position + Vector3.up * 0.5f, 0, $"Rebotes {bouncesDone}/{maxBounces} · explota en {Mathf.Max(0f, explodeTime - Time.time):0.0} s", DebugLabels.Weapon);
     }
 #endif
 }

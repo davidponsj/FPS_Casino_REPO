@@ -464,8 +464,7 @@ public class EnemyMovement : MonoBehaviour, IMovementModifiable
         if (!showDebug || !Application.isPlaying || agent == null) return;
 
         string slow = slowMultiplier < 1f ? $" · charco ×{slowMultiplier:0.0#}" : "";
-        UnityEditor.Handles.Label(transform.position + Vector3.up * 2f,
-            $"velocidad {agent.velocity.magnitude:0.0} / {agent.speed:0.0} m/s{slow}");
+        DebugLabels.Above(transform, DebugLabels.EnemyMovementLine, $"velocidad {agent.velocity.magnitude:0.0} / {agent.speed:0.0} m/s{slow}", DebugLabels.Movement);
 
         if (agent.hasPath)
         {

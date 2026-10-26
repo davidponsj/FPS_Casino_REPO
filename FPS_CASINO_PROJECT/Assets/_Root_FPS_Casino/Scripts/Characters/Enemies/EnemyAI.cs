@@ -531,8 +531,7 @@ public class EnemyAI : MonoBehaviour
         if (!showDebug || !Application.isPlaying || machine == null) return;
 
         string distance = Target != null ? $"{DistanceToTarget:0.0} m del jugador" : "sin jugador";
-        UnityEditor.Handles.Label(transform.position + Vector3.up * 2.4f,
-            $"{CurrentStateName} · {machine.TimeInState:0.0} s · {distance}");
+        DebugLabels.Above(transform, DebugLabels.EnemyAILine, $"{CurrentStateName} · {machine.TimeInState:0.0} s · {distance}", DebugLabels.AI);
 
         if (Movement != null && Movement.HasDestination)
         {

@@ -99,8 +99,7 @@ public class RouletteTicketDispenser : MonoBehaviour
     {
         if (!showDebug) return;
         Transform point = spawnPoint ? spawnPoint : transform;
-        UnityEditor.Handles.Label(point.position + Vector3.up * 0.3f,
-            $"Ticket esperando: {(waitingTicket != null ? waitingTicket.displayName : "vacío")}");
+        DebugLabels.At(point.position + Vector3.up * 0.3f, 0, $"Ticket esperando: {(waitingTicket != null ? waitingTicket.displayName : "vacío")}", DebugLabels.Casino);
     }
 #endif
 }

@@ -105,7 +105,7 @@ public class PlayerHealth : MonoBehaviour, IDamageable
     {
         if (!showDebug) return;
         string text = IsDead ? "Vida: MUERTO" : $"Vida: {currentHealth:0}/{maxHealth:0}";
-        UnityEditor.Handles.Label(transform.position + Vector3.up * 2.6f, text);
+        DebugLabels.Above(transform, DebugLabels.PlayerHealthLine, text, DebugLabels.Health);
     }
 #endif
 }

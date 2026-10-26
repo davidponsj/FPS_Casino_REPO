@@ -71,8 +71,7 @@ public class PlayerPoints : MonoBehaviour
     private void OnDrawGizmos()
     {
         if (!showDebug) return;
-        UnityEditor.Handles.Label(transform.position + Vector3.up * 2.45f,
-            $"Puntos: {currentPoints} (ganados en total: {totalEarned})");
+        DebugLabels.Above(transform, DebugLabels.PlayerPointsLine, $"Puntos: {currentPoints} (ganados en total: {totalEarned})", DebugLabels.Player);
     }
 #endif
 }

@@ -208,7 +208,7 @@ public class BottleHolder : MonoBehaviour
         if (!showDebug) return;
         string bottle = HasBottle ? $"botella {current.displayName}" : "sin botella";
         string active = HasActiveEffect ? $"efecto {activeEffect.displayName} · quedan {EffectTimeRemaining:0.0} s" : "sin efecto";
-        UnityEditor.Handles.Label(transform.position + Vector3.up * 0.3f, $"Mano · {bottle}\n{active}");
+        DebugLabels.At(transform.position + Vector3.up * 0.3f, 0, $"Mano · {bottle}\n{active}", DebugLabels.Player);
     }
 #endif
 }

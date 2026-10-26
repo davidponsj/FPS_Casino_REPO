@@ -71,6 +71,7 @@ Detalle de cada tarea (qué, criterios "Hecho cuando", dependencias) en `tasks/p
 
 ## 10. docs
 - [x] T10.1 CLAUDE.local.md
+- [x] T10.4 Textos de depuración ordenados (DebugLabels) — pedido por David tras probar
 - [ ] T10.2 /graphify Assets (David)
 - [x] T10.3 Criterios de éxito
 - [ ] **Checkpoint final:** revisión con David antes del push/PR

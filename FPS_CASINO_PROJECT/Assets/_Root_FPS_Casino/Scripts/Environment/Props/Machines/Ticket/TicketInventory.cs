@@ -51,8 +51,7 @@ public class TicketInventory : MonoBehaviour
     private void OnDrawGizmos()
     {
         if (!showDebug) return;
-        UnityEditor.Handles.Label(transform.position + Vector3.up * 2.6f,
-            $"Ticket: {(HasTicket ? Ticket.displayName : "vacío")}");
+        DebugLabels.Above(transform, DebugLabels.TicketInventoryLine, $"Ticket: {(HasTicket ? Ticket.displayName : "vacío")}", DebugLabels.Casino);
     }
 #endif
 }

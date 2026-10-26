@@ -90,7 +90,7 @@ public class PlayerInteractor : MonoBehaviour
         Gizmos.DrawLine(cam.position, end);
 
         if (currentInteractable is Component target)
-            UnityEditor.Handles.Label(end, $"Mirando: {target.name}\n{currentInteractable.InteractionPrompt}");
+            DebugLabels.At(end, 0, $"Mirando: {target.name}\n{currentInteractable.InteractionPrompt}", DebugLabels.Interaction);
     }
 #endif
 }
