@@ -19,19 +19,24 @@ using UnityEngine.Serialization;
 public class EnemyMovement : MonoBehaviour, IMovementModifiable
 {
     [Header("Sensación arcade")]
+    [Tooltip("Velocidad en m/s antes de la variación individual y de los charcos. 3.5 = andando rápido; 7 = corriendo.")]
+    [Min(0f)]
     [SerializeField] private float baseSpeed = 3.5f;
 
     [Tooltip("Variación individual de velocidad (0.1 = ±10%). Evita el efecto clon.")]
     [SerializeField, Range(0f, 0.3f)] private float speedVariation = 0.1f;
 
-    [Tooltip("Aceleración alta = reacciona casi al instante cuando el jugador cambia de dirección.")]
+    [Tooltip("Aceleración en m/s². Alta = reacciona casi al instante cuando el jugador cambia de dirección. 30 = arcade.")]
+    [Min(0f)]
     [SerializeField] private float acceleration = 30f;
 
-    [Tooltip("Velocidad de giro mientras se mueve (grados por segundo). Alta = gira casi en seco, baja = curvas amplias.")]
+    [Tooltip("Velocidad de giro mientras se mueve (grados por segundo). Alta = gira casi en seco, baja = curvas amplias. 540 = casi en seco.")]
     [FormerlySerializedAs("angularSpeed")]
+    [Min(0f)]
     [SerializeField] private float turnSpeed = 540f;
 
-    [Tooltip("Distancia a la que se considera que ha llegado al destino.")]
+    [Tooltip("Metros al destino a los que se considera que ha llegado. 0.2 = llega justo.")]
+    [Min(0f)]
     [SerializeField] private float stoppingDistance = 0.2f;
 
     [Header("Avoidance")]
@@ -42,24 +47,37 @@ public class EnemyMovement : MonoBehaviour, IMovementModifiable
     [SerializeField, Range(0, 99)] private int anchoredPriority = 10;
 
     [Header("Cuerpo")]
-    [Tooltip("Peso cuando está anclado: cede menos ante otros enemigos y ante los empujones del jugador.")]
+    [Tooltip("Peso cuando está anclado (el normal es 1): cede menos ante otros enemigos y ante los empujones del jugador. 3 = cuesta apartarle.")]
+    [Min(1f)]
     [SerializeField] private float anchoredWeight = 3f;
 
     [Header("Control de repath")]
-    [Tooltip("Tiempo medio entre recálculos de ruta (cada enemigo lo varía un ±20%).")]
-    [SerializeField] private float repathInterval = 0.2f;
+    [Tooltip("Segundos de media entre recálculos de ruta (cada enemigo lo varía un ±20%). 0.2 = sigue bien al jugador sin gastar mucho.")]
+    [FormerlySerializedAs("repathInterval")]
+    [Min(0.02f)]
+    [SerializeField] private float repathSeconds = 0.2f;
 
-    [Tooltip("Si el objetivo se ha movido menos que esto, no se recalcula la ruta.")]
+    [Tooltip("Metros: si el objetivo se ha movido menos que esto, no se recalcula la ruta. 0.5 = ignora pasitos.")]
+    [Min(0f)]
     [SerializeField] private float minTargetMoveDistance = 0.5f;
 
-    [Tooltip("Radio de búsqueda del punto más cercano sobre el NavMesh.")]
+    [Tooltip("Metros de búsqueda del punto más cercano sobre el NavMesh. 2 = vale para puntos un poco fuera.")]
+    [Min(0.1f)]
     [SerializeField] private float sampleDistance = 2f;
 
     [Header("Detección de atasco")]
-    [SerializeField] private float stuckCheckInterval = 1f;
+    [Tooltip("Segundos entre comprobaciones de atasco. 1 = detecta rápido sin falsos avisos.")]
+    [FormerlySerializedAs("stuckCheckInterval")]
+    [Min(0.1f)]
+    [SerializeField] private float stuckCheckSeconds = 1f;
 
-    [Tooltip("Si en el intervalo avanza menos que esto teniendo que moverse, se considera atascado.")]
+    [Tooltip("Metros: si en ese tiempo avanza menos que esto teniendo que moverse, se considera atascado y recalcula la ruta.")]
+    [Min(0f)]
     [SerializeField] private float stuckMinProgress = 0.3f;
+
+    [Header("Depuración")]
+    [Tooltip("Muestra la velocidad, el multiplicador de los charcos, la ruta del NavMesh y una marca roja si está atascado, en la vista Scene (y en Game con el botón Gizmos activado).")]
+    [SerializeField] private bool showDebug;
 
     private NavMeshAgent agent;
     private Collider[] colliders = Array.Empty<Collider>();
@@ -82,6 +100,7 @@ public class EnemyMovement : MonoBehaviour, IMovementModifiable
 
     private float nextStuckCheckTime;
     private Vector3 lastStuckCheckPosition;
+    private bool isStuck;
 
     // ---------------------------------------------------------------
     //  Propiedades
@@ -89,6 +108,12 @@ public class EnemyMovement : MonoBehaviour, IMovementModifiable
 
     /// <summary>Multiplicador de los charcos que pisa: el más bajo (1 = normal, 0 = paralizado).</summary>
     public float SlowMultiplier => slowMultiplier;
+
+    /// <summary>True si tiene un destino pedido (para la depuración).</summary>
+    public bool HasDestination => hasTarget && agent != null && agent.hasPath;
+
+    /// <summary>Destino actual del agente.</summary>
+    public Vector3 Destination => agent.destination;
 
     public bool IsStopped => agent.isOnNavMesh && agent.isStopped;
 
@@ -147,8 +172,8 @@ public class EnemyMovement : MonoBehaviour, IMovementModifiable
         ApplySpeed();
 
         // Desfase inicial aleatorio para que no recalculen todos en el mismo frame.
-        nextRepathTime = Time.time + UnityEngine.Random.value * repathInterval;
-        nextStuckCheckTime = Time.time + stuckCheckInterval;
+        nextRepathTime = Time.time + UnityEngine.Random.value * repathSeconds;
+        nextStuckCheckTime = Time.time + stuckCheckSeconds;
     }
 
     private void OnEnable()
@@ -202,7 +227,7 @@ public class EnemyMovement : MonoBehaviour, IMovementModifiable
         agent.SetDestination(hit.position);
 
         lastRequestedTarget = target;
-        nextRepathTime = Time.time + repathInterval * UnityEngine.Random.Range(0.8f, 1.2f);
+        nextRepathTime = Time.time + repathSeconds * UnityEngine.Random.Range(0.8f, 1.2f);
         hasTarget = true;
         return true;
     }
@@ -270,7 +295,7 @@ public class EnemyMovement : MonoBehaviour, IMovementModifiable
 
         // Guardamos el destino real: así un MoveTo posterior al jugador no se lo salta por "no haberse movido".
         lastRequestedTarget = shifted;
-        nextRepathTime = Time.time + repathInterval * UnityEngine.Random.Range(0.8f, 1.2f);
+        nextRepathTime = Time.time + repathSeconds * UnityEngine.Random.Range(0.8f, 1.2f);
         hasTarget = true;
         return true;
     }
@@ -410,7 +435,8 @@ public class EnemyMovement : MonoBehaviour, IMovementModifiable
     private void CheckStuck()
     {
         if (Time.time < nextStuckCheckTime) return;
-        nextStuckCheckTime = Time.time + stuckCheckInterval;
+        nextStuckCheckTime = Time.time + stuckCheckSeconds;
+        isStuck = false;
 
         bool shouldBeMoving =
             hasTarget &&
@@ -424,10 +450,36 @@ public class EnemyMovement : MonoBehaviour, IMovementModifiable
 
             if (moved < stuckMinProgress)
             {
+                isStuck = true;
                 MoveTo(lastRequestedTarget, force: true);
             }
         }
 
         lastStuckCheckPosition = transform.position;
     }
+
+#if UNITY_EDITOR
+    private void OnDrawGizmos()
+    {
+        if (!showDebug || !Application.isPlaying || agent == null) return;
+
+        string slow = slowMultiplier < 1f ? $" · charco ×{slowMultiplier:0.0#}" : "";
+        UnityEditor.Handles.Label(transform.position + Vector3.up * 2f,
+            $"velocidad {agent.velocity.magnitude:0.0} / {agent.speed:0.0} m/s{slow}");
+
+        if (agent.hasPath)
+        {
+            Vector3[] corners = agent.path.corners; // solo en el editor: aquí no importa crear el array
+            Gizmos.color = Color.cyan;
+            for (int i = 0; i < corners.Length - 1; i++)
+                Gizmos.DrawLine(corners[i], corners[i + 1]);
+        }
+
+        if (isStuck)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireSphere(transform.position + Vector3.up * 2.6f, 0.25f);
+        }
+    }
+#endif
 }

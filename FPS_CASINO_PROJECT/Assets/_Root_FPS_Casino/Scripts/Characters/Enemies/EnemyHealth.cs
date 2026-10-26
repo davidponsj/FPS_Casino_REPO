@@ -10,6 +10,10 @@ public class EnemyHealth : MonoBehaviour, IDamageable
     /// <summary>Se lanza una sola vez, justo antes de destruir el enemigo (el RoundManager cuenta las bajas con esto).</summary>
     public event Action<EnemyHealth> OnDied;
 
+    [Header("Depuración")]
+    [Tooltip("Muestra la vida sobre el enemigo en la vista Scene (y en Game con el botón Gizmos activado).")]
+    [SerializeField] private bool showDebug;
+
     public bool IsDead { get; private set; }
 
     public void TakeDamage(float amount)
@@ -21,4 +25,12 @@ public class EnemyHealth : MonoBehaviour, IDamageable
         OnDied?.Invoke(this);
         Destroy(gameObject);
     }
+
+#if UNITY_EDITOR
+    private void OnDrawGizmos()
+    {
+        if (!showDebug) return;
+        UnityEditor.Handles.Label(transform.position + Vector3.up * 1.6f, IsDead ? "Vida · muerto" : "Vida · muere al primer impacto");
+    }
+#endif
 }

@@ -326,6 +326,12 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
     - Borrado sin uso: `Agent`, `BaseSpeed`, `SpeedMultiplier`, `CurrentSpeed`, `HasReachedDestination` y el evento `Stuck` (el repath al atascarse se queda).
     - **Falta probar en Unity (Pausa 2):** un enemigo en el charco va más lento y recupera su velocidad al salir.
 - **T8.3 Inspector y depuración de EnemyAI, EnemyMovement y EnemyHealth** (S).
+  - **Hecho (2026-10-26).**
+    - **Renombres** (con `FormerlySerializedAs`; sin overrides en escenas; el override `baseSpeed` de PF_EnemyHunter no se toca):
+      - EnemyAI: `reevaluateInterval` → `reevaluateSeconds`, `stateMinDuration` → `stateMinSeconds`.
+      - EnemyMovement: `repathInterval` → `repathSeconds`, `stuckCheckInterval` → `stuckCheckSeconds`.
+    - Tooltips con unidad y ejemplo y `[Min]` en todos los campos.
+    - Depuración: EnemyAI (estado · segundos · metros al jugador + línea amarilla al destino; antes la etiqueta salía siempre en Play), EnemyMovement (velocidad real/máx., "charco ×0,5", ruta en cian, esfera roja si se atasca), EnemyHealth ("muere al primer impacto").
 - **T8.4 Inspector y depuración de RoundManager, HordeAttackSlots y HordeCollision; comentarios de StateMachine** (M).
 - **Checkpoint 8:** V + 3 rondas en SCN_Mallorca y SCN_Gameplay + commit "Junta EnemyBase y HunterAI en EnemyAI".
 

@@ -30,45 +30,65 @@ public class EnemyAI : MonoBehaviour
     [SerializeField] private Renderer bodyRenderer;
 
     [Header("Persecución (carriles: de frente, pero lado a lado)")]
-    [Tooltip("Separación máxima de un zombi respecto a la ruta central (m). El frente de la horda mide el doble. 0 = fila india.")]
+    [Tooltip("Metros que se separa como mucho un zombi de la ruta central. El frente de la horda mide el doble. 0 = fila india, 1.5 = horda ancha.")]
+    [Min(0f)]
     [SerializeField] private float laneWidth = 1.5f;
-    [Tooltip("Cuántos metros por delante, siguiendo la ruta, apunta cada zombi. Alto = trayectorias más rectas y suaves; bajo = pegadas a la ruta en las esquinas.")]
+    [Tooltip("Metros por delante, siguiendo la ruta, a los que apunta cada zombi. Alto = trayectorias más rectas y suaves; bajo = pegadas a la ruta en las esquinas. 4 = equilibrado.")]
+    [Min(0.5f)]
     [SerializeField] private float laneLookahead = 4f;
-    [Tooltip("A partir de esta distancia al jugador cada zombi va por su carril completo.")]
+    [Tooltip("Metros al jugador a partir de los que cada zombi va por su carril completo. 9 = la horda se abre lejos.")]
+    [Min(0f)]
     [SerializeField] private float laneFullDistance = 9f;
-    [Tooltip("Por debajo de esta distancia los carriles se cierran y van directos al jugador.")]
+    [Tooltip("Metros al jugador por debajo de los que los carriles se cierran y van directos a él. Menor que Lane Full Distance. 5 = convergen cerca.")]
+    [Min(0f)]
     [SerializeField] private float laneZeroDistance = 5f;
-    [Tooltip("Oscilación suave dentro del carril (m). 0 = trayectoria limpia.")]
+    [Tooltip("Metros de oscilación suave dentro del carril. 0 = trayectoria limpia, 0.4 = se nota sin ser nervioso.")]
+    [Min(0f)]
     [SerializeField] private float wobbleAmplitude = 0.4f;
-    [Tooltip("Velocidad de esa oscilación. Bajo = curvas largas, alto = zigzag nervioso.")]
+    [Tooltip("Velocidad de esa oscilación. Bajo = curvas largas, alto = zigzag nervioso. 0.25 = curvas largas.")]
+    [Min(0f)]
     [SerializeField] private float wobbleFrequency = 0.25f;
 
     [Header("Melee")]
-    [Tooltip("A esta distancia del jugador intenta pegarse (pide ficha de ataque).")]
+    [Tooltip("Metros al jugador a los que intenta pegarse (pide ficha de ataque). 1.6 = casi tocándole.")]
+    [Min(0f)]
     [SerializeField] private float engageRange = 1.6f;
-    [Tooltip("Distancia a la que se queda pegado. No bajar de la distancia de contacto del HordeCollision (~1.1 con radios 0.5).")]
+    [Tooltip("Metros a los que se queda pegado. No bajar de la distancia de contacto del HordeCollision (~1.1 con radios 0.5).")]
+    [Min(0f)]
     [SerializeField] private float meleeDistance = 1.15f;
-    [Tooltip("Si el jugador se aleja más que esto, suelta la ficha y vuelve a aproximarse. Mayor que Engage Range.")]
+    [Tooltip("Metros: si el jugador se aleja más que esto, suelta la ficha y vuelve a aproximarse. Mayor que Engage Range. 2.6 = aguanta un paso atrás.")]
+    [Min(0f)]
     [SerializeField] private float engageExitRange = 2.6f;
 
     [Header("Aproximación")]
-    [Tooltip("Se para cuando está tan cerca del jugador como su puesto (+ este margen). Así nunca retrocede.")]
+    [Tooltip("Metros de margen: se para cuando está tan cerca del jugador como su puesto (+ este margen). Así nunca retrocede.")]
+    [Min(0f)]
     [SerializeField] private float holdTolerance = 0.2f;
-    [Tooltip("Histéresis: vuelve a moverse si se queda más lejos que su puesto + este margen.")]
+    [Tooltip("Metros de histéresis: vuelve a moverse si se queda más lejos que su puesto + este margen. Mayor que Hold Tolerance.")]
+    [Min(0f)]
     [SerializeField] private float resumeTolerance = 0.6f;
-    [Tooltip("Cada cuánto mira si hay un puesto claramente mejor (calcula rutas, no conviene hacerlo cada frame).")]
-    [SerializeField] private float reevaluateInterval = 0.5f;
+    [Tooltip("Segundos entre comprobaciones de si hay un puesto claramente mejor (calcula rutas, no conviene hacerlo cada frame). 0.5 = reacciona rápido sin gastar.")]
+    [FormerlySerializedAs("reevaluateInterval")]
+    [Min(0.05f)]
+    [SerializeField] private float reevaluateSeconds = 0.5f;
 
     [Header("Estados")]
-    [Tooltip("Tiempo mínimo en un estado antes de cambiar. Evita oscilaciones.")]
-    [SerializeField] private float stateMinDuration = 0.3f;
-    [Tooltip("Distancia de parada si el jugador no tiene HordeAttackSlots (persigue directo).")]
+    [Tooltip("Segundos mínimos en un estado antes de cambiar. Evita que tiemble entre dos estados. 0.3 = no se nota.")]
+    [FormerlySerializedAs("stateMinDuration")]
+    [Min(0f)]
+    [SerializeField] private float stateMinSeconds = 0.3f;
+    [Tooltip("Metros de parada si el jugador no tiene HordeAttackSlots (persigue directo).")]
+    [Min(0f)]
     [SerializeField] private float fallbackStoppingDistance = 1.5f;
 
     [Header("Feedback visual")]
     [Tooltip("Color del cuerpo mientras está pegado al jugador.")]
     [FormerlySerializedAs("inPositionColor")]
     [SerializeField] private Color engagedColor = new Color(1f, 0.55f, 0f);
+
+    [Header("Depuración")]
+    [Tooltip("Muestra sobre la cabeza el estado, los segundos en él y la distancia al jugador, y una línea hasta su destino, en la vista Scene (y en Game con el botón Gizmos activado).")]
+    [SerializeField] private bool showDebug;
 
     private StateMachine<EnemyAI> machine;
     private HordeAttackSlots slots;
@@ -274,7 +294,7 @@ public class EnemyAI : MonoBehaviour
     {
         public ChaseState(EnemyAI owner) : base(owner) { }
 
-        public override float MinDuration => owner.stateMinDuration;
+        public override float MinDuration => owner.stateMinSeconds;
 
         public override void Enter()
         {
@@ -312,12 +332,12 @@ public class EnemyAI : MonoBehaviour
 
         public ApproachState(EnemyAI owner) : base(owner) { }
 
-        public override float MinDuration => owner.stateMinDuration;
+        public override float MinDuration => owner.stateMinSeconds;
 
         public override void Enter()
         {
             holding = false;
-            nextReevaluateTime = Time.time + Random.Range(0.2f, owner.reevaluateInterval);
+            nextReevaluateTime = Time.time + Random.Range(0.2f, owner.reevaluateSeconds);
 
             // Ruta nueva hacia el puesto ya: no arrastramos la anterior, que podría ser parcial.
             if (owner.slots != null && owner.slots.TryGetSlotPosition(owner, out Vector3 slotPosition))
@@ -345,7 +365,7 @@ public class EnemyAI : MonoBehaviour
 
             if (Time.time >= nextReevaluateTime)
             {
-                nextReevaluateTime = Time.time + owner.reevaluateInterval;
+                nextReevaluateTime = Time.time + owner.reevaluateSeconds;
                 slots.Reevaluate(owner);
             }
 
@@ -392,7 +412,7 @@ public class EnemyAI : MonoBehaviour
 
         public EngageState(EnemyAI owner) : base(owner) { }
 
-        public override float MinDuration => owner.stateMinDuration;
+        public override float MinDuration => owner.stateMinSeconds;
 
         public override void Enter()
         {
@@ -457,7 +477,7 @@ public class EnemyAI : MonoBehaviour
 
         public QueueState(EnemyAI owner) : base(owner) { }
 
-        public override float MinDuration => owner.stateMinDuration;
+        public override float MinDuration => owner.stateMinSeconds;
 
         public override void Enter()
         {
@@ -506,12 +526,19 @@ public class EnemyAI : MonoBehaviour
     }
 
 #if UNITY_EDITOR
-    // Muestra el nombre del estado sobre la cabeza del enemigo.
-    // En la vista Game hay que activar el botón "Gizmos" para verlo.
     private void OnDrawGizmos()
     {
-        if (!Application.isPlaying) return;
-        UnityEditor.Handles.Label(transform.position + Vector3.up * 2.4f, CurrentStateName);
+        if (!showDebug || !Application.isPlaying || machine == null) return;
+
+        string distance = Target != null ? $"{DistanceToTarget:0.0} m del jugador" : "sin jugador";
+        UnityEditor.Handles.Label(transform.position + Vector3.up * 2.4f,
+            $"{CurrentStateName} · {machine.TimeInState:0.0} s · {distance}");
+
+        if (Movement != null && Movement.HasDestination)
+        {
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawLine(transform.position, Movement.Destination);
+        }
     }
 #endif
 }
