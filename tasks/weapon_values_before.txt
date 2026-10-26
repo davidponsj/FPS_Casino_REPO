@@ -1,0 +1,109 @@
+=== PistolWeapon en Prefabs/Characters/Weapons/Guns/PF_Lanzacartas.prefab
+  muzzlePoint: {fileID: 7574772618449810502}
+  playerCamera: {fileID: 0}
+  playerController: {fileID: 0}
+  magazineSize: 12
+  startingReserveAmmo: 60
+  reloadTime: 1.4
+  fireRate: 4
+  range: 100
+  damage: 25
+  minSpreadDegrees: 0
+  maxSpreadDegrees: 5
+  spreadOpenSpeed: 20
+  spreadCloseSpeed: 8
+  movementSpreadDegrees: 2.5
+  speedSpreadDeadzone: 1
+  speedForMaxSpread: 8.5
+  airborneSpreadDegrees: 3
+  spreadPerShot: 0.8
+  consecutiveShotGrowth: 0
+  burstResetTime: 0.3
+  maxRecoilSpread: 2.5
+  recoilRecoveryDelay: 0.15
+  spreadRecoveryRate: 4
+  tracerPrefab: {fileID: 5790334795169254462, guid: 015f20b1025ad2c4ca5be44db1bf0c1f, type: 3}
+  impactEffectPrefab: {fileID: 2428568060046511189, guid: 841ca0c473a3c29468556f504ec4017a, type: 3}
+  muzzleFlash: {fileID: 417487925937656649}
+=== SniperWeapon en Prefabs/Characters/Test/Sniper.prefab
+  muzzlePoint: {fileID: 6263255407616040861}
+  playerCamera: {fileID: 0}
+  playerController: {fileID: 0}
+  magazineSize: 1
+  startingReserveAmmo: 15
+  reloadTime: 2
+  fireRate: 0.8
+  range: 300
+  damage: 100
+  minSpreadDegrees: 1
+  maxSpreadDegrees: 12
+  spreadOpenSpeed: 20
+  spreadCloseSpeed: 5
+  movementSpreadDegrees: 7
+  speedSpreadDeadzone: 0.5
+  speedForMaxSpread: 8.5
+  airborneSpreadDegrees: 10
+  spreadPerShot: 4
+  consecutiveShotGrowth: 0
+  burstResetTime: 0.3
+  maxRecoilSpread: 4
+  recoilRecoveryDelay: 0.3
+  spreadRecoveryRate: 4
+  tracerPrefab: {fileID: 5790334795169254462, guid: 015f20b1025ad2c4ca5be44db1bf0c1f, type: 3}
+  impactEffectPrefab: {fileID: 2428568060046511189, guid: 841ca0c473a3c29468556f504ec4017a, type: 3}
+  muzzleFlash: {fileID: 0}
+=== ShotgunWeapon en Prefabs/Characters/Test/Shotgun.prefab
+  muzzlePoint: {fileID: 1730196856095016877}
+  playerCamera: {fileID: 0}
+  playerController: {fileID: 0}
+  magazineSize: 6
+  startingReserveAmmo: 24
+  reloadTime: 2.2
+  fireRate: 1.2
+  range: 35
+  damage: 12
+  minSpreadDegrees: 4
+  maxSpreadDegrees: 9
+  spreadOpenSpeed: 20
+  spreadCloseSpeed: 8
+  movementSpreadDegrees: 2
+  speedSpreadDeadzone: 1
+  speedForMaxSpread: 8.5
+  airborneSpreadDegrees: 2.5
+  spreadPerShot: 1.5
+  consecutiveShotGrowth: 0
+  burstResetTime: 0.3
+  maxRecoilSpread: 2
+  recoilRecoveryDelay: 0.2
+  spreadRecoveryRate: 3
+  tracerPrefab: {fileID: 5790334795169254462, guid: 015f20b1025ad2c4ca5be44db1bf0c1f, type: 3}
+  impactEffectPrefab: {fileID: 2428568060046511189, guid: 841ca0c473a3c29468556f504ec4017a, type: 3}
+  muzzleFlash: {fileID: 0}
+  pelletCount: 6
+=== TommyGunWeapon en Prefabs/Characters/Test/TommyGun.prefab
+  muzzlePoint: {fileID: 3579509126914064898}
+  playerCamera: {fileID: 0}
+  playerController: {fileID: 0}
+  magazineSize: 50
+  startingReserveAmmo: 150
+  reloadTime: 2
+  fireRate: 14
+  range: 100
+  damage: 25
+  minSpreadDegrees: 0
+  maxSpreadDegrees: 6
+  spreadOpenSpeed: 20
+  spreadCloseSpeed: 8
+  movementSpreadDegrees: 3
+  speedSpreadDeadzone: 1
+  speedForMaxSpread: 8.5
+  airborneSpreadDegrees: 3.5
+  spreadPerShot: 0.25
+  consecutiveShotGrowth: 0.15
+  burstResetTime: 0.3
+  maxRecoilSpread: 3.5
+  recoilRecoveryDelay: 0.12
+  spreadRecoveryRate: 5
+  tracerPrefab: {fileID: 5790334795169254462, guid: 015f20b1025ad2c4ca5be44db1bf0c1f, type: 3}
+  impactEffectPrefab: {fileID: 2428568060046511189, guid: 841ca0c473a3c29468556f504ec4017a, type: 3}
+  muzzleFlash: {fileID: 7457536297745565823}

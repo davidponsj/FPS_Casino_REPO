@@ -7,12 +7,18 @@ using UnityEngine;
 /// </summary>
 public class PointsHUD : MonoBehaviour
 {
+    [Header("Referencias")]
+    [Tooltip("Puntos del jugador que se muestran.")]
     [SerializeField] private PlayerPoints playerPoints;
+    [Tooltip("Texto con los puntos que puedes gastar.")]
     [SerializeField] private TMP_Text currentPointsText;
+    [Tooltip("Texto con el total ganado en la partida (para el ranking). Opcional.")]
     [SerializeField] private TMP_Text totalPointsText;
 
     [Header("Formato")]
+    [Tooltip("Texto delante de los puntos actuales. Vacío = solo el número.")]
     [SerializeField] private string currentPrefix = "";
+    [Tooltip("Texto delante del total. \"Total: \" = \"Total: 1500\".")]
     [SerializeField] private string totalPrefix = "Total: ";
 
     private void OnEnable()
