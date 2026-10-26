@@ -9,7 +9,7 @@ using UnityEngine.Serialization;
 /// <summary>
 /// Pantalla del cajero del menú principal. Al encenderse (TurnOn) aparece con un fundido y muestra
 /// páginas de opciones de texto: la del ratón encima se agranda y lleva una flecha (MenuArrow), y al
-/// hacer clic se lanza su evento onSelect (p. ej. QuitGameTarget.Quit o ShowPage para otra página).
+/// hacer clic se lanza su evento onSelect (p. ej. ShowPage para otra página o ReturnToStart para salir del zoom).
 /// </summary>
 public class ATMScreen : MonoBehaviour
 {

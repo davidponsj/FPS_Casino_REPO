@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Opción "Salir" del menú: se conecta a su evento onSelect en ATMScreen.
+/// Objeto "Salir" del menú: va en un objeto 3D con HoverOutline, y MenuHoverManager llama a Quit al hacer clic.
 /// En una build cierra el juego; en el editor para el Play Mode (Application.Quit no hace nada ahí).
 /// </summary>
 public class QuitGameTarget : MonoBehaviour

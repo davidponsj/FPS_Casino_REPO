@@ -351,6 +351,8 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
   - Hecho cuando: "Salir" para el Play Mode en el editor y cierra el juego en una build.
   - **Hecho (2026-10-26).** QuitGameTarget: `Application.Quit()` en la build y `EditorApplication.isPlaying = false` en el editor; fuera el `Debug.Log`. Renombres (con `FormerlySerializedAs`; valores guardados directamente en SCN_MainMenu, no como overrides): ATMScreen `fadeDuration` → `fadeSeconds`, MenuCameraMover `moveDuration` → `moveSeconds`. Tooltips, `[Min]` y `<summary>` en los tres; fuera el `Debug.Log` de cada opción del cajero.
 - **T9.4 Menú, parte 2** (S): MenuHoverManager, HoverOutline y CameraFocusTarget.
+  - **Hecho (2026-10-26).** `<summary>`, tooltips y `[Min]` en MenuHoverManager, HoverOutline y CameraFocusTarget. Sin renombres.
+    - Corregidos los `<summary>` de T9.3: "Salir" es un objeto 3D en el que se hace clic (MenuHoverManager → QuitGameTarget.Quit), no una opción del cajero.
 - **Checkpoint 9:** V + recorrido completo del menú + commit.
 
 ### 10. docs (depende de: todo)

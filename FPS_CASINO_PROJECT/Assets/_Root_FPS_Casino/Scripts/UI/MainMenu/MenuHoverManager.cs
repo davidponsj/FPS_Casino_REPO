@@ -2,12 +2,23 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+/// <summary>
+/// Ratón del menú principal: resalta el objeto 3D que tiene debajo (HoverOutline) y muestra su texto.
+/// Al hacer clic: si tiene CameraFocusTarget, la cámara se acerca a él; si tiene QuitGameTarget, sale del juego.
+/// Con la cámara acercada, Escape la devuelve a su sitio.
+/// </summary>
 public class MenuHoverManager : MonoBehaviour
 {
+    [Tooltip("Cámara del menú. Vacío = Camera.main.")]
     [SerializeField] private Camera menuCamera;
+    [Tooltip("Mueve la cámara al hacer clic. Vacío = el de este mismo objeto.")]
     [SerializeField] private MenuCameraMover cameraMover;
+    [Tooltip("Texto donde sale el nombre del objeto que tiene el ratón encima. Opcional.")]
     [SerializeField] private TMP_Text labelText;
+    [Tooltip("Metros máximos del rayo del ratón. 5000 = cualquier cosa que se vea.")]
+    [Min(0f)]
     [SerializeField] private float maxDistance = 5000f;
+    [Tooltip("Capas en las que se pueden resaltar objetos.")]
     [SerializeField] private LayerMask hoverMask = ~0;
 
     private HoverOutline current;
