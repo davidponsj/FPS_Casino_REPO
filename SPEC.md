@@ -253,17 +253,17 @@ En cada bloque `code-*`, todos los scripts del bloque reciben además su depurac
 Se trabaja en este orden, con un commit por bloque. El plan detallado (tareas de ≤5 archivos) va en `tasks/plan.md` y `tasks/todo.md` cuando apruebes esta spec.
 
 ## Criterios de éxito
-- [ ] Unity compila con **0 errores y 0 warnings nuevos**; el script de referencias sale **vacío** (ningún "Missing Script" ni referencia perdida).
-- [ ] Tests EditMode en verde.
-- [ ] La checklist manual pasa entera en `SCN_Gameplay`, `SCN_Mallorca` y `SCN_MainMenu`, y se juega igual que antes (más los arreglos B1 y B5).
-- [ ] Ninguna carpeta borrada; las escenas de los compañeros, sin cambios en git.
-- [ ] Nombres de archivos y assets en inglés (salvo Lanzacartas) y con su prefijo. No quedan `V2_` ni nombres en español fuera de lo de test. Lo de test, sin cambios.
-- [ ] Cada script en la carpeta de su sistema según la estructura objetivo.
-- [ ] Todos los campos del Inspector con nombre claro, `[Tooltip]` y `[Header]`; ningún valor ajustado se ha perdido (prefabs y escenas muestran los mismos números).
-- [ ] Los scripts de la tabla de la decisión 10 tienen su casilla "Mostrar depuración" y se entiende lo que dibujan sin abrir el código. La consola está limpia al jugar (solo avisos de referencias que falten).
-- [ ] Todas las clases con su `<summary>`; los comentarios coinciden con el código; ningún `.cs` con tildes rotas.
-- [ ] Menos scripts que ahora (64 → 57: se borran 8 y se añade `WeightedRandom`, sin contar los tests) y ningún miembro público sin uso.
-- [ ] CLAUDE.local.md describe la estructura nueva.
+- [x] Unity compila con **0 errores y 0 warnings nuevos**; el script de referencias sale **vacío** (ningún "Missing Script" ni referencia perdida). *(2026-10-26: 0 errores, 0 warnings; check_refs igual que la línea base, cuyas entradas son de ExternalPacks y Settings y ya estaban antes.)*
+- [x] Tests EditMode en verde. *(32/32.)*
+- [ ] La checklist manual pasa entera en `SCN_Gameplay`, `SCN_Mallorca` y `SCN_MainMenu`, y se juega igual que antes (más los arreglos B1 y B5). *(Pendiente: Pausa 3, la hace David en Unity.)*
+- [x] Ninguna carpeta borrada; las escenas de los compañeros, sin cambios en git. *(Comparado con 00d2041: solo los renombres de T1.1/T3; las 5 escenas de compañeros, sin cambios.)*
+- [x] Nombres de archivos y assets en inglés (salvo Lanzacartas) y con su prefijo. No quedan `V2_` ni nombres en español fuera de lo de test. Lo de test, sin cambios.
+- [x] Cada script en la carpeta de su sistema según la estructura objetivo.
+- [ ] Todos los campos del Inspector con nombre claro, `[Tooltip]` y `[Header]`; ningún valor ajustado se ha perdido (prefabs y escenas muestran los mismos números). *(Tooltips: todos salvo TestPointsWallet, que es de test (decisión 6). Valores: armas y enemigos comparados en YAML; falta mirar 2-3 en Unity en la Pausa 3.)*
+- [ ] Los scripts de la tabla de la decisión 10 tienen su casilla "Mostrar depuración" y se entiende lo que dibujan sin abrir el código. La consola está limpia al jugar (solo avisos de referencias que falten). *(Casilla: todos (HitscanWeapon la hereda de WeaponBase). Queda un Debug.Log, en TestPointsWallet (test). Consola limpia al jugar: falta comprobarlo en la Pausa 3.)*
+- [x] Todas las clases con su `<summary>`; los comentarios coinciden con el código; ningún `.cs` con tildes rotas. *(Sin tildes rotas en ningún .cs.)*
+- [x] Menos scripts que ahora (64 → 57: se borran 8 y se añade `WeightedRandom`, sin contar los tests) y ningún miembro público sin uso. *(64 → 57. Borrados también 5 miembros públicos sin uso: PlayerController.IsSliding/IsSprinting/IsWallRunning, PlayerHealth.Health01, WeaponBase.MagazineSize.)*
+- [x] CLAUDE.local.md describe la estructura nueva.
 
 ## Preguntas abiertas
 Ninguna por ahora.

@@ -133,7 +133,6 @@ public abstract class WeaponBase : MonoBehaviour
 
     public int CurrentAmmo => currentAmmo;
     public int ReserveAmmo => reserveAmmo;
-    public int MagazineSize => magazineSize;
     public bool IsReloading => isReloading;
     public float ReloadProgress01 => isReloading
         ? Mathf.Clamp01((Time.time - reloadStartTime) / Mathf.Max(currentReloadDuration, 0.0001f))

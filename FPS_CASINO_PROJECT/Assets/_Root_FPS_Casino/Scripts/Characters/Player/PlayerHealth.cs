@@ -32,7 +32,6 @@ public class PlayerHealth : MonoBehaviour, IDamageable
 
     public float CurrentHealth => currentHealth;
     public float MaxHealth => maxHealth;
-    public float Health01 => maxHealth > 0f ? currentHealth / maxHealth : 0f;
     public bool IsDead { get; private set; }
 
     private void Awake()

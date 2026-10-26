@@ -70,9 +70,9 @@ Detalle de cada tarea (qué, criterios "Hecho cuando", dependencias) en `tasks/p
 - [ ] **Checkpoint 9:** V + menú completo + commit
 
 ## 10. docs
-- [ ] T10.1 CLAUDE.local.md
+- [x] T10.1 CLAUDE.local.md
 - [ ] T10.2 /graphify Assets (David)
-- [ ] T10.3 Criterios de éxito
+- [x] T10.3 Criterios de éxito
 - [ ] **Checkpoint final:** revisión con David antes del push/PR
 
 ## Checklist manual (tras cada bloque, en SCN_Gameplay / SCN_Mallorca / SCN_MainMenu)

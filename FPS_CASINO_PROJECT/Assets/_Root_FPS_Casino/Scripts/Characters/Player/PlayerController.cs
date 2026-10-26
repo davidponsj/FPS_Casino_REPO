@@ -284,10 +284,7 @@ public class PlayerController : MonoBehaviour
     // Mejoras temporales (botellas): de aquí sale el multiplicador de velocidad.
     private PlayerBuffs buffs;
 
-    public bool IsSliding => isSliding;
     public bool IsGrounded => isGrounded;
-    public bool IsSprinting => isSprinting;
-    public bool IsWallRunning => isWallRunning;
     /// <summary>Velocidad actual completa (m/s).</summary>
     public Vector3 Velocity => velocity;
     /// <summary>Magnitud de la velocidad horizontal actual, usada por las armas para calcular la dispersión de disparo.</summary>

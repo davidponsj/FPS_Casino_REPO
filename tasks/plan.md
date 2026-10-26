@@ -357,8 +357,10 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
 
 ### 10. docs (depende de: todo)
 - **T10.1** Actualizar `FPS_CASINO_PROJECT/CLAUDE.local.md`: rutas, nombres nuevos, codificación y depuración visual.
+  - **Hecho (2026-10-26).** Carpetas y scripts nuevos (EnemyAI, HitscanWeapon, Horde*, HUDs), botellas por Player Input, charcos, convenciones de Inspector y depuración, codificaciones reales y comandos de comprobación. Archivo personal (en `.git/info/exclude`): no va en el commit.
 - **T10.2** Pedir a David que ejecute `/graphify Assets`.
 - **T10.3** Pasada por los criterios de éxito de la spec, marcándolos uno a uno.
+  - **Hecho (2026-10-26).** Marcados en `SPEC.md`. Comprobado sin Unity: compilación, tests, check_refs, carpetas, escenas de compañeros, nombres, tooltips, casillas de depuración, `<summary>`, tildes y número de scripts (64 → 57). Quitados 5 miembros públicos sin uso. **Quedan para la Pausa 3 (David, en Unity):** la checklist manual, la consola limpia al jugar y mirar 2-3 valores del Inspector.
 - **Checkpoint final:** todos los criterios en verde y revisión con David antes del push o del PR.
 
 ## Preguntas abiertas
