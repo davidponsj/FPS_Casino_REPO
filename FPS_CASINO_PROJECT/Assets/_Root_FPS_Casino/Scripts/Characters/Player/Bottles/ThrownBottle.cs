@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// Botella lanzada. Vuela con física (Rigidbody), con el líquido moviéndose dentro gracias a
@@ -15,18 +16,25 @@ public class ThrownBottle : MonoBehaviour
     private const float KillDamage = 999999f;
 
     [Header("Rotura")]
-    [Tooltip("Velocidad mínima del choque para romperse. 0 = se rompe con cualquier contacto.")]
+    [Tooltip("Velocidad mínima del choque para romperse, en m/s. 0 = se rompe con cualquier contacto.")]
+    [Min(0f)]
     [SerializeField] private float minBreakSpeed = 0f;
-    [Tooltip("Si no choca con nada en este tiempo (se cae del mapa), se destruye.")]
-    [SerializeField] private float maxLifetime = 10f;
+    [Tooltip("Segundos de vida si no choca con nada (se cae del mapa); luego se destruye. 10 = de sobra.")]
+    [FormerlySerializedAs("maxLifetime")]
+    [Min(0.1f)]
+    [SerializeField] private float maxLifetimeSeconds = 10f;
 
     [Header("Efectos")]
+    [Tooltip("Partículas de cristal y líquido al romperse. Opcional.")]
     [SerializeField] private BottleShatterEffect shatterEffectPrefab;
+    [Tooltip("Charco que deja en el suelo. Opcional.")]
     [SerializeField] private BottlePuddle puddlePrefab;
     [Tooltip("Capas que cuentan como suelo para colocar el charco.")]
     [SerializeField] private LayerMask groundMask = ~0;
-    [Tooltip("Distancia máxima hacia abajo para buscar suelo donde dejar el charco (si rompe contra una pared).")]
-    [SerializeField] private float puddleGroundSearch = 4f;
+    [Tooltip("Metros que baja buscando suelo para el charco (si rompe contra una pared). 4 = vale para paredes altas.")]
+    [FormerlySerializedAs("puddleGroundSearch")]
+    [Min(0f)]
+    [SerializeField] private float puddleGroundSearchMeters = 4f;
     [Tooltip("Capas a las que afecta el impacto (enemigos).")]
     [SerializeField] private LayerMask impactMask = ~0;
 
@@ -72,7 +80,7 @@ public class ThrownBottle : MonoBehaviour
         rb.linearVelocity = velocity;
         rb.angularVelocity = Random.onUnitSphere * spin; // un giro aleatorio queda más natural que siempre el mismo
 
-        Destroy(gameObject, maxLifetime);
+        Destroy(gameObject, maxLifetimeSeconds);
     }
 
     private void OnCollisionEnter(Collision collision)
@@ -132,7 +140,7 @@ public class ThrownBottle : MonoBehaviour
         // El charco siempre va al suelo: si la botella rompe contra una pared, el líquido
         // "cae" y el charco aparece justo debajo del punto de impacto.
         Vector3 origin = point + Vector3.up * 0.2f;
-        if (!Physics.Raycast(origin, Vector3.down, out RaycastHit hit, puddleGroundSearch, groundMask, QueryTriggerInteraction.Ignore))
+        if (!Physics.Raycast(origin, Vector3.down, out RaycastHit hit, puddleGroundSearchMeters, groundMask, QueryTriggerInteraction.Ignore))
             return;
 
         // Solo en superficies más o menos planas (no en una pared vertical).
@@ -143,6 +151,6 @@ public class ThrownBottle : MonoBehaviour
         Quaternion rotation = Quaternion.FromToRotation(Vector3.up, hit.normal) * Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
 
         BottlePuddle puddle = Instantiate(puddlePrefab, position, rotation);
-        puddle.Init(LiquidColor, ticket, effect);
+        puddle.Init(LiquidColor, effect);
     }
 }

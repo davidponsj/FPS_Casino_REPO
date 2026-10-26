@@ -51,7 +51,7 @@ Detalle de cada tarea (qué, criterios "Hecho cuando", dependencias) en `tasks/p
 
 ## 7. code-bottles
 - [ ] T7.1 Input Drink/Throw (+ David conecta los eventos) — parte 1 hecha; falta conectar eventos y quitar respaldo
-- [ ] T7.2 Código muerto + Inspector + depuración
+- [x] T7.2 Código muerto + Inspector + depuración
 - [ ] **Checkpoint 7:** V + las 6 botellas + commit
 
 ## 8. code-enemies (riesgo alto)

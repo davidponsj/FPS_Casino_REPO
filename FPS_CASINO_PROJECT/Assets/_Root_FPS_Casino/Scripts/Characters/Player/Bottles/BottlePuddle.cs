@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// Charco que deja una botella al romperse. Aparece creciendo, dura lo que diga su BottleEffect
@@ -17,13 +18,27 @@ using UnityEngine;
 /// </summary>
 public class BottlePuddle : MonoBehaviour
 {
+    [Header("Aspecto")]
+    [Tooltip("Renderer al que se le pone el color de la botella. Vacío = el primero que encuentre en sus hijos.")]
     [SerializeField] private Renderer puddleRenderer;
-    [Tooltip("Duración si la botella no tiene BottleEffect asignado.")]
-    [SerializeField] private float defaultLifetime = 8f;
-    [Tooltip("Segundos que tarda en extenderse al aparecer.")]
-    [SerializeField] private float growTime = 0.3f;
-    [Tooltip("Segundos que tarda en encogerse al final de su vida.")]
-    [SerializeField] private float shrinkTime = 1f;
+
+    [Header("Duración")]
+    [Tooltip("Segundos que dura si la botella no tiene BottleEffect asignado. 8 = da tiempo a verlo.")]
+    [FormerlySerializedAs("defaultLifetime")]
+    [Min(0.1f)]
+    [SerializeField] private float defaultLifetimeSeconds = 8f;
+    [Tooltip("Segundos que tarda en extenderse al aparecer. 0.3 = casi al instante.")]
+    [FormerlySerializedAs("growTime")]
+    [Min(0f)]
+    [SerializeField] private float growSeconds = 0.3f;
+    [Tooltip("Segundos que tarda en encogerse al final de su vida. 1 = se ve cómo se seca.")]
+    [FormerlySerializedAs("shrinkTime")]
+    [Min(0f)]
+    [SerializeField] private float shrinkSeconds = 1f;
+
+    [Header("Depuración")]
+    [Tooltip("Muestra el radio del charco, los segundos que le quedan y los enemigos dentro en la vista Scene (y en Game con el botón Gizmos activado).")]
+    [SerializeField] private bool showDebug;
 
     // URP/Lit usa "_BaseColor" como color principal.
     private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
@@ -40,9 +55,6 @@ public class BottlePuddle : MonoBehaviour
     private readonly HashSet<IMovementModifiable> slowedEnemies = new HashSet<IMovementModifiable>();
     private readonly List<IDamageable> damageBuffer = new List<IDamageable>();
 
-    /// <summary>Tipo de botella que creó el charco.</summary>
-    public TicketData Ticket { get; private set; }
-
     private void Awake()
     {
         if (puddleRenderer == null)
@@ -55,22 +67,21 @@ public class BottlePuddle : MonoBehaviour
             body.useGravity = false;
         }
 
-        lifetime = defaultLifetime;
+        lifetime = defaultLifetimeSeconds;
         fullScale = transform.localScale;
         transform.localScale = new Vector3(0f, fullScale.y, 0f);
     }
 
-    public void Init(Color color, TicketData ticket, BottleEffect bottleEffect)
+    public void Init(Color color, BottleEffect bottleEffect)
     {
-        Ticket = ticket;
         effect = bottleEffect;
 
         if (effect != null)
         {
             lifetime = effect.puddleLifetime;
             // Un charco muy corto no puede tardar más en encogerse de lo que dura.
-            shrinkTime = Mathf.Min(shrinkTime, lifetime * 0.5f);
-            growTime = Mathf.Min(growTime, lifetime * 0.5f);
+            shrinkSeconds = Mathf.Min(shrinkSeconds, lifetime * 0.5f);
+            growSeconds = Mathf.Min(growSeconds, lifetime * 0.5f);
         }
 
         if (puddleRenderer != null)
@@ -89,8 +100,8 @@ public class BottlePuddle : MonoBehaviour
 
         // Crece al aparecer, se mantiene y se encoge al final. Solo en X/Z: el charco se
         // extiende y se retira por el suelo, su grosor no cambia.
-        float grow = growTime > 0f ? Mathf.Clamp01(age / growTime) : 1f;
-        float shrink = shrinkTime > 0f ? Mathf.Clamp01((lifetime - age) / shrinkTime) : 1f;
+        float grow = growSeconds > 0f ? Mathf.Clamp01(age / growSeconds) : 1f;
+        float shrink = shrinkSeconds > 0f ? Mathf.Clamp01((lifetime - age) / shrinkSeconds) : 1f;
         float size = Mathf.SmoothStep(0f, 1f, Mathf.Min(grow, shrink));
 
         transform.localScale = new Vector3(fullScale.x * size, fullScale.y, fullScale.z * size);
@@ -179,4 +190,18 @@ public class BottlePuddle : MonoBehaviour
         }
         slowedEnemies.Clear();
     }
+
+#if UNITY_EDITOR
+    private void OnDrawGizmos()
+    {
+        if (!showDebug || puddleRenderer == null) return;
+
+        Bounds bounds = puddleRenderer.bounds;
+        float radius = Mathf.Max(bounds.extents.x, bounds.extents.z);
+        UnityEditor.Handles.color = Color.cyan;
+        UnityEditor.Handles.DrawWireDisc(transform.position, transform.up, radius);
+        UnityEditor.Handles.Label(transform.position + Vector3.up * 0.5f,
+            $"Charco · radio {radius:0.0} m · quedan {Mathf.Max(0f, lifetime - age):0.0} s · enemigos dentro {enemiesInside.Count}");
+    }
+#endif
 }

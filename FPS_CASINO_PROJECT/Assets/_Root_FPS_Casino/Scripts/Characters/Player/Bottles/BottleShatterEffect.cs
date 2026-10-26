@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// Efecto de la botella al romperse: cristales que saltan y salpicadura del líquido.
@@ -10,8 +11,10 @@ public class BottleShatterEffect : MonoBehaviour
 {
     [Tooltip("Partículas que toman el color del líquido. Desactiva su Play On Awake: este script las lanza con el color correcto.")]
     [SerializeField] private ParticleSystem[] liquidParticles;
-    [Tooltip("Segundos hasta borrar el efecto (algo más que la vida de las partículas más largas).")]
-    [SerializeField] private float lifetime = 3f;
+    [Tooltip("Segundos hasta borrar el efecto (algo más que la vida de las partículas más largas). 3 = vale para las actuales.")]
+    [FormerlySerializedAs("lifetime")]
+    [Min(0.1f)]
+    [SerializeField] private float lifetimeSeconds = 3f;
 
     public void Play(Color liquidColor)
     {
@@ -29,6 +32,6 @@ public class BottleShatterEffect : MonoBehaviour
             particles.Play();
         }
 
-        Destroy(gameObject, lifetime);
+        Destroy(gameObject, lifetimeSeconds);
     }
 }

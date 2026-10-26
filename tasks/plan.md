@@ -298,6 +298,15 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
 - **T7.2 Código muerto, Inspector y depuración de botellas** (M).
   - Qué: BottleHolder, ThrownBottle, BottlePuddle, BottleShatterEffect y LiquidWobble.
   - Hecho cuando: se ven la botella actual y el radio y los segundos del charco, y `FillAmount` y `Ticket` están borrados tras el grep.
+  - **Hecho (2026-10-26).**
+    - **Renombres** (con `FormerlySerializedAs`; ningún override en escenas ni prefabs):
+      - BottleHolder: `throwForce` → `throwSpeed`, `throwUpAngle` → `throwUpDegrees`, `throwSpin` → `throwSpinRadPerSecond`. `drinkKey`/`throwKey` se dejan tal cual: se borran al cerrar T7.1.
+      - ThrownBottle: `maxLifetime` → `maxLifetimeSeconds`, `puddleGroundSearch` → `puddleGroundSearchMeters`.
+      - BottlePuddle: `defaultLifetime` → `defaultLifetimeSeconds`, `growTime` → `growSeconds`, `shrinkTime` → `shrinkSeconds`.
+      - BottleShatterEffect: `lifetime` → `lifetimeSeconds`. LiquidWobble: ningún renombre (`fillAmount` tiene override en PF_Player).
+    - Borrados `LiquidWobble.FillAmount` y `BottlePuddle.Ticket` (y el parámetro `ticket` de `BottlePuddle.Init`).
+    - Fuera los 3 `Debug.Log` de BottleHolder; aviso si falta `bottleModel`.
+    - Depuración: BottleHolder (botella de la mano y efecto activo con segundos) y BottlePuddle (disco del radio, segundos que quedan, enemigos dentro).
 - **Checkpoint 7:** V + beber y lanzar las 6 botellas + commit.
 
 ### 8. code-enemies (depende de: code-bottles) — riesgo alto

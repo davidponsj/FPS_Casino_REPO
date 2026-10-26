@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// Botella de la mano izquierda. El Bartender llama a Give(ticket) y la botella aparece en la
@@ -15,7 +16,10 @@ using UnityEngine.InputSystem;
 /// </summary>
 public class BottleHolder : MonoBehaviour
 {
+    [Header("Mano")]
+    [Tooltip("Modelo de la botella en la mano. Se enciende al recibir una botella y se apaga al gastarla.")]
     [SerializeField] private GameObject bottleModel;
+    // Se borran al quitar el respaldo de teclado (T7.1).
     [SerializeField] private Key drinkKey = Key.F;
     [SerializeField] private Key throwKey = Key.Q;
 
@@ -24,15 +28,26 @@ public class BottleHolder : MonoBehaviour
     [SerializeField] private ThrownBottle thrownBottlePrefab;
     [Tooltip("Cámara del jugador: la botella sale hacia donde miras. Si lo dejas vacío usa Camera.main.")]
     [SerializeField] private Camera playerCamera;
-    [SerializeField] private float throwForce = 14f;
-    [Tooltip("Grados hacia arriba al lanzar, para que haga parábola.")]
-    [SerializeField] private float throwUpAngle = 10f;
-    [Tooltip("Velocidad de giro de la botella en el aire (rad/s).")]
-    [SerializeField] private float throwSpin = 8f;
+    [Tooltip("Velocidad de salida de la botella en m/s (se le suma la tuya). 14 = lanzamiento medio.")]
+    [FormerlySerializedAs("throwForce")]
+    [Min(0f)]
+    [SerializeField] private float throwSpeed = 14f;
+    [Tooltip("Grados hacia arriba al lanzar, para que haga parábola. 10 = parábola suave.")]
+    [FormerlySerializedAs("throwUpAngle")]
+    [Range(0f, 45f)]
+    [SerializeField] private float throwUpDegrees = 10f;
+    [Tooltip("Velocidad de giro de la botella en el aire, en radianes por segundo. 8 = da vueltas rápido.")]
+    [FormerlySerializedAs("throwSpin")]
+    [Min(0f)]
+    [SerializeField] private float throwSpinRadPerSecond = 8f;
 
     [Header("Pruebas")]
     [Tooltip("Ticket para probar sin pasar por la ruleta ni el barman: en Play, menú ⋮ del componente → TEST: Dar botella, o tecla T.")]
     [SerializeField] private TicketData testTicket;
+
+    [Header("Depuración")]
+    [Tooltip("Muestra la botella de la mano y el efecto activo con sus segundos en la vista Scene (y en Game con el botón Gizmos activado).")]
+    [SerializeField] private bool showDebug;
 
     /// <summary>Al BEBER cualquier botella (lo usa, por ejemplo, la barra de blackout).</summary>
     public event Action<TicketData> OnEffectStarted;
@@ -63,6 +78,8 @@ public class BottleHolder : MonoBehaviour
             bottleLiquid = bottleModel.GetComponentInChildren<LiquidWobble>(true);
             bottleModel.SetActive(false);
         }
+        else
+            Debug.LogWarning("[Botellas] Falta asignar bottleModel: no se podrá coger ninguna botella.", this);
 
         if (playerCamera == null)
             playerCamera = Camera.main;
@@ -82,7 +99,6 @@ public class BottleHolder : MonoBehaviour
             bottleLiquid.SetLiquidColor(ticket.ticketColor);
 
         bottleModel.SetActive(true);
-        Debug.Log($"[Botella] Recibes botella {ticket.displayName}. {drinkKey} para beber, {throwKey} para lanzar.");
     }
 
     [ContextMenu("TEST: Dar botella")]
@@ -132,7 +148,6 @@ public class BottleHolder : MonoBehaviour
     {
         TicketData drunk = ReleaseBottle();
         BottleEffect effect = GetEffect(drunk);
-        Debug.Log($"[Botella] Has bebido botella {drunk.displayName}");
 
         OnEffectStarted?.Invoke(drunk);
 
@@ -161,7 +176,6 @@ public class BottleHolder : MonoBehaviour
 
         TicketData ended = activeEffect;
         activeEffect = null;
-        Debug.Log($"[Botella] Efecto de {ended.displayName} terminado");
         OnEffectEnded?.Invoke(ended);
     }
 
@@ -182,14 +196,14 @@ public class BottleHolder : MonoBehaviour
         if (thrownBottlePrefab == null) return;
 
         Transform aim = playerCamera != null ? playerCamera.transform : transform;
-        Vector3 direction = Quaternion.AngleAxis(-throwUpAngle, aim.right) * aim.forward;
+        Vector3 direction = Quaternion.AngleAxis(-throwUpDegrees, aim.right) * aim.forward;
 
-        Vector3 velocity = direction * throwForce;
+        Vector3 velocity = direction * throwSpeed;
         if (playerController != null)
             velocity += playerController.Velocity; // si lanzas corriendo, la botella lleva tu inercia
 
         ThrownBottle bottle = Instantiate(thrownBottlePrefab, spawnPosition, spawnRotation);
-        bottle.Launch(velocity, throwSpin, thrown, effect, playerCollider);
+        bottle.Launch(velocity, throwSpinRadPerSecond, thrown, effect, playerCollider);
     }
 
     // ---------------- COMÚN ----------------
@@ -202,4 +216,14 @@ public class BottleHolder : MonoBehaviour
         bottleModel.SetActive(false);
         return released;
     }
+
+#if UNITY_EDITOR
+    private void OnDrawGizmos()
+    {
+        if (!showDebug) return;
+        string bottle = HasBottle ? $"botella {current.displayName}" : "sin botella";
+        string active = HasActiveEffect ? $"efecto {activeEffect.displayName} · quedan {EffectTimeRemaining:0.0} s" : "sin efecto";
+        UnityEditor.Handles.Label(transform.position + Vector3.up * 0.3f, $"Mano · {bottle}\n{active}");
+    }
+#endif
 }

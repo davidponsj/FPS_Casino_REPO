@@ -18,6 +18,7 @@ using UnityEngine;
 public class LiquidWobble : MonoBehaviour
 {
     [Header("Líquido")]
+    [Tooltip("Color del líquido. En juego lo cambia la botella con el color de su ticket.")]
     [SerializeField] private Color liquidColor = new Color(0.2f, 0.8f, 0.3f, 1f);
     [Tooltip("Color de la superficie (la 'tapa' del líquido que se ve desde arriba). Normalmente un poco más claro.")]
     [SerializeField] private Color surfaceColor = new Color(0.4f, 1f, 0.5f, 1f);
@@ -26,15 +27,20 @@ public class LiquidWobble : MonoBehaviour
     [SerializeField] private float fillAmount = 0.7f;
 
     [Header("Movimiento")]
-    [Tooltip("Cuánto se inclina la superficie por cada m/s² de aceleración. Más alto = más chapoteo.")]
+    [Tooltip("Cuánto se inclina la superficie por cada m/s² de aceleración. Más alto = más chapoteo. 0.02 = chapoteo suave.")]
+    [Min(0f)]
     [SerializeField] private float inertia = 0.02f;
-    [Tooltip("Cuánto se inclina la superficie al girar la botella (rad/s).")]
+    [Tooltip("Cuánto se inclina la superficie por cada rad/s de giro de la botella. Más alto = chapotea más al mirar alrededor. 0.015 = suave.")]
+    [Min(0f)]
     [SerializeField] private float rotationInfluence = 0.015f;
-    [Tooltip("Rigidez del muelle: más alto = oscila más rápido.")]
+    [Tooltip("Rigidez del muelle: más alto = oscila más rápido. 60 = vaivén rápido.")]
+    [Min(0f)]
     [SerializeField] private float springStiffness = 60f;
-    [Tooltip("Amortiguación: más alto = deja de oscilar antes. Bajo = líquido 'aguado' que se mueve mucho.")]
+    [Tooltip("Amortiguación: más alto = deja de oscilar antes. Bajo = líquido 'aguado' que se mueve mucho. 3 = oscila 2 o 3 veces.")]
+    [Min(0f)]
     [SerializeField] private float springDamping = 3f;
     [Tooltip("Inclinación máxima de la superficie (pendiente). 0.6 ≈ 30 grados.")]
+    [Min(0f)]
     [SerializeField] private float maxWobble = 0.6f;
 
     private static readonly int LiquidColorId = Shader.PropertyToID("_LiquidColor");
@@ -54,13 +60,6 @@ public class LiquidWobble : MonoBehaviour
     // Inclinación de la superficie (x, z) y su velocidad: el estado del muelle.
     private Vector2 wobble;
     private Vector2 wobbleVelocity;
-
-    /// <summary>Nivel de llenado 0-1. Útil para cuando el jugador beba.</summary>
-    public float FillAmount
-    {
-        get => fillAmount;
-        set => fillAmount = Mathf.Clamp01(value);
-    }
 
     /// <summary>
     /// Cambia el color del líquido. La superficie se calcula sola, un poco más clara.
