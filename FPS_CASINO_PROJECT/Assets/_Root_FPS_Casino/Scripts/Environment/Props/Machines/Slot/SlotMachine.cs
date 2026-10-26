@@ -2,21 +2,35 @@ using System;
 using System.Collections;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 
+/// <summary>
+/// Tragaperras. Eliges apuesta con un SlotBetButton y tiras con E: se cobra la apuesta y giran los
+/// cilindros (símbolo de cada uno elegido por pesos con WeightedRandom). Si salen todos iguales,
+/// ganas apuesta × multiplicador del símbolo. La suerte de la botella morada (PlayerBuffs.SlotLuck)
+/// es la probabilidad de premio seguro. SlotLeverAnimator baja la palanca mientras gira.
+/// </summary>
 public class SlotMachine : MonoBehaviour, IInteractable
 {
     [Serializable]
     public class Symbol
     {
+        [Tooltip("Nombre del símbolo (sale en la depuración).")]
         public string symbolName = "Cereza";
-        [Min(0f)] public float weight = 1f;       // probabilidad relativa
-        [Min(0f)] public float multiplier = 5f;   // si salen 3 iguales: apuesta x multiplicador
+        [Tooltip("Probabilidad relativa en cada cilindro. Un símbolo con 4 sale 4 veces más que uno con 1.")]
+        [Min(0f)] public float weight = 1f;
+        [Tooltip("Si salen todos iguales, ganas apuesta × este número. 5 = una apuesta de 10 da 50 puntos.")]
+        [Min(0f)] public float multiplier = 5f;
     }
 
     [Header("Referencias")]
+    [Tooltip("Los cilindros, de izquierda a derecha. El último es el que se para más tarde.")]
     [SerializeField] private Transform[] reels;
+    [Tooltip("Botones de apuesta de esta máquina (se iluminan al elegir uno).")]
     [SerializeField] private SlotBetButton[] betButtons;
+    [Tooltip("Texto donde sale \"Has ganado\" o \"Has perdido\". Opcional.")]
     [SerializeField] private TMP_Text resultText;
+    [Tooltip("Texto con los puntos del jugador en la máquina. Opcional.")]
     [SerializeField] private TMP_Text pointsText;
 
     [Header("Símbolos (el orden es el de los cilindros)")]
@@ -31,15 +45,32 @@ public class SlotMachine : MonoBehaviour, IInteractable
     [Header("Animación")]
     [Tooltip("Eje local del cilindro sobre el que gira. Si gira al revés, pon -1")]
     [SerializeField] private Vector3 reelAxis = Vector3.up;
+    [Tooltip("Vueltas completas mínimas de cada cilindro.")]
+    [Min(0)]
     [SerializeField] private int minSpins = 3;
+    [Tooltip("Vueltas completas máximas. Cada cilindro elige entre el mínimo y este valor.")]
+    [Min(0)]
     [SerializeField] private int maxSpins = 5;
-    [SerializeField] private float baseDuration = 2.5f;
-    [SerializeField] private float extraDurationPerReel = 0.7f;
+    [Tooltip("Segundos que gira el primer cilindro. 2.5 = tirada ágil.")]
+    [FormerlySerializedAs("baseDuration")]
+    [Min(0.1f)]
+    [SerializeField] private float firstReelSeconds = 2.5f;
+    [Tooltip("Segundos de más que gira cada cilindro respecto al anterior, para que se paren de uno en uno. 0.7 = se nota la pausa.")]
+    [FormerlySerializedAs("extraDurationPerReel")]
+    [Min(0f)]
+    [SerializeField] private float extraSecondsPerReel = 0.7f;
 
     [Header("Resultado")]
-    [SerializeField] private float resultDisplayTime = 3f;
+    [Tooltip("Segundos que se ve el texto del resultado. 3 = da tiempo a leerlo.")]
+    [FormerlySerializedAs("resultDisplayTime")]
+    [Min(0f)]
+    [SerializeField] private float resultSeconds = 3f;
     [Tooltip("Si está desmarcado, hay que elegir apuesta de nuevo en cada tirada")]
     [SerializeField] private bool keepBetAfterSpin = false;
+
+    [Header("Depuración")]
+    [Tooltip("Muestra la apuesta elegida, el último resultado y el premio sobre la máquina en la vista Scene (y en Game con el botón Gizmos activado).")]
+    [SerializeField] private bool showDebug;
 
     private PlayerPoints shownPoints;   // los que pinta pointsText
     private SlotBetButton selectedBet;
@@ -47,6 +78,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
     private float[] reelAngles;
     private Quaternion[] reelStartRotations;
     private Coroutine hideRoutine;
+    private string lastResult = "-";
 
     public bool IsSpinning => spinning;
 
@@ -119,11 +151,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
         if (spinning) return;
         if (symbols == null || symbols.Length == 0 || reels == null || reels.Length == 0) return;
 
-        if (selectedBet == null)
-        {
-            Debug.Log("[Tragaperras] Elige una apuesta primero.");
-            return;
-        }
+        if (selectedBet == null) return;   // el prompt ya dice "Elige una apuesta primero"
 
         int bet = selectedBet.BetAmount;
 
@@ -133,7 +161,6 @@ public class SlotMachine : MonoBehaviour, IInteractable
             Debug.LogWarning("[Tragaperras] El jugador no tiene PlayerPoints: la tirada será gratis y sin premio.", this);
         else if (bet > 0 && !points.TrySpend(bet))
         {
-            Debug.Log("[Tragaperras] Puntos insuficientes.");
             ShowResult("Puntos insuficientes");
             return;
         }
@@ -174,7 +201,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
             float target = results[i] * step;
             float delta = Mathf.Repeat(target - start[i], 360f);
             total[i] = delta + 360f * UnityEngine.Random.Range(minSpins, maxSpins + 1);
-            duration[i] = baseDuration + i * extraDurationPerReel;
+            duration[i] = firstReelSeconds + i * extraSecondsPerReel;
         }
 
         float time = 0f;
@@ -223,10 +250,9 @@ public class SlotMachine : MonoBehaviour, IInteractable
             if (results[i] != results[0]) allEqual = false;
         }
 
-        Debug.Log($"[Tragaperras] {names}");
-
         if (!allEqual)
         {
+            lastResult = $"{names} · perdido (apuesta {bet})";
             ShowResult("Has perdido");
             return;
         }
@@ -236,7 +262,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
 
         if (points != null) points.AddPoints(won);
 
-        Debug.Log($"[Tragaperras] ¡Has ganado! x{multiplier} = {won} puntos");
+        lastResult = $"{names} · ganado x{multiplier} = {won} pts";
         ShowResult($"¡Has ganado! x{multiplier}\n{won} puntos");
     }
 
@@ -261,7 +287,17 @@ public class SlotMachine : MonoBehaviour, IInteractable
 
     private IEnumerator HideAfterDelay()
     {
-        yield return new WaitForSeconds(resultDisplayTime);
+        yield return new WaitForSeconds(resultSeconds);
         resultText.gameObject.SetActive(false);
     }
+
+#if UNITY_EDITOR
+    private void OnDrawGizmos()
+    {
+        if (!showDebug) return;
+        string bet = spinning ? "girando" : selectedBet != null ? $"apuesta {selectedBet.BetAmount} pts" : "sin apuesta";
+        UnityEditor.Handles.Label(transform.position + Vector3.up * 2.5f,
+            $"Tragaperras · {bet}\nÚltimo: {lastResult}");
+    }
+#endif
 }

@@ -281,6 +281,12 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
       - Bartender: qué lleva el jugador.
       - TicketInventory: ticket actual o "vacío" (de la misma fila de la decisión 10).
 - **T6.5 Inspector y depuración de la tragaperras** (S): SlotMachine, SlotBetButton y SlotLeverAnimator.
+  - **Hecho (2026-10-26).**
+    - **Renombres** (con `FormerlySerializedAs`; ningún override en escenas ni prefabs):
+      - SlotMachine: `baseDuration` → `firstReelSeconds`, `extraDurationPerReel` → `extraSecondsPerReel`, `resultDisplayTime` → `resultSeconds`.
+      - SlotLeverAnimator: `pullAngle` → `pullDegrees`, `pullTime` → `pullSeconds`, `returnTime` → `returnSeconds`.
+    - Tooltips, `[Min]` y `<summary>` en los tres scripts.
+    - Fuera los `Debug.Log` (el prompt y `resultText` ya lo dicen). Casilla "Depuración" en SlotMachine: apuesta y último resultado sobre la máquina.
 - **Checkpoint 6:** V + ciclo ruleta → ticket → barman → botella → ruleta, tragaperras con y sin puntos + commit.
 
 ### 7. code-bottles (depende de: code-casino)

@@ -1,17 +1,30 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.Serialization;
 
+/// <summary>
+/// Palanca de la tragaperras: va en la palanca y, cuando su SlotMachine empieza a girar, la baja
+/// y la vuelve a subir. Solo es visual.
+/// </summary>
 public class SlotLeverAnimator : MonoBehaviour
 {
+    [Tooltip("Tragaperras que mueve esta palanca.")]
     [SerializeField] private SlotMachine machine;
 
     [Header("Animación")]
     [Tooltip("Eje local sobre el que se inclina la palanca")]
     [SerializeField] private Vector3 pullAxis = Vector3.right;
-    [Tooltip("Si baja hacia el lado contrario, pon el valor en negativo")]
-    [SerializeField] private float pullAngle = 60f;
-    [SerializeField] private float pullTime = 0.25f;
-    [SerializeField] private float returnTime = 0.4f;
+    [Tooltip("Grados que baja la palanca. Si baja hacia el lado contrario, pon el valor en negativo")]
+    [FormerlySerializedAs("pullAngle")]
+    [SerializeField] private float pullDegrees = 60f;
+    [Tooltip("Segundos que tarda en bajar. 0.25 = tirón rápido.")]
+    [FormerlySerializedAs("pullTime")]
+    [Min(0.01f)]
+    [SerializeField] private float pullSeconds = 0.25f;
+    [Tooltip("Segundos que tarda en volver arriba. 0.4 = sube algo más lenta que baja.")]
+    [FormerlySerializedAs("returnTime")]
+    [Min(0.01f)]
+    [SerializeField] private float returnSeconds = 0.4f;
 
     private Quaternion startRotation;
     private bool wasSpinning;
@@ -37,12 +50,12 @@ public class SlotLeverAnimator : MonoBehaviour
 
     private IEnumerator PullRoutine()
     {
-        Quaternion pulled = startRotation * Quaternion.AngleAxis(pullAngle, pullAxis);
+        Quaternion pulled = startRotation * Quaternion.AngleAxis(pullDegrees, pullAxis);
 
         float t = 0f;
         while (t < 1f)
         {
-            t += Time.deltaTime / pullTime;
+            t += Time.deltaTime / pullSeconds;
             transform.localRotation = Quaternion.Slerp(startRotation, pulled, Mathf.Clamp01(t));
             yield return null;
         }
@@ -50,7 +63,7 @@ public class SlotLeverAnimator : MonoBehaviour
         t = 0f;
         while (t < 1f)
         {
-            t += Time.deltaTime / returnTime;
+            t += Time.deltaTime / returnSeconds;
             transform.localRotation = Quaternion.Slerp(pulled, startRotation, Mathf.Clamp01(t));
             yield return null;
         }
