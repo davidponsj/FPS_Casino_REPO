@@ -293,6 +293,8 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
 - **T7.1 Input Drink y Throw (D10)** (S).
   - Qué: las acciones en `PlayerControls.inputactions` y `BottleHolder.OnDrink/OnThrow`. Se mantiene el teclado directo como respaldo hasta que David conecte los eventos.
   - Hecho cuando: con los eventos conectados, F bebe y Q lanza. Después se quita el respaldo y la T queda como `[ContextMenu]`.
+  - **Parte 1 hecha (2026-10-26).** Acciones `Drink` (F) y `Throw` (Q) en el mapa Player; `BottleHolder.OnDrink/OnThrow` (solo con `performed` y si llevas botella, así no bebe dos veces con el respaldo). Test `PlayerControlsTests` comprueba las dos acciones y su tecla.
+  - **Falta (David):** en PF_Player, componente Player Input → Events → Player → `Drink`: + → arrastrar el objeto que tiene BottleHolder → `BottleHolder > OnDrink` (Dynamic CallbackContext). Igual con `Throw` → `OnThrow`. Después: quitar el respaldo de teclado (`drinkKey`, `throwKey` y la T) en el siguiente `/build`.
 - **T7.2 Código muerto, Inspector y depuración de botellas** (M).
   - Qué: BottleHolder, ThrownBottle, BottlePuddle, BottleShatterEffect y LiquidWobble.
   - Hecho cuando: se ven la botella actual y el radio y los segundos del charco, y `FillAmount` y `Ticket` están borrados tras el grep.

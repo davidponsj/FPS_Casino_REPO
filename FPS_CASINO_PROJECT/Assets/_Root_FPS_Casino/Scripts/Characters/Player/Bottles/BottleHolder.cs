@@ -99,12 +99,24 @@ public class BottleHolder : MonoBehaviour
         if (testTicket != null && !HasBottle && Keyboard.current != null && Keyboard.current[Key.T].wasPressedThisFrame)
             Give(testTicket);
 
+        // shortcut: respaldo con teclado directo hasta conectar Drink/Throw en el Player Input de PF_Player; entonces se borra (T7.1).
         if (!HasBottle || Keyboard.current == null) return;
 
         if (Keyboard.current[drinkKey].wasPressedThisFrame)
             Drink();
         else if (Keyboard.current[throwKey].wasPressedThisFrame)
             Throw();
+    }
+
+    // Se conectan en el Player Input (Invoke Unity Events) a las acciones Drink y Throw.
+    public void OnDrink(InputAction.CallbackContext context)
+    {
+        if (context.performed && HasBottle) Drink();
+    }
+
+    public void OnThrow(InputAction.CallbackContext context)
+    {
+        if (context.performed && HasBottle) Throw();
     }
 
     private BottleEffect GetEffect(TicketData ticket)
