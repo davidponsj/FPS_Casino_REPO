@@ -65,7 +65,7 @@ Detalle de cada tarea (qué, criterios "Hecho cuando", dependencias) en `tasks/p
 ## 9. code-ui-menu
 - [x] T9.1 HUDs parte 1
 - [x] T9.2 HUDs parte 2 + MenuArrow
-- [ ] T9.3 Botón Salir (B5) + ATMScreen + MenuCameraMover
+- [x] T9.3 Botón Salir (B5) + ATMScreen + MenuCameraMover
 - [ ] T9.4 MenuHoverManager, HoverOutline, CameraFocusTarget
 - [ ] **Checkpoint 9:** V + menú completo + commit
 

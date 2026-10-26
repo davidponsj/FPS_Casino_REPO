@@ -349,6 +349,7 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
   - **Hecho (2026-10-26).** Tooltips y `[Header]` en PointsHUD, RoundHUD, TicketHUD, BottleEffectHUD y MenuArrow; `<summary>` nuevo en TicketHUD y MenuArrow. Ningún renombre (mismo motivo que T9.1).
 - **T9.3 Botón Salir (B5) y menú, parte 1** (S): QuitGameTarget, ATMScreen y MenuCameraMover.
   - Hecho cuando: "Salir" para el Play Mode en el editor y cierra el juego en una build.
+  - **Hecho (2026-10-26).** QuitGameTarget: `Application.Quit()` en la build y `EditorApplication.isPlaying = false` en el editor; fuera el `Debug.Log`. Renombres (con `FormerlySerializedAs`; valores guardados directamente en SCN_MainMenu, no como overrides): ATMScreen `fadeDuration` → `fadeSeconds`, MenuCameraMover `moveDuration` → `moveSeconds`. Tooltips, `[Min]` y `<summary>` en los tres; fuera el `Debug.Log` de cada opción del cajero.
 - **T9.4 Menú, parte 2** (S): MenuHoverManager, HoverOutline y CameraFocusTarget.
 - **Checkpoint 9:** V + recorrido completo del menú + commit.
 

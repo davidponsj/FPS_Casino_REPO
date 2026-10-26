@@ -1,10 +1,19 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.Serialization;
 
+/// <summary>
+/// Mueve la cámara del menú hasta un objeto (CameraFocusTarget, p. ej. el cajero) con un movimiento
+/// suave, y la devuelve a su sitio con ReturnToStart. Avisa al objeto al llegar y al irse.
+/// </summary>
 public class MenuCameraMover : MonoBehaviour
 {
+    [Tooltip("Cámara del menú. Vacío = Camera.main.")]
     [SerializeField] private Camera menuCamera;
-    [SerializeField] private float moveDuration = 1.5f;
+    [Tooltip("Segundos que tarda la cámara en llegar o volver. 1.5 = viaje tranquilo.")]
+    [FormerlySerializedAs("moveDuration")]
+    [Min(0.01f)]
+    [SerializeField] private float moveSeconds = 1.5f;
 
     private Vector3 startPosition;
     private Quaternion startRotation;
@@ -57,7 +66,7 @@ public class MenuCameraMover : MonoBehaviour
         float t = 0f;
         while (t < 1f)
         {
-            t += Time.deltaTime / moveDuration;
+            t += Time.deltaTime / moveSeconds;
             float k = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t));
 
             cam.position = Vector3.Lerp(fromPos, endPos, k);

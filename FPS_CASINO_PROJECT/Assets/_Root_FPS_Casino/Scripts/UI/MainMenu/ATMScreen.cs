@@ -4,7 +4,13 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.InputSystem;
 using TMPro;
+using UnityEngine.Serialization;
 
+/// <summary>
+/// Pantalla del cajero del menú principal. Al encenderse (TurnOn) aparece con un fundido y muestra
+/// páginas de opciones de texto: la del ratón encima se agranda y lleva una flecha (MenuArrow), y al
+/// hacer clic se lanza su evento onSelect (p. ej. QuitGameTarget.Quit o ShowPage para otra página).
+/// </summary>
 public class ATMScreen : MonoBehaviour
 {
     [Serializable]
@@ -26,9 +32,16 @@ public class ATMScreen : MonoBehaviour
     }
 
     [Header("Pantalla")]
+    [Tooltip("CanvasGroup de la pantalla: su alpha hace el fundido al encender y apagar.")]
     [SerializeField] private CanvasGroup screenGroup;
-    [SerializeField] private Light screenLight;          // Opcional
-    [SerializeField] private float fadeDuration = 0.4f;
+    [Tooltip("Luz de la pantalla, que se enciende con ella. Opcional.")]
+    [SerializeField] private Light screenLight;
+    [Tooltip("Segundos del fundido al encender o apagar. 0.4 = rápido pero se ve.")]
+    [FormerlySerializedAs("fadeDuration")]
+    [Min(0f)]
+    [SerializeField] private float fadeSeconds = 0.4f;
+    [Tooltip("Intensidad de la luz con la pantalla encendida. 1.5 = brillo suave.")]
+    [Min(0f)]
     [SerializeField] private float lightIntensity = 1.5f;
 
     [Header("Menú")]
@@ -37,10 +50,13 @@ public class ATMScreen : MonoBehaviour
     [Tooltip("Cámara del menú. Vacío = Camera.main")]
     [SerializeField] private Camera menuCamera;
     [Tooltip("Cuánto crece el texto seleccionado. 1.05 = 5% más grande")]
+    [Min(1f)]
     [SerializeField] private float selectedScale = 1.05f;
-    [Tooltip("Tamaño de la flecha respecto al tamaño de letra")]
+    [Tooltip("Tamaño de la flecha respecto al tamaño de letra. 0.6 = algo más pequeña que la letra.")]
+    [Min(0f)]
     [SerializeField] private float markerSize = 0.6f;
-    [Tooltip("Separación entre la flecha y el texto")]
+    [Tooltip("Píxeles de separación entre la flecha y el texto. 10 = separada sin alejarse.")]
+    [Min(0f)]
     [SerializeField] private float markerGap = 10f;
 
     private const int None = -1;
@@ -174,7 +190,6 @@ public class ATMScreen : MonoBehaviour
     private void Confirm()
     {
         var option = Options[selected];
-        if (option.text != null) Debug.Log("ATM: " + option.text.text);
         option.onSelect.Invoke();
     }
 
@@ -226,10 +241,10 @@ public class ATMScreen : MonoBehaviour
 
         float start = screenGroup.alpha;
         float t = 0f;
-        while (t < fadeDuration)
+        while (t < fadeSeconds)
         {
             t += Time.deltaTime;
-            float a = Mathf.Lerp(start, target, t / fadeDuration);
+            float a = Mathf.Lerp(start, target, t / fadeSeconds);
             screenGroup.alpha = a;
             if (screenLight != null) screenLight.intensity = a * lightIntensity;
             yield return null;
