@@ -50,7 +50,7 @@ Detalle de cada tarea (qué, criterios "Hecho cuando", dependencias) en `tasks/p
 - [ ] **Checkpoint 6:** V + ciclo completo del casino + commit
 
 ## 7. code-bottles
-- [ ] T7.1 Input Drink/Throw (+ David conecta los eventos) — parte 1 hecha; falta conectar eventos y quitar respaldo
+- [x] T7.1 Input Drink/Throw (+ David conecta los eventos) — avisar a Rubén: SCN_Ruben (BottleHand)
 - [x] T7.2 Código muerto + Inspector + depuración
 - [ ] **Checkpoint 7:** V + las 6 botellas + commit
 

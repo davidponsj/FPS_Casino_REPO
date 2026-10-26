@@ -19,9 +19,6 @@ public class BottleHolder : MonoBehaviour
     [Header("Mano")]
     [Tooltip("Modelo de la botella en la mano. Se enciende al recibir una botella y se apaga al gastarla.")]
     [SerializeField] private GameObject bottleModel;
-    // Se borran al quitar el respaldo de teclado (T7.1).
-    [SerializeField] private Key drinkKey = Key.F;
-    [SerializeField] private Key throwKey = Key.Q;
 
     [Header("Lanzar")]
     [Tooltip("Prefab de la botella que sale volando (con ThrownBottle, Rigidbody y Collider).")]
@@ -42,7 +39,7 @@ public class BottleHolder : MonoBehaviour
     [SerializeField] private float throwSpinRadPerSecond = 8f;
 
     [Header("Pruebas")]
-    [Tooltip("Ticket para probar sin pasar por la ruleta ni el barman: en Play, menú ⋮ del componente → TEST: Dar botella, o tecla T.")]
+    [Tooltip("Ticket para probar sin pasar por la ruleta ni el barman: en Play, menú ⋮ del componente → TEST: Dar botella.")]
     [SerializeField] private TicketData testTicket;
 
     [Header("Depuración")]
@@ -110,18 +107,6 @@ public class BottleHolder : MonoBehaviour
     private void Update()
     {
         UpdateEffectTimer();
-
-        // TEST: con la T te das la botella de prueba (solo si hay testTicket y no llevas ya una).
-        if (testTicket != null && !HasBottle && Keyboard.current != null && Keyboard.current[Key.T].wasPressedThisFrame)
-            Give(testTicket);
-
-        // shortcut: respaldo con teclado directo hasta conectar Drink/Throw en el Player Input de PF_Player; entonces se borra (T7.1).
-        if (!HasBottle || Keyboard.current == null) return;
-
-        if (Keyboard.current[drinkKey].wasPressedThisFrame)
-            Drink();
-        else if (Keyboard.current[throwKey].wasPressedThisFrame)
-            Throw();
     }
 
     // Se conectan en el Player Input (Invoke Unity Events) a las acciones Drink y Throw.
