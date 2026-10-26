@@ -322,6 +322,9 @@ Nota: B1 (el charco ralentiza) va en `code-enemies` y no en `code-bottles` como 
     - **Falta probar en Unity (Pausa 2):** la horda persigue, rodea y hace cola igual que antes.
 - **T8.2 El charco ralentiza (B1) y código muerto de EnemyMovement** (S).
   - Hecho cuando: un enemigo en el charco va más lento y vuelve a su velocidad al salir, y no hay memoria nueva por frame.
+  - **Hecho (2026-10-26).** EnemyMovement implementa IMovementModifiable: un multiplicador por charco en un Dictionary (solo cambia al entrar o salir, nada por frame) y manda el más lento; `SlowMultiplier` lo expone. Test `EnemyMovementTests` (3 casos).
+    - Borrado sin uso: `Agent`, `BaseSpeed`, `SpeedMultiplier`, `CurrentSpeed`, `HasReachedDestination` y el evento `Stuck` (el repath al atascarse se queda).
+    - **Falta probar en Unity (Pausa 2):** un enemigo en el charco va más lento y recupera su velocidad al salir.
 - **T8.3 Inspector y depuración de EnemyAI, EnemyMovement y EnemyHealth** (S).
 - **T8.4 Inspector y depuración de RoundManager, HordeAttackSlots y HordeCollision; comentarios de StateMachine** (M).
 - **Checkpoint 8:** V + 3 rondas en SCN_Mallorca y SCN_Gameplay + commit "Junta EnemyBase y HunterAI en EnemyAI".

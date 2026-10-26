@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Serialization;
@@ -11,10 +12,11 @@ using UnityEngine.Serialization;
 ///  - Sensación arcade: aceleración y giro altos, variación individual de velocidad.
 ///  - Cuerpo: radio, peso y colliders que usa el HordeCollision para el contacto físico.
 ///    El enemigo nunca resuelve colisiones por su cuenta: se apunta al HordeCollision y él lo corrige.
+///  - Ralentización (IMovementModifiable): cada charco pone su multiplicador y manda el más lento.
 /// </summary>
 [RequireComponent(typeof(NavMeshAgent))]
 [RequireComponent(typeof(Rigidbody))]
-public class EnemyMovement : MonoBehaviour
+public class EnemyMovement : MonoBehaviour, IMovementModifiable
 {
     [Header("Sensación arcade")]
     [SerializeField] private float baseSpeed = 3.5f;
@@ -66,7 +68,9 @@ public class EnemyMovement : MonoBehaviour
     private readonly Vector3[] cornerBuffer = new Vector3[32];
 
     private float individualSpeedFactor = 1f; // fijo por enemigo (aleatorio al nacer)
-    private float speedMultiplier = 1f;       // lo modifica quien quiera (p. ej. velocidad adaptativa)
+    // Multiplicador de cada charco que pisa (clave = el charco). Solo cambia al entrar o salir.
+    private readonly Dictionary<object, float> slowMultipliers = new Dictionary<object, float>();
+    private float slowMultiplier = 1f;
     private int basePriority;
     private ObstacleAvoidanceType baseAvoidanceType;
     private float weight = 1f;
@@ -79,31 +83,12 @@ public class EnemyMovement : MonoBehaviour
     private float nextStuckCheckTime;
     private Vector3 lastStuckCheckPosition;
 
-    /// <summary>Se lanza cuando se detecta un atasco, tras intentar recalcular la ruta.</summary>
-    public event Action Stuck;
-
     // ---------------------------------------------------------------
     //  Propiedades
     // ---------------------------------------------------------------
 
-    public NavMeshAgent Agent => agent;
-
-    /// <summary>Velocidad base de este enemigo (sin multiplicador externo).</summary>
-    public float BaseSpeed
-    {
-        get => baseSpeed;
-        set { baseSpeed = value; ApplySpeed(); }
-    }
-
-    /// <summary>Multiplicador externo de velocidad (1 = normal). Útil para acercar a los rezagados.</summary>
-    public float SpeedMultiplier
-    {
-        get => speedMultiplier;
-        set { speedMultiplier = value; ApplySpeed(); }
-    }
-
-    /// <summary>Velocidad real actual (útil para el Animator).</summary>
-    public float CurrentSpeed => agent.velocity.magnitude;
+    /// <summary>Multiplicador de los charcos que pisa: el más bajo (1 = normal, 0 = paralizado).</summary>
+    public float SlowMultiplier => slowMultiplier;
 
     public bool IsStopped => agent.isOnNavMesh && agent.isStopped;
 
@@ -113,11 +98,6 @@ public class EnemyMovement : MonoBehaviour
         get => agent.stoppingDistance;
         set => agent.stoppingDistance = value;
     }
-
-    public bool HasReachedDestination =>
-        hasTarget &&
-        !agent.pathPending &&
-        agent.remainingDistance <= agent.stoppingDistance;
 
     /// <summary>True si el destino actual no es alcanzable (el NavMesh solo llega al punto más cercano).</summary>
     public bool PathIsPartial =>
@@ -351,6 +331,30 @@ public class EnemyMovement : MonoBehaviour
     }
 
     // ---------------------------------------------------------------
+    //  IMovementModifiable (charcos)
+    // ---------------------------------------------------------------
+
+    public void SetSpeedMultiplier(object source, float multiplier)
+    {
+        slowMultipliers[source] = Mathf.Clamp01(multiplier);
+        RecalculateSlow();
+    }
+
+    public void ClearSpeedMultiplier(object source)
+    {
+        if (slowMultipliers.Remove(source))
+            RecalculateSlow();
+    }
+
+    private void RecalculateSlow()
+    {
+        slowMultiplier = 1f;
+        foreach (float multiplier in slowMultipliers.Values)
+            slowMultiplier = Mathf.Min(slowMultiplier, multiplier);
+        ApplySpeed();
+    }
+
+    // ---------------------------------------------------------------
     //  API para el HordeCollision
     // ---------------------------------------------------------------
 
@@ -396,12 +400,12 @@ public class EnemyMovement : MonoBehaviour
     private void ApplySpeed()
     {
         if (agent == null) return;
-        agent.speed = baseSpeed * individualSpeedFactor * speedMultiplier;
+        agent.speed = baseSpeed * individualSpeedFactor * slowMultiplier;
     }
 
     /// <summary>
     /// Detecta si el enemigo debería estar avanzando pero no lo hace.
-    /// Primer remedio: recalcular la ruta ignorando los límites. Después avisa con el evento Stuck.
+    /// Remedio: recalcular la ruta ignorando los límites de repath.
     /// </summary>
     private void CheckStuck()
     {
@@ -421,7 +425,6 @@ public class EnemyMovement : MonoBehaviour
             if (moved < stuckMinProgress)
             {
                 MoveTo(lastRequestedTarget, force: true);
-                Stuck?.Invoke();
             }
         }
 
