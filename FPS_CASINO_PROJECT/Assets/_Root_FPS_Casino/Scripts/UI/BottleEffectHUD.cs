@@ -17,11 +17,16 @@ using UnityEngine.UI;
 /// </summary>
 public class BottleEffectHUD : MonoBehaviour
 {
+    [Header("Referencias")]
+    [Tooltip("BottleHolder del jugador (en PF_Player): de él sale el efecto activo y sus segundos.")]
     [SerializeField] private BottleHolder bottleHolder;
     [Tooltip("Hijo que se muestra mientras hay efecto. NO pongas aquí el propio objeto del script: se apagaría su Update.")]
     [SerializeField] private GameObject content;
+    [Tooltip("Barra (Image Filled) que se vacía con el tiempo que le queda al efecto.")]
     [SerializeField] private Image fillImage;
+    [Tooltip("Texto con el nombre de la botella. Opcional.")]
     [SerializeField] private TMP_Text nameText;
+    [Tooltip("Texto con los segundos que quedan. Opcional.")]
     [SerializeField] private TMP_Text timeText;
 
     private void Update()

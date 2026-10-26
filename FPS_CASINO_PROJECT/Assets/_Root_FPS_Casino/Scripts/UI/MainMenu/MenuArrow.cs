@@ -1,10 +1,16 @@
 using UnityEngine;
 using UnityEngine.UI;
 
+/// <summary>
+/// Flecha (triángulo) del menú, dibujada por código como un Graphic de UI: no necesita sprite.
+/// Rellena o solo con borde (Filled), para marcar la opción elegida.
+/// </summary>
 public class MenuArrow : MaskableGraphic
 {
+    [Tooltip("Marcado = triángulo relleno; desmarcado = solo el borde.")]
     [SerializeField] private bool filled = true;
-    [Tooltip("Grosor del borde cuando no está relleno")]
+    [Tooltip("Píxeles de grosor del borde cuando no está relleno. 3 = línea fina.")]
+    [Min(0.5f)]
     [SerializeField] private float thickness = 3f;
 
     public bool Filled

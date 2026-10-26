@@ -1,8 +1,13 @@
 using UnityEngine;
 using UnityEngine.UI;
 
+/// <summary>
+/// Icono del ticket que llevas (TicketInventory). Aparece al coger el ticket de la ruleta y
+/// desaparece al dárselo al barman. Sin icono en el ticket, sale un cuadrado de su color.
+/// </summary>
 public class TicketHUD : MonoBehaviour
 {
+    [Tooltip("Image que muestra el ticket. Se oculta cuando no llevas ninguno.")]
     [SerializeField] private Image ticketIcon;
 
     private TicketInventory inventory;
