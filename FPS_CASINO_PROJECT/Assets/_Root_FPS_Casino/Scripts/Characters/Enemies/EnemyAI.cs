@@ -7,12 +7,14 @@ using UnityEngine.Serialization;
 ///
 ///   Chase    → lejos: corre hacia el jugador.
 ///   Approach → cerca: va hacia su puesto del corro, solo para repartirse y no llegar todos por el mismo lado.
-///   Engage   → tiene ficha de ataque: se pega al jugador a distancia de melee y le sigue. Nunca retrocede.
+///   Engage   → tiene ficha de ataque: se pega al jugador a distancia de melee, le sigue y le ataca (EnemyAttack).
+///              Nunca retrocede.
 ///   Queue    → la horda está llena (fichas y puestos ocupados): se queda detrás, sin retroceder,
 ///              hasta que se libere un hueco. Con menos de ~16 zombis no debería verse.
 ///
 /// Regla de oro: un zombi nunca se aleja del jugador para "recolocarse". Solo avanza o espera.
 /// El contacto físico (no solaparse, no empujar al jugador) no es cosa de la IA: lo resuelve el HordeCollision.
+/// Cómo es el golpe (aviso, daño, alcance) tampoco: lo decide EnemyAttack. La IA solo le dice cuándo puede atacar.
 ///
 /// Los estados son clases anidadas: viven en este archivo y pueden usar los campos privados de EnemyAI.
 /// Todo el movimiento pasa por EnemyMovement (nunca toca el NavMeshAgent directamente).
@@ -85,6 +87,8 @@ public class EnemyAI : MonoBehaviour
     [Tooltip("Color del cuerpo mientras está pegado al jugador.")]
     [FormerlySerializedAs("inPositionColor")]
     [SerializeField] private Color engagedColor = new Color(1f, 0.55f, 0f);
+    [Tooltip("Color del cuerpo durante el aviso del golpe (EnemyAttack). Sirve mientras no haya animación de ataque.")]
+    [SerializeField] private Color windupColor = new Color(1f, 0.1f, 0.1f);
 
     [Header("Depuración")]
     [Tooltip("Muestra sobre la cabeza el estado, los segundos en él y la distancia al jugador, y una línea hasta su destino, en la vista Scene (y en Game con el botón Gizmos activado).")]
@@ -92,6 +96,7 @@ public class EnemyAI : MonoBehaviour
 
     private StateMachine<EnemyAI> machine;
     private HordeAttackSlots slots;
+    private EnemyAttack attack;
     private MaterialPropertyBlock propertyBlock;
     private Color baseColor = Color.white;
 
@@ -123,6 +128,7 @@ public class EnemyAI : MonoBehaviour
     private void Awake()
     {
         Movement = GetComponent<EnemyMovement>();
+        attack = GetComponent<EnemyAttack>();
         SetupVisual();
 
         machine = new StateMachine<EnemyAI>();
@@ -146,6 +152,9 @@ public class EnemyAI : MonoBehaviour
 
         if (slots == null)
             Debug.LogWarning($"{name}: el jugador no tiene HordeAttackSlots. Persigue directamente (se apilará).", this);
+
+        if (attack == null)
+            Debug.LogWarning($"{name}: no tiene EnemyAttack. Se pegará al jugador pero no le atacará.", this);
 
         machine.ChangeState(chase, force: true);
     }
@@ -403,12 +412,13 @@ public class EnemyAI : MonoBehaviour
     }
 
     /// <summary>
-    /// Tiene ficha de ataque: se pega al jugador a distancia de melee y le sigue si se mueve un poco.
+    /// Tiene ficha de ataque: se pega al jugador a distancia de melee, le sigue si se mueve un poco y le ataca.
     /// No sigue ningún puesto, así que ni orbita ni retrocede. Anclado: los demás le rodean.
     /// </summary>
     private class EngageState : State<EnemyAI>
     {
         private bool closing;
+        private bool showingWindup; // para cambiar el color solo cuando cambia, no cada frame
 
         public EngageState(EnemyAI owner) : base(owner) { }
 
@@ -417,11 +427,14 @@ public class EnemyAI : MonoBehaviour
         public override void Enter()
         {
             owner.SetEngagedVisual(true);
+            showingWindup = false;
             owner.Movement.SetAnchored(true);
 
             // El destino ya es el punto de melee (no el centro del jugador), así que la parada es la normal.
             owner.Movement.ResetStoppingDistance();
             closing = owner.DistanceToTarget > owner.meleeDistance + 0.05f;
+
+            owner.attack?.Begin(owner.Target);
         }
 
         public override void Tick()
@@ -442,6 +455,25 @@ public class EnemyAI : MonoBehaviour
                 return;
             }
 
+            EnemyAttack attack = owner.attack;
+            if (attack != null)
+            {
+                attack.Tick();
+
+                if (attack.IsWindingUp != showingWindup)
+                {
+                    showingWindup = attack.IsWindingUp;
+                    owner.SetBodyColor(showingWindup ? owner.windupColor : owner.engagedColor);
+                }
+
+                // Golpe con Move While Attacking desmarcado: quieto hasta que acabe el aviso.
+                if (attack.HoldsStill)
+                {
+                    owner.HoldAndFace();
+                    return;
+                }
+            }
+
             // Histéresis: se acerca si se ha separado, se para al llegar a distancia de melee.
             if (closing)
             {
@@ -460,6 +492,7 @@ public class EnemyAI : MonoBehaviour
 
         public override void Exit()
         {
+            owner.attack?.Cancel();
             owner.SetEngagedVisual(false);
             owner.Movement.SetAnchored(false);
             owner.Movement.ResetStoppingDistance();

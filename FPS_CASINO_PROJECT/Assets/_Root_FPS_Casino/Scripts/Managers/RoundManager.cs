@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.AI;
 
 /// <summary>
-/// Rondas estilo CoD Zombies: cada ronda salen más enemigos (de momento todos igual de fuertes).
+/// Rondas estilo CoD Zombies: cada ronda salen más enemigos y con más vida.
 /// Spawnea de uno en uno, con un retraso que se acorta cada ronda, sin pasar de un máximo de vivos a la vez.
 /// Los enemigos aparecen alrededor del jugador, fuera de su vista y desde direcciones distintas.
 /// Cuando se han spawneado todos los de la ronda y no queda ninguno vivo, descanso y siguiente ronda.
@@ -14,6 +14,20 @@ public class RoundManager : MonoBehaviour
     [Header("Enemigo")]
     [Tooltip("Prefab del enemigo que sale en las rondas (PF_EnemyHunter).")]
     [SerializeField] private EnemyHealth enemyPrefab;
+
+    [Header("Vida de los enemigos (curva de CoD Zombies)")]
+    [Tooltip("Vida de cada enemigo en la ronda 1. 150 = CoD.")]
+    [SerializeField, Min(1f)] private float firstRoundHealth = 150f;
+    [Tooltip("Vida que se suma cada ronda hasta que empieza a multiplicarse. 100 = CoD (250 en la ronda 2, 350 en la 3...).")]
+    [SerializeField, Min(0f)] private float healthPerRound = 100f;
+    [Tooltip("Ronda desde la que la vida deja de sumarse y pasa a multiplicarse. 10 = CoD (950 en la 9, 1045 en la 10).")]
+    [SerializeField, Min(2)] private int multiplyFromRound = 10;
+    [Tooltip("Por cuánto se multiplica la vida cada ronda desde Multiply From Round. 1.1 = un 10% más cada ronda, como CoD.")]
+    [SerializeField, Min(1f)] private float healthMultiplierPerRound = 1.1f;
+    [Tooltip("Pone un tope a la vida para que las rondas muy altas no se hagan imposibles (como Black Ops 4). Desmarcado = sin tope, como el CoD clásico.")]
+    [SerializeField] private bool limitHealth;
+    [Tooltip("Vida máxima de un enemigo. Solo cuenta si Limit Health está marcado. 10000 = se alcanza sobre la ronda 34.")]
+    [SerializeField, Min(1f)] private float maxEnemyHealth = 10000f;
 
     [Header("Cantidad")]
     [Tooltip("Máximo de enemigos vivos a la vez. El resto espera a que mueran los primeros. 24 = como CoD Zombies.")]
@@ -46,7 +60,7 @@ public class RoundManager : MonoBehaviour
     [SerializeField, Min(1)] private int candidatesPerSpawn = 10;
 
     [Header("Depuración")]
-    [Tooltip("Muestra sobre el jugador la ronda, vivos/máximo, los que faltan por salir y la cuenta atrás, y los anillos y últimos puntos de spawn, en la vista Scene (y en Game con el botón Gizmos activado).")]
+    [Tooltip("Muestra sobre el jugador la ronda, la vida de los enemigos, vivos/máximo, los que faltan por salir y la cuenta atrás, y los anillos y últimos puntos de spawn, en la vista Scene (y en Game con el botón Gizmos activado).")]
     [SerializeField] private bool showDebug;
 
     public event Action<int> OnRoundStarted;
@@ -75,6 +89,8 @@ public class RoundManager : MonoBehaviour
     private WaitUntil waitForFreeSlot;
     private WaitUntil waitForRoundCleared;
 
+    private float currentEnemyHealth; // vida con la que salen los enemigos de esta ronda
+
     // Solo para la depuración.
     private int pendingSpawns;
     private float currentSpawnDelay;
@@ -94,6 +110,20 @@ public class RoundManager : MonoBehaviour
 
     public static float SpawnDelayForRound(int round, float firstRoundDelay, float multiplier, float minDelay) =>
         Mathf.Max(minDelay, firstRoundDelay * Mathf.Pow(multiplier, round - 1));
+
+    /// <summary>
+    /// Vida del enemigo en una ronda con la curva de CoD Zombies: suma "perRound" cada ronda hasta
+    /// "multiplyFromRound" y desde ahí multiplica por "multiplier" cada ronda (150, 250... 950, 1045, 1149...).
+    /// </summary>
+    public static float HealthForRound(int round, float firstRoundHealth, float perRound, int multiplyFromRound, float multiplier)
+    {
+        if (round < multiplyFromRound)
+            return firstRoundHealth + perRound * (round - 1);
+
+        // Vida de la última ronda que sumaba (la 9 en CoD), y desde ahí se multiplica.
+        float lastAddedHealth = firstRoundHealth + perRound * (multiplyFromRound - 2);
+        return lastAddedHealth * Mathf.Pow(multiplier, round - multiplyFromRound + 1);
+    }
 
     private void Reset()
     {
@@ -130,6 +160,9 @@ public class RoundManager : MonoBehaviour
             currentSpawnDelay = SpawnDelayForRound(CurrentRound, firstRoundSpawnDelay, spawnDelayMultiplier, minSpawnDelay);
             var spawnDelay = new WaitForSeconds(currentSpawnDelay);
 
+            currentEnemyHealth = HealthForRound(CurrentRound, firstRoundHealth, healthPerRound, multiplyFromRound, healthMultiplierPerRound);
+            if (limitHealth) currentEnemyHealth = Mathf.Min(currentEnemyHealth, maxEnemyHealth);
+
             for (int spawned = 0; spawned < toSpawn;)
             {
                 pendingSpawns = toSpawn - spawned;
@@ -156,6 +189,7 @@ public class RoundManager : MonoBehaviour
 
         Quaternion facePlayer = Quaternion.LookRotation(Flat(player.position - position));
         EnemyHealth enemy = Instantiate(enemyPrefab, position, facePlayer);
+        enemy.SetMaxHealth(currentEnemyHealth);
         if (enemy.TryGetComponent(out EnemyMovement movement))
             movement.Warp(position);
 
@@ -273,7 +307,7 @@ public class RoundManager : MonoBehaviour
             ? $"descanso · siguiente ronda en {Mathf.Max(0f, restEndTime - Time.time):0.0} s"
             : $"spawn cada {currentSpawnDelay:0.00} s";
         DebugLabels.Panel(DebugLabels.RoundPanelLine,
-            $"RONDA {CurrentRound}\nvivos {AliveCount}/{maxAlive} · faltan por salir {pendingSpawns}\n{phase}", DebugLabels.AI);
+            $"RONDA {CurrentRound} · vida de los enemigos {currentEnemyHealth:0}\nvivos {AliveCount}/{maxAlive} · faltan por salir {pendingSpawns}\n{phase}", DebugLabels.AI);
     }
 
     private void OnDrawGizmos()
