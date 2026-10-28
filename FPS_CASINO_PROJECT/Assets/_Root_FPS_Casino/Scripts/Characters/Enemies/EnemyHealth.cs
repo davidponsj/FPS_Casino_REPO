@@ -11,6 +11,9 @@ public class EnemyHealth : MonoBehaviour, IDamageable
     /// <summary>Se lanza una sola vez, justo antes de destruir el enemigo (el RoundManager cuenta las bajas con esto).</summary>
     public event Action<EnemyHealth> OnDied;
 
+    /// <summary>Lo mismo que OnDied, pero de CUALQUIER enemigo: KillScore se entera así de todas las bajas sin buscarlas.</summary>
+    public static event Action<EnemyHealth> OnAnyDied;
+
     [Header("Vida")]
     [Tooltip("Vida si pones el enemigo a mano en la escena. Los de las rondas la reciben del RoundManager. 150 = ronda 1 de CoD.")]
     [Min(1f)]
@@ -22,9 +25,16 @@ public class EnemyHealth : MonoBehaviour, IDamageable
 
     private float currentHealth;
 
+    // Vida al recibir el primer daño de este frame (todos los perdigones de un escopetazo llegan en el mismo frame).
+    private int damageFrame = -1;
+    private float healthAtFrameStart;
+
     public float CurrentHealth => currentHealth;
     public float MaxHealth => maxHealth;
     public bool IsDead { get; private set; }
+
+    /// <summary>True si el daño de este frame le ha pillado a vida completa (para el truco Un tiro, una baja).</summary>
+    public bool WasFullHealthThisFrame => damageFrame == Time.frameCount && healthAtFrameStart >= maxHealth;
 
     private void Awake()
     {
@@ -43,11 +53,18 @@ public class EnemyHealth : MonoBehaviour, IDamageable
         // Destroy no es inmediato: los perdigones que llegan en el mismo frame no deben contar otra muerte.
         if (IsDead || amount <= 0f) return;
 
+        if (damageFrame != Time.frameCount)
+        {
+            damageFrame = Time.frameCount;
+            healthAtFrameStart = currentHealth;
+        }
+
         currentHealth -= amount;
         if (currentHealth > 0f) return;
 
         IsDead = true;
-        OnDied?.Invoke(this);
+        OnDied?.Invoke(this); // primero el RoundManager, para que KillScore ya vea la ronda actualizada
+        OnAnyDied?.Invoke(this);
         Destroy(gameObject);
     }
 

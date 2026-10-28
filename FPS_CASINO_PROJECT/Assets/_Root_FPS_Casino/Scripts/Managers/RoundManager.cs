@@ -67,6 +67,8 @@ public class RoundManager : MonoBehaviour
 
     public int CurrentRound { get; private set; }
     public int AliveCount { get; private set; }
+    /// <summary>Enemigos de esta ronda que faltan por morir (vivos + por salir). 0 = acaban de cerrar la ronda.</summary>
+    public int EnemiesLeftInRound { get; private set; }
 
     // Distancia máxima para pegar un punto al NavMesh.
     private const float NavSampleDistance = 2f;
@@ -157,6 +159,7 @@ public class RoundManager : MonoBehaviour
             OnRoundStarted?.Invoke(CurrentRound);
 
             int toSpawn = EnemiesForRound(CurrentRound);
+            EnemiesLeftInRound = toSpawn;
             currentSpawnDelay = SpawnDelayForRound(CurrentRound, firstRoundSpawnDelay, spawnDelayMultiplier, minSpawnDelay);
             var spawnDelay = new WaitForSeconds(currentSpawnDelay);
 
@@ -295,6 +298,7 @@ public class RoundManager : MonoBehaviour
     {
         enemy.OnDied -= HandleEnemyDied;
         AliveCount--;
+        EnemiesLeftInRound--;
     }
 
 #if UNITY_EDITOR

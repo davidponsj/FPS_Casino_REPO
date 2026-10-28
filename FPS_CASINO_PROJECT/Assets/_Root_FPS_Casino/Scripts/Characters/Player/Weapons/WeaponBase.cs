@@ -110,6 +110,7 @@ public abstract class WeaponBase : MonoBehaviour
     protected float lastShotTime;
 
     protected PlayerBuffs buffs;          // mejoras temporales de las botellas (cadencia, recarga, munición)
+    protected KillScore killScore;        // puntuación de las bajas: se le avisa de cada impacto a un enemigo
     protected float currentReloadDuration; // duración de la recarga en curso (con el multiplicador ya aplicado)
 
     /// <summary>Se dispara cada vez que cambia currentAmmo o reserveAmmo (disparo o recarga).</summary>
@@ -147,6 +148,7 @@ public abstract class WeaponBase : MonoBehaviour
             playerController = GetComponentInParent<PlayerController>();
 
         buffs = GetComponentInParent<PlayerBuffs>();
+        killScore = GetComponentInParent<KillScore>();
 
         if (playerCamera == null)
             playerCamera = GetComponentInParent<Camera>();
@@ -162,6 +164,7 @@ public abstract class WeaponBase : MonoBehaviour
         playerController = controller;
         playerCamera = camera;
         buffs = controller != null ? controller.GetComponent<PlayerBuffs>() : null;
+        killScore = controller != null ? controller.GetComponent<KillScore>() : null;
     }
 
     protected virtual void Update()
@@ -246,7 +249,13 @@ public abstract class WeaponBase : MonoBehaviour
 
         if (Physics.Raycast(origin, direction, out RaycastHit hit, range, hitMask, QueryTriggerInteraction.Ignore))
         {
-            hit.collider.GetComponentInParent<IDamageable>()?.TakeDamage(shotDamage);
+            IDamageable damageable = hit.collider.GetComponentInParent<IDamageable>();
+
+            // Antes del daño: si este impacto lo mata, KillScore ya sabe cómo ha sido (cabeza, última bala...).
+            if (killScore != null && damageable is EnemyHealth enemy)
+                killScore.RegisterHit(enemy, hit, this);
+
+            damageable?.TakeDamage(shotDamage);
 
             if (impactEffectPrefab != null)
                 Instantiate(impactEffectPrefab, hit.point, Quaternion.LookRotation(hit.normal));
