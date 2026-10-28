@@ -17,6 +17,7 @@ public class RouletteMachine : MonoBehaviour, IInteractable
     [Serializable] public class SegmentEvent : UnityEvent<Segment> { }
 
     [Header("Referencias")]
+    [Tooltip("Hijo de la rueda que gira. Su flecha azul apunta al borde entre Amarillo y Verde")]
     [SerializeField] private Transform wheelCenter;
     [SerializeField] private Transform ball;
 
@@ -29,8 +30,8 @@ public class RouletteMachine : MonoBehaviour, IInteractable
     [SerializeField] private MonoBehaviour pointsSource;
 
     [Header("Animación")]
-    [SerializeField] private float outerRadius = 2.0f;
-    [SerializeField] private float pocketRadius = 1.5f;
+    [SerializeField] private float outerRadius = 0.9f;
+    [SerializeField] private float pocketRadius = 0.8f;
     [SerializeField] private float ballHeight = 0.05f;
     [SerializeField] private int minSpins = 4;
     [SerializeField] private int maxSpins = 7;
@@ -40,6 +41,10 @@ public class RouletteMachine : MonoBehaviour, IInteractable
     [SerializeField, Range(0f, 0.8f)] private float cruisePhase = 0.4f;
     [Tooltip("Bajo = frena más tarde y más brusco. Alto = frena de forma más larga y suave")]
     [SerializeField, Range(1.5f, 6f)] private float brakingPower = 2.5f;
+    [Tooltip("Parte final de la tirada en la que la bola baja del borde a la casilla (0.2 = el último 20%)")]
+    [SerializeField, Range(0.05f, 0.5f)] private float dropPhase = 0.2f;
+    [Tooltip("Segundos que la bola sigue girando con la rueda antes de desaparecer")]
+    [SerializeField] private float ballVisibleAfterLanding = 3f;
 
     [Header("Spawner de tickets")]
     [SerializeField] private TicketSpawner ticketSpawner;
@@ -55,7 +60,6 @@ public class RouletteMachine : MonoBehaviour, IInteractable
 
     private IPointsService points;
     private bool spinning;
-    private float currentAngle = 90f;
 
     private float StepAngle => 360f / segments.Length;
 
@@ -95,12 +99,18 @@ public class RouletteMachine : MonoBehaviour, IInteractable
 
     private void Start()
     {
-        PlaceBall(currentAngle, pocketRadius);
+        // La bola solo se ve durante la tirada
+        if (ball != null) ball.gameObject.SetActive(false);
     }
 
     public void Interact(GameObject interactor)
     {
         if (spinning || segments == null || segments.Length == 0) return;
+        if (wheelCenter == null || ball == null)
+        {
+            Debug.LogWarning("[Ruleta] Falta asignar Wheel Center o Ball.", this);
+            return;
+        }
 
         // 1) Si hay un ticket esperando en la ruleta, se coge desde aquí
         if (ticketSpawner != null && ticketSpawner.HasTicketWaiting)
@@ -136,27 +146,31 @@ public class RouletteMachine : MonoBehaviour, IInteractable
 
         int winner = PickWeightedIndex();
 
-        float jitter = UnityEngine.Random.Range(-0.35f, 0.35f) * StepAngle;
-        float targetAngle = 90f - (winner + 0.5f) * StepAngle + jitter;
+        // Ángulos medidos sobre la rueda: sentido horario desde la flecha azul de wheelCenter.
+        // El jitter es pequeño para que la bola nunca quede en el borde entre dos casillas.
+        float jitter = UnityEngine.Random.Range(-0.25f, 0.25f) * StepAngle;
+        float targetAngle = (winner + 0.5f) * StepAngle + jitter;
+        float startAngle = UnityEngine.Random.Range(0f, 360f);
 
-        float startAngle = currentAngle;
+        // La bola avanza en sentido antihorario respecto a la rueda
         float delta = Mathf.Repeat(startAngle - targetAngle, 360f);
         float totalRotation = delta + 360f * UnityEngine.Random.Range(minSpins, maxSpins + 1);
         float duration = UnityEngine.Random.Range(minDuration, maxDuration);
+
+        PlaceBall(startAngle, outerRadius);
+        ball.gameObject.SetActive(true);
 
         float t = 0f;
         while (t < 1f)
         {
             t += Time.deltaTime / duration;
             float k = Mathf.Clamp01(t);
-            float eased = SpinEase(k);
-            currentAngle = startAngle - totalRotation * eased;
-            PlaceBall(currentAngle, pocketRadius);
+
+            float angle = startAngle - totalRotation * SpinEase(k);
+            float drop = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(1f - dropPhase, 1f, k));
+            PlaceBall(angle, Mathf.Lerp(outerRadius, pocketRadius, drop));
             yield return null;
         }
-
-        currentAngle = targetAngle;
-        PlaceBall(currentAngle, pocketRadius);
 
         Segment result = segments[winner];
         Debug.Log($"[Ruleta] Ha salido: {result.colorName} (ticket: {(result.ticket ? result.ticket.displayName : "nada")})");
@@ -171,6 +185,17 @@ public class RouletteMachine : MonoBehaviour, IInteractable
         }
 
         onSpinFinished?.Invoke(result);
+
+        // La bola se queda en su casilla y gira con la rueda
+        float elapsed = 0f;
+        while (elapsed < ballVisibleAfterLanding)
+        {
+            elapsed += Time.deltaTime;
+            PlaceBall(targetAngle, pocketRadius);
+            yield return null;
+        }
+
+        ball.gameObject.SetActive(false);
         spinning = false;
     }
 
@@ -208,24 +233,32 @@ public class RouletteMachine : MonoBehaviour, IInteractable
         return segments.Length - 1;
     }
 
-    private void PlaceBall(float angleDeg, float radius)
+    // angleDeg: sentido horario desde la flecha azul de wheelCenter, así la bola sigue a la rueda al girar
+    private Vector3 WheelPoint(float angleDeg, float radius)
     {
         float rad = angleDeg * Mathf.Deg2Rad;
-        Vector3 center = wheelCenter ? wheelCenter.position : transform.position;
-        Vector3 offset = new Vector3(Mathf.Cos(rad), 0f, Mathf.Sin(rad)) * radius;
-        ball.position = center + offset + Vector3.up * ballHeight;
+        Vector3 dir = wheelCenter.rotation * new Vector3(Mathf.Sin(rad), 0f, Mathf.Cos(rad));
+        return wheelCenter.position + dir * radius + wheelCenter.up * ballHeight;
+    }
+
+    private void PlaceBall(float angleDeg, float radius)
+    {
+        ball.position = WheelPoint(angleDeg, radius);
     }
 
     private void OnDrawGizmosSelected()
     {
-        if (segments == null || segments.Length == 0) return;
-        Vector3 center = wheelCenter ? wheelCenter.position : transform.position;
+        if (segments == null || segments.Length == 0 || wheelCenter == null) return;
+
         for (int i = 0; i < segments.Length; i++)
         {
-            float a = (90f - (i + 0.5f) * StepAngle) * Mathf.Deg2Rad;
-            Gizmos.color = segments[i].color;
-            Vector3 pos = center + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * pocketRadius;
-            Gizmos.DrawSphere(pos, 0.12f);
+            // Alpha forzado a 1 para que se vean aunque el color tenga transparencia
+            Color c = segments[i].color;
+            Gizmos.color = new Color(c.r, c.g, c.b, 1f);
+            Gizmos.DrawSphere(WheelPoint((i + 0.5f) * StepAngle, pocketRadius), 0.04f);
         }
+
+        Gizmos.color = Color.white;
+        Gizmos.DrawWireSphere(WheelPoint(0f, outerRadius), 0.04f);
     }
 }
