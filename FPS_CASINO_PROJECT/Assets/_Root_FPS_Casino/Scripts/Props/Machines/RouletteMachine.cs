@@ -35,25 +35,43 @@ public class RouletteMachine : MonoBehaviour, IInteractable
     [Tooltip("Altura de la bola sobre la madera, medida desde WheelPivot")]
     [SerializeField] private float rimHeight = 0.05f;
     [Tooltip("Velocidad al aparecer (grados por segundo)")]
-    [SerializeField] private float rimStartSpeed = 540f;
+    [SerializeField] private float rimStartSpeed = 900f;
     [Tooltip("Velocidad justo antes de caer a los colores (grados por segundo)")]
     [SerializeField] private float rimEndSpeed = 200f;
     [Tooltip("Segundos rodando por la madera")]
-    [SerializeField] private float minDuration = 4f;
-    [SerializeField] private float maxDuration = 6f;
+    [SerializeField] private float minDuration = 2.4f;
+    [SerializeField] private float maxDuration = 3f;
+    [Tooltip("Cuánto se despega del borde hacia dentro al perder velocidad, antes de caer")]
+    [SerializeField] private float rimDrift = 0.05f;
 
     [Header("Botes en las casillas")]
     [SerializeField] private float pocketRadius = 0.8f;
     [Tooltip("Altura de la bola sobre las casillas, medida desde WheelPivot")]
     [SerializeField] private float ballHeight = 0.05f;
-    [Tooltip("Grados que avanza el primer bote (de la madera a los colores)")]
-    [SerializeField] private float firstHopDegrees = 60f;
     [SerializeField] private float firstHopHeight = 0.06f;
     [SerializeField] private float firstHopDuration = 0.3f;
     [Tooltip("Cuánto se reduce cada bote respecto al anterior (0.5 = la mitad)")]
     [SerializeField, Range(0.2f, 0.9f)] private float bounceDecay = 0.55f;
     [SerializeField] private int minBounces = 2;
     [SerializeField] private int maxBounces = 4;
+    [Tooltip("Bajo = la bola conserva más su velocidad (más inercia). Alto = frena antes")]
+    [SerializeField, Range(1.2f, 4f)] private float inertia = 1.8f;
+
+    [Header("Aleatoriedad de los botes")]
+    [Tooltip("Cuánto puede irse hacia la madera o hacia el centro dorado en los botes")]
+    [SerializeField] private float bandWidth = 0.1f;
+    [Tooltip("Grados que puede adelantarse o retrasarse cada bote respecto a su trayectoria")]
+    [SerializeField] private float hopScatter = 8f;
+    [Tooltip("Variación de altura y duración de cada bote (0 = todos iguales)")]
+    [SerializeField, Range(0f, 0.6f)] private float irregularity = 0.35f;
+
+    [Header("Final")]
+    [Tooltip("Cuánto puede quedar descentrada en la casilla al final (0 = centro exacto)")]
+    [SerializeField, Range(0f, 0.4f)] private float landingSpread = 0f;
+    [Tooltip("Segundos que se balancea dentro de la casilla antes de quedarse quieta")]
+    [SerializeField] private float settleTime = 0.6f;
+    [Tooltip("Cuánto se balancea dentro de la casilla (fracción del ancho de la casilla)")]
+    [SerializeField, Range(0f, 0.4f)] private float settleWobble = 0.15f;
     [Tooltip("Segundos que la bola sigue girando con la rueda antes de desaparecer")]
     [SerializeField] private float ballVisibleAfterLanding = 3f;
 
@@ -72,6 +90,7 @@ public class RouletteMachine : MonoBehaviour, IInteractable
 
     private IPointsService points;
     private bool spinning;
+    private Coroutine ballFollow;
 
     private float StepAngle => 360f / segments.Length;
 
@@ -111,8 +130,18 @@ public class RouletteMachine : MonoBehaviour, IInteractable
 
     private void Start()
     {
+        if (ball == null) return;
+
+        // La bola la mueve este script: sin física ni interpolación, que la dibujarían con retraso
+        var rb = ball.GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.isKinematic = true;
+            rb.interpolation = RigidbodyInterpolation.None;
+        }
+
         // La bola solo se ve durante la tirada
-        if (ball != null) ball.gameObject.SetActive(false);
+        ball.gameObject.SetActive(false);
     }
 
     public void Interact(GameObject interactor)
@@ -156,45 +185,66 @@ public class RouletteMachine : MonoBehaviour, IInteractable
         spinning = true;
         onSpinStart?.Invoke();
 
+        // Si la bola de la tirada anterior seguía en la rueda, se corta
+        if (ballFollow != null)
+        {
+            StopCoroutine(ballFollow);
+            ballFollow = null;
+        }
+
         int winner = PickWeightedIndex();
 
-        // Ángulos sobre la rueda: sentido horario desde la flecha azul de wheelCenter.
-        // El jitter es pequeño para que la bola nunca quede en el borde entre dos casillas.
-        float jitter = UnityEngine.Random.Range(-0.25f, 0.25f) * StepAngle;
+        // Ángulos sobre la rueda: sentido horario desde la flecha azul de wheelCenter
+        float jitter = UnityEngine.Random.Range(-landingSpread, landingSpread) * StepAngle;
         float targetAngle = (winner + 0.5f) * StepAngle + jitter;
 
-        // Botes planificados: cada uno más corto, más bajo y más rápido que el anterior
+        // Botes: cada uno más bajo y más corto que el anterior, con algo de irregularidad
         int hops = UnityEngine.Random.Range(minBounces, maxBounces + 1) + 1;
-        float[] hopDegrees = new float[hops];
         float[] hopHeights = new float[hops];
         float[] hopDurations = new float[hops];
-        float plannedTravel = 0f;
+        float bounceTime = 0f;
         for (int i = 0; i < hops; i++)
         {
             float f = Mathf.Pow(bounceDecay, i);
-            hopDegrees[i] = firstHopDegrees * f;
-            hopHeights[i] = firstHopHeight * f;
-            hopDurations[i] = firstHopDuration * Mathf.Sqrt(f);
-            plannedTravel += hopDegrees[i];
+            float heightVar = 1f + UnityEngine.Random.Range(-irregularity, irregularity);
+            float timeVar = 1f + UnityEngine.Random.Range(-irregularity, irregularity) * 0.5f;
+            hopHeights[i] = firstHopHeight * f * heightVar;
+            hopDurations[i] = firstHopDuration * Mathf.Sqrt(f) * timeVar;
+            bounceTime += hopDurations[i];
         }
 
-        // 1) Rueda por la madera. La madera no gira, así que se usa un marco fijo
+        // 1) Rueda por la madera. La madera no gira, así que se usa un marco fijo.
+        // Al final, sin fuerza, se va despegando del borde hacia dentro.
         Quaternion rimFrame = wheelCenter.rotation;
         float rimAngle = UnityEngine.Random.Range(0f, 360f);
         float rimTime = UnityEngine.Random.Range(minDuration, maxDuration);
 
-        ball.position = RimPoint(rimFrame, rimAngle);
+        ball.position = RimPoint(rimFrame, rimAngle, outerRadius);
         ball.gameObject.SetActive(true);
+
+        float relSpeed = rimEndSpeed;
+        float lastRel = BallWheelAngle();
 
         float elapsed = 0f;
         while (elapsed < rimTime)
         {
             elapsed += Time.deltaTime;
-            float speed = Mathf.Lerp(rimStartSpeed, rimEndSpeed, elapsed / rimTime);
+            float k = Mathf.Clamp01(elapsed / rimTime);
+            float speed = Mathf.Lerp(rimStartSpeed, rimEndSpeed, k);
+            float drift = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.7f, 1f, k)) * rimDrift;
+
             rimAngle -= speed * Time.deltaTime;   // antihorario
-            ball.position = RimPoint(rimFrame, rimAngle);
+            ball.position = RimPoint(rimFrame, rimAngle, outerRadius - drift);
+
+            // Velocidad de la bola vista desde la rueda (para mantener la inercia al caer)
+            float rel = BallWheelAngle();
+            if (Time.deltaTime > 0f) relSpeed = -Mathf.DeltaAngle(lastRel, rel) / Time.deltaTime;
+            lastRel = rel;
             yield return null;
         }
+
+        // Recorrido de los botes: el que haría la bola frenando desde la velocidad que trae
+        float plannedTravel = Mathf.Max(relSpeed, 30f) * bounceTime / inertia;
 
         // Sigue rodando a velocidad final hasta el punto desde el que los botes
         // acaban justo en la casilla ganadora
@@ -204,7 +254,7 @@ public class RouletteMachine : MonoBehaviour, IInteractable
         {
             wait += Time.deltaTime;
             rimAngle -= rimEndSpeed * Time.deltaTime;
-            ball.position = RimPoint(rimFrame, rimAngle);
+            ball.position = RimPoint(rimFrame, rimAngle, outerRadius - rimDrift);
 
             float gap = DropGap(targetAngle, plannedTravel);
             if (gap > prevGap + 180f) break;   // acaba de pasar el punto de caída
@@ -212,34 +262,68 @@ public class RouletteMachine : MonoBehaviour, IInteractable
             yield return null;
         }
 
-        // 2) Bote de la madera a los colores y botes entre casillas (medido sobre la rueda)
+        // 2) Botes por la zona de colores (medido sobre la rueda).
+        // La bola sigue su frenada natural (inercia) con pequeñas desviaciones en cada bote,
+        // y el último bote siempre cae en la casilla ganadora.
         float fromAngle = BallWheelAngle();
         float travel = Mathf.Repeat(fromAngle - targetAngle, 360f);
         travel += 360f * Mathf.Max(0f, Mathf.Round((plannedTravel - travel) / 360f));
-        float scale = plannedTravel > 0f ? travel / plannedTravel : 1f;
 
-        float fromRadius = outerRadius;
-        float fromHeight = rimHeight;
+        float[] landAngles = new float[hops];
+        float[] landRadii = new float[hops];
+        float clock = 0f;
         for (int i = 0; i < hops; i++)
         {
-            float toAngle = fromAngle - hopDegrees[i] * scale;
-            float t = 0f;
-            while (t < 1f)
+            clock += hopDurations[i];
+            if (i == hops - 1)
             {
-                t += Time.deltaTime / hopDurations[i];
-                float k = Mathf.Clamp01(t);
+                landAngles[i] = fromAngle - travel;
+                landRadii[i] = pocketRadius;
+                break;
+            }
 
-                float angle = Mathf.Lerp(fromAngle, toAngle, k);
-                float radius = Mathf.Lerp(fromRadius, pocketRadius, k);
-                float height = Mathf.Lerp(fromHeight, ballHeight, k) + 4f * hopHeights[i] * k * (1f - k);
+            float s = Mathf.Clamp01(clock / bounceTime);
+            float baseAngle = fromAngle - travel * (1f - Mathf.Pow(1f - s, inertia));
+            float f = Mathf.Pow(bounceDecay, i);
+
+            landAngles[i] = baseAngle + UnityEngine.Random.Range(-hopScatter, hopScatter) * f;
+            landRadii[i] = pocketRadius + UnityEngine.Random.Range(-bandWidth, bandWidth) * Mathf.Sqrt(f);
+        }
+
+        float prevAngle = fromAngle;
+        float prevRadius = outerRadius - rimDrift;
+        float prevHeight = rimHeight;
+        for (int i = 0; i < hops; i++)
+        {
+            float h = 0f;
+            while (h < hopDurations[i])
+            {
+                h += Time.deltaTime;
+                float k = Mathf.Clamp01(h / hopDurations[i]);
+
+                float angle = Mathf.Lerp(prevAngle, landAngles[i], k);
+                float radius = Mathf.Lerp(prevRadius, landRadii[i], Mathf.SmoothStep(0f, 1f, k));
+                float height = Mathf.Lerp(prevHeight, ballHeight, k) + 4f * hopHeights[i] * k * (1f - k);
                 ball.position = WheelPoint(angle, radius, height);
                 yield return null;
             }
 
             onBallBounce?.Invoke();
-            fromAngle = toAngle;
-            fromRadius = pocketRadius;
-            fromHeight = ballHeight;
+            prevAngle = landAngles[i];
+            prevRadius = landRadii[i];
+            prevHeight = ballHeight;
+        }
+
+        // 3) Se asienta: pequeño balanceo adelante/atrás dentro de la casilla que se va apagando
+        float amplitude = settleWobble * StepAngle;
+        float settle = 0f;
+        while (settle < settleTime)
+        {
+            settle += Time.deltaTime;
+            float x = Mathf.Clamp01(settle / settleTime);
+            float offset = -amplitude * Mathf.Exp(-4f * x) * Mathf.Sin(x * Mathf.PI * 4f) * (1f - x);
+            ball.position = WheelPoint(targetAngle + offset, pocketRadius, ballHeight);
+            yield return null;
         }
 
         Segment result = segments[winner];
@@ -256,8 +340,15 @@ public class RouletteMachine : MonoBehaviour, IInteractable
 
         onSpinFinished?.Invoke(result);
 
-        // 3) La bola se queda en su casilla y gira con la rueda
-        elapsed = 0f;
+        // La tirada ha terminado: ya se puede coger el ticket mientras la bola sigue en su casilla
+        spinning = false;
+        ballFollow = StartCoroutine(FollowWheelAndHide(targetAngle));
+    }
+
+    // 4) La bola se queda en su casilla girando con la rueda y luego desaparece
+    private IEnumerator FollowWheelAndHide(float targetAngle)
+    {
+        float elapsed = 0f;
         while (elapsed < ballVisibleAfterLanding)
         {
             elapsed += Time.deltaTime;
@@ -266,7 +357,7 @@ public class RouletteMachine : MonoBehaviour, IInteractable
         }
 
         ball.gameObject.SetActive(false);
-        spinning = false;
+        ballFollow = null;
     }
 
     private int PickWeightedIndex()
@@ -305,9 +396,9 @@ public class RouletteMachine : MonoBehaviour, IInteractable
     }
 
     // Punto sobre la madera (no gira con la rueda)
-    private Vector3 RimPoint(Quaternion frame, float angleDeg)
+    private Vector3 RimPoint(Quaternion frame, float angleDeg, float radius)
     {
-        return wheelCenter.position + frame * Dir(angleDeg) * outerRadius + wheelCenter.up * rimHeight;
+        return wheelCenter.position + frame * Dir(angleDeg) * radius + wheelCenter.up * rimHeight;
     }
 
     // Punto sobre la rueda (gira con ella)
@@ -332,6 +423,6 @@ public class RouletteMachine : MonoBehaviour, IInteractable
         // Madera: bolitas blancas por donde rueda la bola al principio
         Gizmos.color = Color.white;
         for (int i = 0; i < 12; i++)
-            Gizmos.DrawWireSphere(RimPoint(wheelCenter.rotation, i * 30f), 0.04f);
+            Gizmos.DrawWireSphere(RimPoint(wheelCenter.rotation, i * 30f, outerRadius), 0.04f);
     }
 }
