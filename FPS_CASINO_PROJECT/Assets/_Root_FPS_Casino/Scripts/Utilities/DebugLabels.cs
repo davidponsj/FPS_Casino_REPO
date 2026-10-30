@@ -27,6 +27,7 @@ public static class DebugLabels
     public const int EnemyMovementLine = 1;
     public const int EnemyHealthLine = 2;
     public const int EnemyAttackLine = 3;
+    public const int RobotLightsLine = 4;
 
     public const int PlayerControllerLine = 0;
     public const int PlayerHealthLine = 1;
