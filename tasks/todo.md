@@ -1,11 +1,11 @@
-# TODO: Robot de seguridad — hundirse al morir y luces emisivas
+# TODO: Escopeta de dados y comprar armas en la pared
 
 Detalle de cada tarea (qué, campos, "Hecho cuando") en `tasks/plan.md`.
-**Estado (2026-10-30):** plan cerrado con David. Siguiente paso: `/build`.
-(La lista anterior, la de la limpieza, está en git: commit 3168895.)
+**Estado (2026-11-03):** plan cerrado con David. Siguiente paso: `/build` con **Unity cerrado**.
+(La lista anterior, la del robot, está en git: commit 3e3d544.)
 
-- [x] T1 EnemyHealth: hundirse antes de desaparecer (sinkSeconds, sinkMeters)
-- [x] T2 RobotLights: pinganillo parpadeante, boca con la voz, apagar al morir
-- [x] T3 DebugLabels.RobotLightsLine + RobotLightsTests
-- [ ] **Checkpoint:** compile + test (Unity cerrado), commit y push a dev-davidmallorca_V3 (preguntar por el maxHealth 10 del Hunter)
-- [ ] Pasos del Editor (David): Robot Lights en la raíz de PF_EnemyHunter, AudioSource para la voz, Bloom si hace falta
+- [x] T1 Renombrar WeaponReloadAnimator.cs → WeaponAnimator.cs (con su .meta, mismo GUID)
+- [ ] T2 Compra: WeaponBase (IsAmmoFull, RefillAmmo), WeaponManager (CurrentWeaponPrefab), WallWeaponPickup (precio, munición, prompt) + WallWeaponPickupTests
+- [ ] T3 Prefabs: arreglar PF_Lanzacartas_Wall (GUID, 500), PF_EscopetaDados_Wall (Escopeta, 1500), valores de PF_EscopetaDados
+- [ ] **Checkpoint:** compile + test + check_refs, commit y push (preguntar por el resto de cambios sin commitear)
+- [ ] Pasos del Editor (David): Weapon Animator en la escopeta, MuzzlePoint, posición en mano, probar
