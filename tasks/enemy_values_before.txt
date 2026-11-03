@@ -1,0 +1,55 @@
+=== EnemyMovement en Prefabs/Enemies/PF_EnemyBase.prefab
+  baseSpeed: 3.5
+  speedVariation: 0.1
+  acceleration: 30
+  turnSpeed: 540
+  stoppingDistance: 0.2
+  avoidancePriorityRange: {x: 30, y: 70}
+  anchoredPriority: 10
+  anchoredWeight: 3
+  repathInterval: 0.2
+  minTargetMoveDistance: 0.5
+  sampleDistance: 2
+  stuckCheckInterval: 1
+  stuckMinProgress: 0.3
+=== EnemyHealth en Prefabs/Enemies/PF_EnemyBase.prefab
+=== Overrides de la variante PF_EnemyHunter.prefab
+  [583850392713354626] m_LocalPosition.x: 0
+  [583850392713354626] m_LocalPosition.y: 0
+  [583850392713354626] m_LocalPosition.z: 0
+  [583850392713354626] m_LocalRotation.w: 1
+  [583850392713354626] m_LocalRotation.x: 0
+  [583850392713354626] m_LocalRotation.y: 0
+  [583850392713354626] m_LocalRotation.z: 0
+  [583850392713354626] m_LocalEulerAnglesHint.x: 0
+  [583850392713354626] m_LocalEulerAnglesHint.y: 0
+  [583850392713354626] m_LocalEulerAnglesHint.z: 0
+  [3290080276003387380] m_StoppingDistance: 1.5
+  [6779507671629964415] m_Name: Enemy_Hunter
+  [6779507671629964415] m_Layer: 8
+  [7315191455728234954] baseSpeed: 7.22
+  [7315191455728234954] playerSpace: 1
+  [7315191455728234954] personalSpace: 1.1
+=== HunterAI en Prefabs/Enemies/PF_EnemyHunter.prefab
+  bodyRenderer: {fileID: 0}
+  laneWidth: 1.5
+  laneLookahead: 4
+  laneFullDistance: 9
+  laneZeroDistance: 5
+  wobbleAmplitude: 0.4
+  wobbleFrequency: 0.25
+  engageRange: 1.6
+  meleeDistance: 1.15
+  engageExitRange: 2.6
+  holdTolerance: 0.2
+  resumeTolerance: 0.6
+  reevaluateInterval: 0.5
+  stateMinDuration: 0.3
+  fallbackStoppingDistance: 1.5
+  engagedColor: {r: 1, g: 0.55, b: 0, a: 1}
+
+=== Notas (2026-10-26)
+- [7315191455728234954] = EnemyMovement de PF_EnemyBase. [3290080276003387380] = NavMeshAgent.
+- playerSpace y personalSpace son overrides huérfanos: ningún script tiene ya esos campos. No afectan.
+- EnemyHealth no tiene campos serializados.
+- Solo SCN_Mallorca usa PF_EnemyHunter: overrides de posición, rotación y nombre (ninguno de la IA).
