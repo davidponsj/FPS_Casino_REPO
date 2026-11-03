@@ -4,12 +4,12 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.InputSystem;
 using TMPro;
-using UnityEngine.Serialization;
 
 /// <summary>
-/// Pantalla del cajero del menú principal. Al encenderse (TurnOn) aparece con un fundido y muestra
-/// páginas de opciones de texto: la del ratón encima se agranda y lleva una flecha (MenuArrow), y al
-/// hacer clic se lanza su evento onSelect (p. ej. ShowPage para otra página o ReturnToStart para salir del zoom).
+/// Pantalla del cajero del menú principal. Al encenderse (TurnOn) aparece con un efecto de monitor CRT
+/// (línea horizontal que se abre y parpadeo) y muestra páginas de opciones de texto: la del ratón encima
+/// se agranda y lleva una flecha (MenuArrow), y al hacer clic se lanza su evento onSelect (p. ej. ShowPage
+/// para otra página o ReturnToStart para salir del zoom). Al apagarse (TurnOff) hace el efecto al revés.
 /// </summary>
 public class ATMScreen : MonoBehaviour
 {
@@ -32,17 +32,33 @@ public class ATMScreen : MonoBehaviour
     }
 
     [Header("Pantalla")]
-    [Tooltip("CanvasGroup de la pantalla: su alpha hace el fundido al encender y apagar.")]
+    [Tooltip("CanvasGroup de la pantalla: su alpha y su escala hacen el efecto al encender y apagar.")]
     [SerializeField] private CanvasGroup screenGroup;
     [Tooltip("Luz de la pantalla, que se enciende con ella. Opcional.")]
     [SerializeField] private Light screenLight;
-    [Tooltip("Segundos del fundido al encender o apagar. 0.4 = rápido pero se ve.")]
-    [FormerlySerializedAs("fadeDuration")]
-    [Min(0f)]
-    [SerializeField] private float fadeSeconds = 0.4f;
     [Tooltip("Intensidad de la luz con la pantalla encendida. 1.5 = brillo suave.")]
     [Min(0f)]
     [SerializeField] private float lightIntensity = 1.5f;
+
+    [Header("Efecto CRT")]
+    [Tooltip("Tiempo que tarda la línea horizontal en abrirse de lado a lado")]
+    [Min(0f)]
+    [SerializeField] private float lineDuration = 0.08f;
+    [Tooltip("Tiempo que tarda la línea en abrirse a pantalla completa")]
+    [Min(0f)]
+    [SerializeField] private float expandDuration = 0.15f;
+    [Tooltip("Duración del parpadeo al encender (al apagar dura la mitad)")]
+    [Min(0f)]
+    [SerializeField] private float flickerDuration = 0.3f;
+    [Tooltip("Cada cuánto cambia el brillo durante el parpadeo")]
+    [Min(0.01f)]
+    [SerializeField] private float flickerInterval = 0.04f;
+    [Tooltip("Brillo mínimo durante el parpadeo")]
+    [Range(0f, 1f)]
+    [SerializeField] private float flickerMinAlpha = 0.3f;
+    [Tooltip("Grosor de la línea, respecto al alto de la pantalla")]
+    [Min(0f)]
+    [SerializeField] private float lineThickness = 0.02f;
 
     [Header("Menú")]
     [Tooltip("Página 0 = menú principal")]
@@ -64,7 +80,8 @@ public class ATMScreen : MonoBehaviour
     private int currentPage;
     private int selected = None;
     private bool isOn;
-    private Coroutine fadeRoutine;
+    private Coroutine screenRoutine;
+    private Vector3 baseScale;
 
     private MenuOption[] Options => pages[currentPage].options;
 
@@ -72,12 +89,8 @@ public class ATMScreen : MonoBehaviour
     {
         if (menuCamera == null) menuCamera = Camera.main;
 
-        screenGroup.alpha = 0f;
-        if (screenLight != null)
-        {
-            screenLight.intensity = 0f;
-            screenLight.enabled = false;
-        }
+        baseScale = screenGroup.transform.localScale;
+        SetScreen(0f, 1f, 1f);
 
         for (int p = 0; p < pages.Length; p++)
         {
@@ -102,13 +115,13 @@ public class ATMScreen : MonoBehaviour
     {
         isOn = true;
         ShowPage(0);
-        StartFade(1f);
+        StartScreenRoutine(PowerOn());
     }
 
     public void TurnOff()
     {
         isOn = false;
-        StartFade(0f);
+        StartScreenRoutine(PowerOff());
     }
 
     public void ShowPage(int index)
@@ -229,32 +242,74 @@ public class ATMScreen : MonoBehaviour
         return tri;
     }
 
-    private void StartFade(float target)
+    // ---------- Efecto CRT ----------
+
+    private void StartScreenRoutine(IEnumerator routine)
     {
-        if (fadeRoutine != null) StopCoroutine(fadeRoutine);
-        fadeRoutine = StartCoroutine(Fade(target));
+        if (screenRoutine != null) StopCoroutine(screenRoutine);
+        screenRoutine = StartCoroutine(routine);
     }
 
-    private IEnumerator Fade(float target)
+    private IEnumerator PowerOn()
     {
-        if (screenLight != null) screenLight.enabled = true;
+        // Línea fina que se abre de lado a lado
+        yield return Animate(lineDuration, k => SetScreen(1f, k, lineThickness));
+        // La línea se abre hasta llenar la pantalla
+        yield return Animate(expandDuration, k => SetScreen(1f, 1f, Mathf.Lerp(lineThickness, 1f, k)));
+        // Parpadeo antes de estabilizarse
+        yield return Flicker(flickerDuration);
+    }
 
-        float start = screenGroup.alpha;
+    private IEnumerator PowerOff()
+    {
+        // Parpadeo corto antes de apagarse
+        yield return Flicker(flickerDuration * 0.5f);
+        // La pantalla se aplasta en una línea
+        yield return Animate(expandDuration, k => SetScreen(1f, 1f, Mathf.Lerp(1f, lineThickness, k)));
+        // La línea se encoge hasta desaparecer
+        yield return Animate(lineDuration, k => SetScreen(1f, 1f - k, lineThickness));
+
+        SetScreen(0f, 1f, 1f);
+    }
+
+    private IEnumerator Flicker(float duration)
+    {
         float t = 0f;
-        while (t < fadeSeconds)
+        while (t < duration)
+        {
+            SetScreen(UnityEngine.Random.Range(flickerMinAlpha, 1f), 1f, 1f);
+
+            float wait = Mathf.Max(flickerInterval, 0.01f);
+            yield return new WaitForSeconds(wait);
+            t += wait;
+        }
+
+        SetScreen(1f, 1f, 1f);
+    }
+
+    private IEnumerator Animate(float duration, Action<float> step)
+    {
+        float t = 0f;
+        while (t < duration)
         {
             t += Time.deltaTime;
-            float a = Mathf.Lerp(start, target, t / fadeSeconds);
-            screenGroup.alpha = a;
-            if (screenLight != null) screenLight.intensity = a * lightIntensity;
+            step(Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / duration)));
             yield return null;
         }
 
-        screenGroup.alpha = target;
+        step(1f);
+    }
+
+    private void SetScreen(float alpha, float scaleX, float scaleY)
+    {
+        screenGroup.alpha = alpha;
+        screenGroup.transform.localScale = new Vector3(baseScale.x * scaleX, baseScale.y * scaleY, baseScale.z);
+
         if (screenLight != null)
         {
-            screenLight.intensity = target * lightIntensity;
-            screenLight.enabled = target > 0f;
+            float intensity = alpha * scaleY * lightIntensity;
+            screenLight.intensity = intensity;
+            screenLight.enabled = intensity > 0f;
         }
     }
 }

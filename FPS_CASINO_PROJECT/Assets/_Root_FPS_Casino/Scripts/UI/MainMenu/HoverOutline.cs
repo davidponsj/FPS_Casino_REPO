@@ -37,6 +37,11 @@ public class HoverOutline : MonoBehaviour
             go.transform.SetParent(filter.transform, false);
             go.transform.localScale = Vector3.one * outlineScale;
 
+            // Escala desde el centro de la pieza y no desde su pivot,
+            // para que el borde sobresalga igual por todos los lados
+            Vector3 center = filter.sharedMesh.bounds.center;
+            go.transform.localPosition = center * (1f - outlineScale);
+
             go.AddComponent<MeshFilter>().sharedMesh = filter.sharedMesh;
 
             var rend = go.AddComponent<MeshRenderer>();
