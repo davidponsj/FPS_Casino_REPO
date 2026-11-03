@@ -26,6 +26,8 @@ public static class DebugLabels
     public const int EnemyAILine = 0;
     public const int EnemyMovementLine = 1;
     public const int EnemyHealthLine = 2;
+    public const int EnemyAttackLine = 3;
+    public const int RobotLightsLine = 4;
 
     public const int PlayerControllerLine = 0;
     public const int PlayerHealthLine = 1;
@@ -34,9 +36,10 @@ public static class DebugLabels
     public const int TicketInventoryLine = 4;
     public const int PlayerBuffsLine = 5;
 
-    // Línea de cada bloque en el panel de la derecha (la ronda ocupa 3).
+    // Línea de cada bloque en el panel de la derecha (la ronda ocupa 3; el combo, 2).
     public const int RoundPanelLine = 0;
     public const int HordePanelLine = 4;
+    public const int KillScorePanelLine = 6;
 
     private const float HeadHeight = 2.3f; // metros sobre el pivote donde empieza el bloque de un personaje
     private const float LineHeight = 17f;  // píxeles por línea

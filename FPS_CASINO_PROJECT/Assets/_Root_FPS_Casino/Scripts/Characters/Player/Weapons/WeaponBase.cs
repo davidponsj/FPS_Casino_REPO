@@ -110,6 +110,7 @@ public abstract class WeaponBase : MonoBehaviour
     protected float lastShotTime;
 
     protected PlayerBuffs buffs;          // mejoras temporales de las botellas (cadencia, recarga, munición)
+    protected KillScore killScore;        // puntuación de las bajas: se le avisa de cada impacto a un enemigo
     protected float currentReloadDuration; // duración de la recarga en curso (con el multiplicador ya aplicado)
 
     /// <summary>Se dispara cada vez que cambia currentAmmo o reserveAmmo (disparo o recarga).</summary>
@@ -118,6 +119,8 @@ public abstract class WeaponBase : MonoBehaviour
     public event Action OnReloadStarted;
     /// <summary>Se dispara al terminar la recarga (con éxito).</summary>
     public event Action OnReloadFinished;
+    /// <summary>Se dispara con cada disparo (una vez por gatillazo, aunque la escopeta suelte varios perdigones).</summary>
+    public event Action OnFired;
 
     public float CurrentSpreadDegrees => currentSpreadDegrees;
     /// <summary>Cámara desde la que dispara el arma. La retícula la usa para pasar grados a píxeles.</summary>
@@ -147,6 +150,7 @@ public abstract class WeaponBase : MonoBehaviour
             playerController = GetComponentInParent<PlayerController>();
 
         buffs = GetComponentInParent<PlayerBuffs>();
+        killScore = GetComponentInParent<KillScore>();
 
         if (playerCamera == null)
             playerCamera = GetComponentInParent<Camera>();
@@ -162,6 +166,7 @@ public abstract class WeaponBase : MonoBehaviour
         playerController = controller;
         playerCamera = camera;
         buffs = controller != null ? controller.GetComponent<PlayerBuffs>() : null;
+        killScore = controller != null ? controller.GetComponent<KillScore>() : null;
     }
 
     protected virtual void Update()
@@ -246,7 +251,13 @@ public abstract class WeaponBase : MonoBehaviour
 
         if (Physics.Raycast(origin, direction, out RaycastHit hit, range, hitMask, QueryTriggerInteraction.Ignore))
         {
-            hit.collider.GetComponentInParent<IDamageable>()?.TakeDamage(shotDamage);
+            IDamageable damageable = hit.collider.GetComponentInParent<IDamageable>();
+
+            // Antes del daño: si este impacto lo mata, KillScore ya sabe cómo ha sido (cabeza, última bala...).
+            if (killScore != null && damageable is EnemyHealth enemy)
+                killScore.RegisterHit(enemy, hit, this);
+
+            damageable?.TakeDamage(shotDamage);
 
             if (impactEffectPrefab != null)
                 Instantiate(impactEffectPrefab, hit.point, Quaternion.LookRotation(hit.normal));
@@ -309,6 +320,7 @@ public abstract class WeaponBase : MonoBehaviour
         float fireRateMultiplier = buffs != null ? buffs.FireRateMultiplier : 1f;
         nextFireTime = Time.time + (1f / (fireRate * fireRateMultiplier));
         Fire();
+        OnFired?.Invoke();
 
         // Si llevas un rato sin disparar, la racha se reinicia; si no, este disparo
         // cuenta como "uno más seguido" y pega más fuerte que el anterior.
