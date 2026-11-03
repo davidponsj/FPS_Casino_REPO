@@ -27,6 +27,9 @@ public class WeaponManager : MonoBehaviour
 
     public WeaponBase CurrentWeapon { get; private set; }
 
+    /// <summary>Prefab del que salió el arma equipada (para saber si ya llevas la de una pared).</summary>
+    public WeaponBase CurrentWeaponPrefab { get; private set; }
+
     private void Awake()
     {
         if (playerController == null)
@@ -49,6 +52,7 @@ public class WeaponManager : MonoBehaviour
         // WeaponHolder antes de convertirla en prefab, aparece exactamente donde la dejaste.
         // Ya no forzamos aquí la posición a cero.
         CurrentWeapon = Instantiate(weaponPrefab, weaponSocket);
+        CurrentWeaponPrefab = weaponPrefab;
         CurrentWeapon.Initialize(playerController, playerCamera);
 
         OnWeaponChanged?.Invoke(CurrentWeapon);

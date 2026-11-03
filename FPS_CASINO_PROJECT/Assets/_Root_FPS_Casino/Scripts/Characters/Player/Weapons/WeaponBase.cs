@@ -140,6 +140,15 @@ public abstract class WeaponBase : MonoBehaviour
     public float ReloadProgress01 => isReloading
         ? Mathf.Clamp01((Time.time - reloadStartTime) / Mathf.Max(currentReloadDuration, 0.0001f))
         : 0f;
+    public bool IsAmmoFull => currentAmmo >= magazineSize && reserveAmmo >= startingReserveAmmo;
+
+    /// <summary>Cargador y reserva llenos, como al cogerla (la munición de pared).</summary>
+    public void RefillAmmo()
+    {
+        currentAmmo = magazineSize;
+        reserveAmmo = startingReserveAmmo;
+        OnAmmoChanged?.Invoke();
+    }
 
     protected virtual void Awake()
     {
