@@ -164,7 +164,7 @@ public class ATMScreen : MonoBehaviour
 
     private void Update()
     {
-        if (!isOn || busy || Options.Length == 0) return;
+        if (!isOn || busy || KeyBindings.BlockMenuInput || Options.Length == 0) return;
 
         var mouse = Mouse.current;
         if (mouse != null && menuCamera != null)
