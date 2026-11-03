@@ -119,6 +119,8 @@ public abstract class WeaponBase : MonoBehaviour
     public event Action OnReloadStarted;
     /// <summary>Se dispara al terminar la recarga (con éxito).</summary>
     public event Action OnReloadFinished;
+    /// <summary>Se dispara con cada disparo (una vez por gatillazo, aunque la escopeta suelte varios perdigones).</summary>
+    public event Action OnFired;
 
     public float CurrentSpreadDegrees => currentSpreadDegrees;
     /// <summary>Cámara desde la que dispara el arma. La retícula la usa para pasar grados a píxeles.</summary>
@@ -318,6 +320,7 @@ public abstract class WeaponBase : MonoBehaviour
         float fireRateMultiplier = buffs != null ? buffs.FireRateMultiplier : 1f;
         nextFireTime = Time.time + (1f / (fireRate * fireRateMultiplier));
         Fire();
+        OnFired?.Invoke();
 
         // Si llevas un rato sin disparar, la racha se reinicia; si no, este disparo
         // cuenta como "uno más seguido" y pega más fuerte que el anterior.

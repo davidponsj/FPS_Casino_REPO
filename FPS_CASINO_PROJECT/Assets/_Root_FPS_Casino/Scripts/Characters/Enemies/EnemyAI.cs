@@ -84,14 +84,14 @@ public class EnemyAI : MonoBehaviour
     [SerializeField] private float fallbackStoppingDistance = 1.5f;
 
     [Header("Feedback visual")]
-    [Tooltip("Color del cuerpo mientras está pegado al jugador.")]
+    [Tooltip("Color del cuerpo mientras está pegado al jugador. Solo con Mostrar depuración marcado.")]
     [FormerlySerializedAs("inPositionColor")]
     [SerializeField] private Color engagedColor = new Color(1f, 0.55f, 0f);
-    [Tooltip("Color del cuerpo durante el aviso del golpe (EnemyAttack). Sirve mientras no haya animación de ataque.")]
+    [Tooltip("Color del cuerpo durante el aviso del golpe (EnemyAttack). Solo con Mostrar depuración marcado.")]
     [SerializeField] private Color windupColor = new Color(1f, 0.1f, 0.1f);
 
     [Header("Depuración")]
-    [Tooltip("Muestra sobre la cabeza el estado, los segundos en él y la distancia al jugador, y una línea hasta su destino, en la vista Scene (y en Game con el botón Gizmos activado).")]
+    [Tooltip("Muestra sobre la cabeza el estado, los segundos en él y la distancia al jugador, y una línea hasta su destino, en la vista Scene (y en Game con el botón Gizmos activado). También tiñe el cuerpo: naranja pegado al jugador, rojo en el aviso del golpe.")]
     [SerializeField] private bool showDebug;
 
     private StateMachine<EnemyAI> machine;
@@ -277,10 +277,10 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
-    /// <summary>Cambia el color del cuerpo sin crear materiales nuevos (MaterialPropertyBlock).</summary>
+    /// <summary>Cambia el color del cuerpo sin crear materiales nuevos (MaterialPropertyBlock). Solo en depuración.</summary>
     private void SetBodyColor(Color color)
     {
-        if (bodyRenderer == null) return;
+        if (bodyRenderer == null || !showDebug) return;
 
         bodyRenderer.GetPropertyBlock(propertyBlock);
         propertyBlock.SetColor(BaseColorId, color);
