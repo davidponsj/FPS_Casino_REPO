@@ -141,6 +141,8 @@ public abstract class WeaponBase : MonoBehaviour
         : Mathf.InverseLerp(minSpreadDegrees, maxSpreadDegrees, currentSpreadDegrees);
 
     public int CurrentAmmo => currentAmmo;
+    /// <summary>Balas que caben en el cargador. Lo usa WeaponAnimator para saber cuándo se ha gastado un tercio, etc.</summary>
+    public int MagazineSize => magazineSize;
     public int ReserveAmmo => reserveAmmo;
     public bool IsReloading => isReloading;
     public float ReloadProgress01 => isReloading
@@ -278,7 +280,10 @@ public abstract class WeaponBase : MonoBehaviour
 
             damageable?.TakeDamage(shotDamage);
 
-            if (impactEffectPrefab != null)
+            // La partícula (polvo, esquirlas, agujero) solo en objetos: en un personaje quedaría pegada en el aire
+            // cuando se mueve. Los personajes son los que tienen vida de personaje (enemigos y jugador).
+            bool hitCharacter = damageable is EnemyHealth || damageable is PlayerHealth;
+            if (impactEffectPrefab != null && !hitCharacter)
                 Instantiate(impactEffectPrefab, hit.point, Quaternion.LookRotation(hit.normal));
 
             tracerEndPoint = hit.point;

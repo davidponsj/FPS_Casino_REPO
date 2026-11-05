@@ -7,6 +7,9 @@ using UnityEngine;
 /// - Animación de recarga: en cada frame pone el clip en el punto que toca (SampleAnimation), sincronizado con
 ///   la recarga real (ReloadProgress01). Dura siempre lo mismo que la recarga, también con la botella azul.
 /// - Animación de disparo: cada disparo reproduce el clip desde el principio. Si recargas, manda la recarga.
+/// - Animaciones del cargador (opcionales): al gastar cierta parte del cargador suena y se ve un clip, y el arma
+///   se QUEDA en la pose final de ese clip hasta recargar. Ej.: el subfusil de 3 tubos gira los tubos al gastar
+///   un tercio y otra vez al gastar dos tercios. Van encima del disparo, así que puedes seguir disparando.
 /// - Sonidos: disparo (uno al azar de la lista, con un poco de variación de tono), uno opcional después del
 ///   disparo (el corredero de la escopeta), el "clic" sin balas y los de la recarga, cada uno en su momento
 ///   de la recarga (0 = empieza, 1 = acaba). Como la animación va por ese mismo progreso, van siempre a la vez.
@@ -29,6 +32,19 @@ public class WeaponAnimator : MonoBehaviour
         [Range(0f, 1f)] public float volume = 1f;
     }
 
+    [Serializable]
+    public class MagazineStep
+    {
+        [Tooltip("Clip que se reproduce al llegar a este punto del cargador (p. ej. AC_RotateTubes1_Subfusil). El arma se queda en su último frame hasta recargar.")]
+        public AnimationClip clip;
+        [Tooltip("Parte del cargador que queda cuando se lanza. 0.67 = al gastar un tercio; 0.34 = al gastar dos tercios. Con 50 balas: 0.67 salta al quedar 33.")]
+        [Range(0f, 1f)] public float atAmmoFraction = 0.67f;
+        [Tooltip("Sonido del giro, del cambio de tubo... Vacío = sin sonido.")]
+        public AudioClip sound;
+        [Tooltip("Volumen de este sonido. 1 = normal.")]
+        [Range(0f, 1f)] public float volume = 1f;
+    }
+
     [Header("Animaciones (opcionales)")]
     [Tooltip("Clip de recarga del FBX (p. ej. AC_Shotgun_Reload). Debe empezar y acabar en la pose de reposo. Vacío = sin animación de recarga.")]
     [SerializeField] private AnimationClip reloadClip;
@@ -37,6 +53,10 @@ public class WeaponAnimator : MonoBehaviour
     [Tooltip("Velocidad del clip de disparo. 1 = como en el FBX; 2 = el doble de rápido, para armas que disparan muy seguido.")]
     [Min(0.01f)]
     [SerializeField] private float shootSpeed = 1f;
+
+    [Header("Animaciones del cargador (opcionales)")]
+    [Tooltip("Animaciones que salen al gastar parte del cargador, de la más llena a la más vacía. Subfusil de 3 tubos: dos pasos, en 0.67 y en 0.34. Vacío = ninguna.")]
+    [SerializeField] private MagazineStep[] magazineSteps;
 
     [Header("Sonido: disparo")]
     [Tooltip("Sonidos de disparo. Si hay varios, suena uno al azar cada vez (queda más natural que repetir siempre el mismo).")]
@@ -82,6 +102,10 @@ public class WeaponAnimator : MonoBehaviour
     private float afterFireTime = -1f;     // cuándo toca el sonido de después del disparo (-1 = ninguno pendiente)
     private float lastReloadProgress = -1f; // progreso de la recarga en el frame anterior (-1 = no recargando)
 
+    private int magazineStage;            // cuántos pasos del cargador se han pasado ya (0 = cargador lleno)
+    private int playingStep = -1;          // paso cuyo clip se está reproduciendo ahora (-1 = ninguno)
+    private float stepStartTime;
+
     // Solo para la depuración.
     private string debugState = "reposo";
     private string debugLastSound = "—";
@@ -89,6 +113,11 @@ public class WeaponAnimator : MonoBehaviour
     private void Awake()
     {
         weapon = GetComponentInParent<WeaponBase>();
+
+        // De la más llena a la más vacía, por si en el Inspector están desordenadas.
+        if (magazineSteps != null)
+            Array.Sort(magazineSteps, (a, b) => b.atAmmoFraction.CompareTo(a.atAmmoFraction));
+
         if (weapon == null)
         {
             Debug.LogWarning($"{name}: WeaponAnimator no encuentra un WeaponBase en este objeto ni en sus padres.", this);
@@ -131,7 +160,9 @@ public class WeaponAnimator : MonoBehaviour
         if (weapon == null) return;
 
         UpdateSounds();
+        UpdateMagazineStage();
         UpdateAnimation();
+        UpdateMagazineAnimation();
     }
 
     // ---------------- EVENTOS DEL ARMA ----------------
@@ -200,6 +231,71 @@ public class WeaponAnimator : MonoBehaviour
         debugState = $"{state} · {time:0.00}/{clip.length:0.00} s";
     }
 
+    // ---------------- ANIMACIONES DEL CARGADOR ----------------
+
+    /// <summary>
+    /// Mira cuánta munición queda y, si se ha cruzado el siguiente paso (p. ej. un tercio gastado), lanza su clip
+    /// y su sonido. Durante la recarga no hace nada: la animación de recarga ya devuelve el arma a su sitio.
+    /// </summary>
+    private void UpdateMagazineStage()
+    {
+        if (magazineSteps == null || magazineSteps.Length == 0 || weapon.IsReloading) return;
+
+        int newStage = 0;
+        float ammo01 = weapon.MagazineSize > 0 ? (float)weapon.CurrentAmmo / weapon.MagazineSize : 1f;
+        foreach (MagazineStep step in magazineSteps)
+            if (ammo01 <= step.atAmmoFraction) newStage++;
+
+        if (newStage > magazineStage)
+        {
+            // Si de golpe se pasan dos pasos, se ve el último.
+            MagazineStep step = magazineSteps[newStage - 1];
+            playingStep = newStage - 1;
+            stepStartTime = Time.time;
+            PlaySound(step.sound, step.volume, false, $"cargador {newStage}");
+        }
+        else if (newStage < magazineStage)
+        {
+            playingStep = -1; // ha recargado: vuelve al cargador lleno sin animación (la recarga ya lo ha hecho)
+        }
+
+        magazineStage = newStage;
+    }
+
+    /// <summary>
+    /// Se aplica DESPUÉS del disparo y del reposo: así el giro de tubos se ve aunque sigas disparando, y el arma
+    /// se queda en la pose del último paso (sin esto, cada disparo o el reposo devolverían los tubos a su sitio).
+    /// </summary>
+    private void UpdateMagazineAnimation()
+    {
+        if (weapon.IsReloading || magazineSteps == null || magazineSteps.Length == 0) return;
+
+        if (playingStep >= 0)
+        {
+            AnimationClip clip = magazineSteps[playingStep].clip;
+            float time = Time.time - stepStartTime;
+            if (clip != null && time < clip.length)
+            {
+                clip.SampleAnimation(gameObject, time);
+                outOfRestPose = true;
+                debugState = $"cargador {playingStep + 1} · {time:0.00}/{clip.length:0.00} s";
+                return;
+            }
+            playingStep = -1;
+        }
+
+        // Mantener la pose del último paso pasado (su último frame).
+        if (magazineStage > 0)
+        {
+            AnimationClip held = magazineSteps[magazineStage - 1].clip;
+            if (held != null)
+            {
+                held.SampleAnimation(gameObject, held.length);
+                outOfRestPose = true;
+            }
+        }
+    }
+
     // ---------------- SONIDO ----------------
 
     private void UpdateSounds()
@@ -241,7 +337,7 @@ public class WeaponAnimator : MonoBehaviour
     private bool HasAnySound()
     {
         return (fireClips != null && fireClips.Length > 0) || afterFireClip != null || dryFireClip != null
-            || (reloadSounds != null && reloadSounds.Length > 0);
+            || (reloadSounds != null && reloadSounds.Length > 0) || (magazineSteps != null && magazineSteps.Length > 0);
     }
 
 #if UNITY_EDITOR
@@ -250,6 +346,8 @@ public class WeaponAnimator : MonoBehaviour
         if (!showDebug || !Application.isPlaying) return;
         DebugLabels.At(transform.position, 1, $"Animación · {debugState}", DebugLabels.Weapon);
         DebugLabels.At(transform.position, 2, $"Sonido · {debugLastSound}", DebugLabels.Weapon);
+        if (magazineSteps != null && magazineSteps.Length > 0)
+            DebugLabels.At(transform.position, 3, $"Cargador · paso {magazineStage}/{magazineSteps.Length}", DebugLabels.Weapon);
     }
 #endif
 }
