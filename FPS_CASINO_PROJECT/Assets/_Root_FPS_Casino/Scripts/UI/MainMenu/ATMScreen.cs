@@ -9,7 +9,8 @@ using TMPro;
 /// Pantalla del cajero del menú principal. Al encenderse (TurnOn) aparece con un efecto de monitor CRT
 /// (línea horizontal que se abre y parpadeo) y muestra páginas de opciones de texto: la del ratón encima
 /// se agranda y lleva una flecha (MenuArrow), y al hacer clic se lanza su evento onSelect (p. ej. ShowPage
-/// para otra página o ReturnToStart para salir del zoom). Al apagarse (TurnOff) hace el efecto al revés.
+/// para otra página o ReturnToStart para salir del zoom). Al cambiar de página la pantalla parpadea y,
+/// mientras tanto, no se puede pulsar nada. Al apagarse (TurnOff) hace el efecto al revés.
 /// </summary>
 public class ATMScreen : MonoBehaviour
 {
@@ -60,6 +61,11 @@ public class ATMScreen : MonoBehaviour
     [Min(0f)]
     [SerializeField] private float lineThickness = 0.02f;
 
+    [Header("Cambio de panel")]
+    [Tooltip("Segundos que parpadea la pantalla al cambiar de panel. Mientras dura no se puede pulsar nada. 0 = cambio instantáneo.")]
+    [Min(0f)]
+    [SerializeField] private float pageFlickerSeconds = 0.3f;
+
     [Header("Menú")]
     [Tooltip("Página 0 = menú principal")]
     [SerializeField] private MenuPage[] pages;
@@ -80,10 +86,14 @@ public class ATMScreen : MonoBehaviour
     private int currentPage;
     private int selected = None;
     private bool isOn;
+    private bool busy;
     private Coroutine screenRoutine;
     private Vector3 baseScale;
 
     private MenuOption[] Options => pages[currentPage].options;
+
+    /// <summary>True mientras la pantalla se enciende, se apaga o cambia de panel: no se puede pulsar nada.</summary>
+    public bool IsBusy => busy;
 
     private void Awake()
     {
@@ -91,6 +101,7 @@ public class ATMScreen : MonoBehaviour
 
         baseScale = screenGroup.transform.localScale;
         SetScreen(0f, 1f, 1f);
+        SetBusy(false);
 
         for (int p = 0; p < pages.Length; p++)
         {
@@ -108,13 +119,13 @@ public class ATMScreen : MonoBehaviour
             }
         }
 
-        ShowPage(0);
+        SetPage(0);
     }
 
     public void TurnOn()
     {
         isOn = true;
-        ShowPage(0);
+        SetPage(0);
         StartScreenRoutine(PowerOn());
     }
 
@@ -124,10 +135,22 @@ public class ATMScreen : MonoBehaviour
         StartScreenRoutine(PowerOff());
     }
 
+    /// <summary>Cambia de panel. Con la pantalla encendida, parpadea y bloquea el menú mientras tanto.</summary>
     public void ShowPage(int index)
     {
         if (index < 0 || index >= pages.Length) return;
 
+        if (!isOn || pageFlickerSeconds <= 0f)
+        {
+            SetPage(index);
+            return;
+        }
+
+        StartScreenRoutine(SwitchPage(index));
+    }
+
+    private void SetPage(int index)
+    {
         for (int i = 0; i < pages.Length; i++)
         {
             if (pages[i].root != null)
@@ -141,7 +164,7 @@ public class ATMScreen : MonoBehaviour
 
     private void Update()
     {
-        if (!isOn || Options.Length == 0) return;
+        if (!isOn || busy || KeyBindings.BlockMenuInput || Options.Length == 0) return;
 
         var mouse = Mouse.current;
         if (mouse != null && menuCamera != null)
@@ -250,18 +273,28 @@ public class ATMScreen : MonoBehaviour
         screenRoutine = StartCoroutine(routine);
     }
 
+    // Mientras está ocupada, el menú y los paneles (teclas, sliders) no responden
+    private void SetBusy(bool value)
+    {
+        busy = value;
+        screenGroup.interactable = !value;
+    }
+
     private IEnumerator PowerOn()
     {
+        SetBusy(true);
         // Línea fina que se abre de lado a lado
         yield return Animate(lineDuration, k => SetScreen(1f, k, lineThickness));
         // La línea se abre hasta llenar la pantalla
         yield return Animate(expandDuration, k => SetScreen(1f, 1f, Mathf.Lerp(lineThickness, 1f, k)));
         // Parpadeo antes de estabilizarse
         yield return Flicker(flickerDuration);
+        SetBusy(false);
     }
 
     private IEnumerator PowerOff()
     {
+        SetBusy(true);
         // Parpadeo corto antes de apagarse
         yield return Flicker(flickerDuration * 0.5f);
         // La pantalla se aplasta en una línea
@@ -270,6 +303,20 @@ public class ATMScreen : MonoBehaviour
         yield return Animate(lineDuration, k => SetScreen(1f, 1f - k, lineThickness));
 
         SetScreen(0f, 1f, 1f);
+    }
+
+    // Parpadea el panel viejo, cambia al nuevo y parpadea otra vez
+    private IEnumerator SwitchPage(int index)
+    {
+        SetBusy(true);
+        selected = None;
+        RefreshOptions();
+
+        yield return Flicker(pageFlickerSeconds * 0.5f);
+        SetPage(index);
+        yield return Flicker(pageFlickerSeconds * 0.5f);
+
+        SetBusy(false);
     }
 
     private IEnumerator Flicker(float duration)

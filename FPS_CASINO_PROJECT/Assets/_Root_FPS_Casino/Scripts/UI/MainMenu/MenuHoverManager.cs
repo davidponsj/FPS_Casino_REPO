@@ -5,7 +5,8 @@ using UnityEngine.InputSystem;
 /// <summary>
 /// Ratón del menú principal: resalta el objeto 3D que tiene debajo (HoverOutline) y muestra su texto.
 /// Al hacer clic: si tiene CameraFocusTarget, la cámara se acerca a él; si tiene QuitGameTarget, sale del juego.
-/// Con la cámara acercada, Escape la devuelve a su sitio.
+/// Con la cámara acercada, Escape la devuelve a su sitio (salvo mientras se cambia una tecla en Controles).
+/// Mientras se está saliendo del juego, no responde a nada.
 /// </summary>
 public class MenuHoverManager : MonoBehaviour
 {
@@ -41,12 +42,20 @@ public class MenuHoverManager : MonoBehaviour
     {
         if (menuCamera == null || Mouse.current == null) return;
 
+        // Saliendo del juego (el taxi se está yendo): nada responde
+        if (QuitGameTarget.IsQuitting)
+        {
+            SetCurrent(null);
+            return;
+        }
+
         // Mientras la cámara se mueve o está en zoom, no hay selección
         if (cameraMover != null && (cameraMover.IsMoving || cameraMover.IsZoomed))
         {
             SetCurrent(null);
 
-            if (cameraMover.IsZoomed && !cameraMover.IsMoving &&
+            // Esc vuelve a su sitio, salvo si se está cambiando una tecla (ahí Esc cancela el cambio)
+            if (cameraMover.IsZoomed && !cameraMover.IsMoving && !KeyBindings.BlockMenuInput &&
                 Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
                 cameraMover.ReturnToStart();

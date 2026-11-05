@@ -4,12 +4,16 @@ using UnityEngine;
 /// <summary>
 /// Borde que aparece en un objeto del menú al pasar el ratón por encima (lo enciende MenuHoverManager).
 /// Crea una copia de cada malla, algo más grande y con el material del borde, oculta hasta el hover.
+/// Con Outline Thickness el borde tiene el mismo grosor por todos los lados, aunque la pieza sea alargada.
 /// </summary>
 public class HoverOutline : MonoBehaviour
 {
     [Tooltip("Material con el que se pinta el borde.")]
     [SerializeField] private Material outlineMaterial;
-    [Tooltip("Grosor del borde. 1.05 = 5% más grande")]
+    [Tooltip("Grosor del borde en unidades de la escena, igual por todos los lados. 0 = usar Outline Scale.")]
+    [Min(0f)]
+    [SerializeField] private float outlineThickness = 0f;
+    [Tooltip("Solo si Outline Thickness es 0: tamaño de la copia. 1.05 = 5% más grande.")]
     [Min(1f)]
     [SerializeField] private float outlineScale = 1.05f;
 
@@ -33,14 +37,18 @@ public class HoverOutline : MonoBehaviour
         {
             if (filter.sharedMesh == null) continue;
 
+            Bounds bounds = filter.sharedMesh.bounds;
+            Vector3 scale = outlineThickness > 0f
+                ? ThicknessToScale(bounds.size, filter.transform.lossyScale)
+                : Vector3.one * outlineScale;
+
             var go = new GameObject("Outline");
             go.transform.SetParent(filter.transform, false);
-            go.transform.localScale = Vector3.one * outlineScale;
+            go.transform.localScale = scale;
 
             // Escala desde el centro de la pieza y no desde su pivot,
             // para que el borde sobresalga igual por todos los lados
-            Vector3 center = filter.sharedMesh.bounds.center;
-            go.transform.localPosition = center * (1f - outlineScale);
+            go.transform.localPosition = Vector3.Scale(bounds.center, Vector3.one - scale);
 
             go.AddComponent<MeshFilter>().sharedMesh = filter.sharedMesh;
 
@@ -52,6 +60,21 @@ public class HoverOutline : MonoBehaviour
             go.SetActive(false);
             outlines.Add(go);
         }
+    }
+
+    // Cuánto agrandar cada eje para sobresalir "outlineThickness" por cada lado
+    private Vector3 ThicknessToScale(Vector3 meshSize, Vector3 lossyScale)
+    {
+        return new Vector3(
+            AxisScale(meshSize.x, lossyScale.x),
+            AxisScale(meshSize.y, lossyScale.y),
+            AxisScale(meshSize.z, lossyScale.z));
+    }
+
+    private float AxisScale(float meshSize, float lossy)
+    {
+        float worldSize = meshSize * Mathf.Abs(lossy);
+        return worldSize > 0.0001f ? 1f + 2f * outlineThickness / worldSize : 1f;
     }
 
     public void SetHighlighted(bool value)
