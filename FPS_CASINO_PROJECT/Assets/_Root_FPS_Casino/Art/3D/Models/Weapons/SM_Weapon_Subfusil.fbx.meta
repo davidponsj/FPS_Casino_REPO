@@ -37,7 +37,7 @@ ModelImporter:
     extraUserProperties: []
     clipAnimations:
     - serializedVersion: 16
-      name: AC_Reload_Subfusil
+      name: AC_RotateTubes2_Subfusil
       takeName: AC_Shoot.003
       internalID: 4413984843382480428
       firstFrame: 0
@@ -66,7 +66,7 @@ ModelImporter:
       maskSource: {instanceID: 0}
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
-      name: AC_RotateTubes1_Subfusil
+      name: AC_Reload_Subfusil
       takeName: AC_Shoot.001
       internalID: 2710227222354323228
       firstFrame: 0
@@ -124,7 +124,7 @@ ModelImporter:
       maskSource: {instanceID: 0}
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
-      name: AC_RotateTubes2_Subfusil
+      name: AC_RotateTubes1_Subfusil
       takeName: AC_Shoot.002
       internalID: 8303448507975335183
       firstFrame: 0
