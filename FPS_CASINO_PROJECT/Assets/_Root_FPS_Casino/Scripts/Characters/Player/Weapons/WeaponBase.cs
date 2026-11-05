@@ -35,6 +35,8 @@ public abstract class WeaponBase : MonoBehaviour
     [Min(0f)]
     [FormerlySerializedAs("reloadTime")]
     [SerializeField] protected float reloadSeconds = 1.4f;
+    [Tooltip("Marcado: al vaciar el cargador recarga sola, en cuanto termina el disparo. Desmarcado: hay que pulsar recargar.")]
+    [SerializeField] protected bool autoReloadWhenEmpty = true;
 
     [Header("Cadencia")]
     [Tooltip("Disparos por segundo como máximo. 4 = semiautomática rápida; 14 = Tommy Gun; 0.8 = sniper de cerrojo.")]
@@ -99,6 +101,8 @@ public abstract class WeaponBase : MonoBehaviour
     [Tooltip("Muestra en la vista Scene el cono de dispersión a 5 m, la munición, la recarga y los últimos impactos.")]
     [SerializeField] protected bool showDebug;
 
+    private const float DryFireRepeatSeconds = 0.3f; // segundos entre "clics" si mantienes el gatillo sin balas
+
     protected int currentAmmo;
     protected int reserveAmmo;
     protected float nextFireTime;
@@ -121,6 +125,8 @@ public abstract class WeaponBase : MonoBehaviour
     public event Action OnReloadFinished;
     /// <summary>Se dispara con cada disparo (una vez por gatillazo, aunque la escopeta suelte varios perdigones).</summary>
     public event Action OnFired;
+    /// <summary>Se dispara al apretar el gatillo con el cargador vacío (para el "clic" de WeaponAnimator).</summary>
+    public event Action OnDryFire;
 
     public float CurrentSpreadDegrees => currentSpreadDegrees;
     /// <summary>Cámara desde la que dispara el arma. La retícula la usa para pasar grados a píxeles.</summary>
@@ -172,6 +178,19 @@ public abstract class WeaponBase : MonoBehaviour
     protected virtual void Update()
     {
         UpdateSpread();
+        TryAutoReload();
+    }
+
+    /// <summary>
+    /// Con el cargador vacío recarga sola. Espera a nextFireTime para que primero se vea y se oiga
+    /// el disparo entero (animación, corredero de la escopeta) y después empiece la recarga.
+    /// </summary>
+    private void TryAutoReload()
+    {
+        if (!autoReloadWhenEmpty || isReloading || currentAmmo > 0) return;
+        if (Time.time < nextFireTime) return;
+
+        TryReload(); // ya comprueba que quede munición en la reserva
     }
 
     private void UpdateSpread()
@@ -311,7 +330,12 @@ public abstract class WeaponBase : MonoBehaviour
         bool infiniteMagazine = buffs != null && buffs.InfiniteMagazine;
 
         if (currentAmmo <= 0 && !infiniteMagazine)
+        {
+            // Sin balas: solo suena el "clic". La espera evita que una automática haga clic en cada frame.
+            nextFireTime = Time.time + DryFireRepeatSeconds;
+            OnDryFire?.Invoke();
             return;
+        }
 
         // Con la botella de munición infinita el cargador no baja.
         if (!infiniteMagazine)
