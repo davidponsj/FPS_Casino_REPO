@@ -3,7 +3,12 @@ guid: 1103658ed9e285441aa97875c55c24ee
 ModelImporter:
   serializedVersion: 24300
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: BASE
+    second: {fileID: 2100000, guid: ecb8a2c498a99644597cfd54180597dc, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
@@ -64,7 +69,7 @@ ModelImporter:
       name: AC_Reload_Lanzacartas
       takeName: AC_Reload
       internalID: -2725042182714651779
-      firstFrame: 6
+      firstFrame: 0
       lastFrame: 93
       wrapMode: 0
       orientationOffsetY: 0
