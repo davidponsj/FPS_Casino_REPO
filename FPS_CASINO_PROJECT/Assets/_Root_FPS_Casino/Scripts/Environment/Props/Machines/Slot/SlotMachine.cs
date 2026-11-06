@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -370,6 +371,61 @@ public class SlotMachine : MonoBehaviour, IInteractable
     }
 
 #if UNITY_EDITOR
+    // ---------------- Prueba de paradas en el editor (SlotMachineEditor) ----------------
+
+    private static readonly HashSet<SlotMachine> previewing = new HashSet<SlotMachine>();
+    private Quaternion[] previewRestRotations;   // reposo guardado mientras se prueba una parada
+
+    public bool IsPreviewing => previewRestRotations != null;
+
+    public string[] SymbolNames
+    {
+        get
+        {
+            var names = new string[symbols.Length];
+            for (int i = 0; i < symbols.Length; i++) names[i] = symbols[i].symbolName;
+            return names;
+        }
+    }
+
+    /// <summary>Solo editor: coloca los cilindros como pararían con este símbolo, sin darle a Play.</summary>
+    public void PreviewSymbol(int index)
+    {
+        if (reels == null || reels.Length == 0 || index < 0 || index >= symbols.Length) return;
+
+        ResetPreview();   // las marcas se miden con los cilindros en reposo
+
+        previewRestRotations = new Quaternion[reels.Length];
+        for (int i = 0; i < reels.Length; i++)
+            previewRestRotations[i] = reels[i].localRotation;
+
+        float angle = MeasureSymbolAngle(index);
+        for (int i = 0; i < reels.Length; i++)
+            reels[i].localRotation = previewRestRotations[i] * Quaternion.AngleAxis(angle, reelAxis);
+
+        previewing.Add(this);
+    }
+
+    /// <summary>Solo editor: devuelve los cilindros a su reposo.</summary>
+    public void ResetPreview()
+    {
+        if (previewRestRotations == null) return;
+
+        for (int i = 0; i < reels.Length && i < previewRestRotations.Length; i++)
+            if (reels[i] != null) reels[i].localRotation = previewRestRotations[i];
+
+        previewRestRotations = null;
+        previewing.Remove(this);
+    }
+
+    /// <summary>Solo editor: deja en reposo todas las máquinas que estén en prueba (antes de Play, guardar o recompilar).</summary>
+    public static void ResetAllPreviews()
+    {
+        foreach (SlotMachine machine in new List<SlotMachine>(previewing))
+            if (machine != null) machine.ResetPreview();
+        previewing.Clear();
+    }
+
     private void OnDrawGizmos()
     {
         if (!showDebug) return;
