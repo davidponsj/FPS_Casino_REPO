@@ -123,7 +123,12 @@ public class GrenadeProjectile : MonoBehaviour
         CancelInvoke();
 
         if (explosionEffectPrefab != null)
-            Instantiate(explosionEffectPrefab, center, Quaternion.identity);
+        {
+            GameObject explosion = Instantiate(explosionEffectPrefab, center, Quaternion.identity);
+            // Si es una granada de fruta, la explosión sale del color de la fruta.
+            if (TryGetComponent(out FruitGrenadeColor fruit))
+                fruit.TintExplosion(explosion);
+        }
 
         // Un enemigo puede tener varios colliders (cuerpo, cabeza...): con el HashSet
         // cada uno recibe daño una sola vez por explosión.
