@@ -94,6 +94,10 @@ public abstract class WeaponBase : MonoBehaviour
     [SerializeField] protected BulletTracerEffect tracerPrefab;
     [Tooltip("Efecto que aparece donde da la bala (agujero y chispas). Vacío = sin efecto.")]
     [SerializeField] protected GameObject impactEffectPrefab;
+
+    [Tooltip("Efecto que aparece donde la bala da a un enemigo (las chispas del robot). Vacío = sin efecto.")]
+    [SerializeField] protected GameObject enemyImpactEffectPrefab;
+
     [Tooltip("Fogonazo del cañón, hijo del arma. Vacío = sin fogonazo.")]
     [SerializeField] protected MuzzleFlash muzzleFlash;
 
@@ -127,6 +131,15 @@ public abstract class WeaponBase : MonoBehaviour
     public event Action OnFired;
     /// <summary>Se dispara al apretar el gatillo con el cargador vacío (para el "clic" de WeaponAnimator).</summary>
     public event Action OnDryFire;
+
+    /// <summary>
+    /// Se dispara cada vez que CUALQUIER arma da a un enemigo vivo (bala o granada). El bool dice si lo ha matado.
+    /// Es estático para que el hitmarker se entere de todas las armas sin buscarlas.
+    /// </summary>
+    public static event Action<bool> OnAnyEnemyHit;
+
+    /// <summary>Avisa al hitmarker de un impacto que no viene de una bala (p. ej. la explosión de la granada).</summary>
+    public static void ReportEnemyHit(bool killed) => OnAnyEnemyHit?.Invoke(killed);
 
     public float CurrentSpreadDegrees => currentSpreadDegrees;
     /// <summary>Cámara desde la que dispara el arma. La retícula la usa para pasar grados a píxeles.</summary>
@@ -278,6 +291,9 @@ public abstract class WeaponBase : MonoBehaviour
             if (killScore != null && damageable is EnemyHealth enemy)
                 killScore.RegisterHit(enemy, hit, this);
 
+            EnemyHealth hitEnemy = damageable as EnemyHealth;
+            bool enemyWasAlive = hitEnemy != null && !hitEnemy.IsDead;
+
             damageable?.TakeDamage(shotDamage);
 
             // La partícula (polvo, esquirlas, agujero) solo en objetos: en un personaje quedaría pegada en el aire
@@ -285,6 +301,15 @@ public abstract class WeaponBase : MonoBehaviour
             bool hitCharacter = damageable is EnemyHealth || damageable is PlayerHealth;
             if (impactEffectPrefab != null && !hitCharacter)
                 Instantiate(impactEffectPrefab, hit.point, Quaternion.LookRotation(hit.normal));
+
+            // En los enemigos, chispas que salen disparadas (no se quedan pegadas) y aviso al hitmarker.
+            if (hitEnemy != null)
+            {
+                if (enemyImpactEffectPrefab != null)
+                    Instantiate(enemyImpactEffectPrefab, hit.point, Quaternion.LookRotation(hit.normal));
+                if (enemyWasAlive)
+                    OnAnyEnemyHit?.Invoke(hitEnemy.IsDead);
+            }
 
             tracerEndPoint = hit.point;
             result = hit;
