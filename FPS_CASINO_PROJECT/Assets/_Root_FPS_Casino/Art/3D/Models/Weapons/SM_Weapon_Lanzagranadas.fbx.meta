@@ -9,6 +9,11 @@ ModelImporter:
       assembly: UnityEngine.CoreModule
       name: BASE
     second: {fileID: 2100000, guid: 94fe4c2788c3e69439025b0c541de912, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Moneda
+    second: {fileID: 2100000, guid: 0ff260ce05f3de347a364d1fecd1d3c0, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
