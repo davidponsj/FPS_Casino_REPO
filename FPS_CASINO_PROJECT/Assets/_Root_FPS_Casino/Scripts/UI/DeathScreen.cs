@@ -104,6 +104,10 @@ public class DeathScreen : MonoBehaviour
     [Min(0f)]
     [SerializeField] private float countUpSeconds = 0.5f;
 
+    [Header("Depuración")]
+    [Tooltip("Escribe en la consola a qué PlayerHealth se ha enganchado al empezar y cuándo detecta la muerte. Para comprobar que funciona.")]
+    [SerializeField] private bool showDebug = true;
+
     [Header("Textos")]
     [SerializeField] private string runPageTitle = "TU PARTIDA";
     [SerializeField] private string rankingPageTitle = "RANKING";
@@ -122,6 +126,11 @@ public class DeathScreen : MonoBehaviour
 
     private void Awake()
     {
+        // Primero en los padres (lo normal: la pantalla va dentro del Player); si no, el objeto con el tag Player.
+        if (playerHealth == null) playerHealth = GetComponentInParent<PlayerHealth>();
+        if (runStats == null) runStats = GetComponentInParent<RunStats>();
+        if (playerInput == null) playerInput = GetComponentInParent<PlayerInput>();
+
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
         {
@@ -129,6 +138,14 @@ public class DeathScreen : MonoBehaviour
             if (runStats == null) runStats = player.GetComponent<RunStats>();
             if (playerInput == null) playerInput = player.GetComponent<PlayerInput>();
         }
+
+        if (playerHealth == null)
+            Debug.LogWarning($"{name}: DeathScreen no encuentra el PlayerHealth del jugador. La pantalla de muerte no saldrá.", this);
+        else if (showDebug)
+            Debug.Log($"{name}: DeathScreen escuchando la muerte de {playerHealth.name}.", this);
+
+        if (screenRoot == null)
+            Debug.LogWarning($"{name}: DeathScreen no tiene Screen Root (el Panel). Al morir no se verá el cartel.", this);
 
         if (animatedRoot == null && screenRoot != null) animatedRoot = screenRoot.transform;
         if (animatedRoot != null) restLocalPosition = animatedRoot.localPosition;
@@ -161,6 +178,7 @@ public class DeathScreen : MonoBehaviour
     {
         if (isDead) return;
         isDead = true;
+        if (showDebug) Debug.Log($"{name}: el jugador ha muerto, empieza la pantalla de muerte.", this);
         StartCoroutine(DeathSequence());
     }
 
