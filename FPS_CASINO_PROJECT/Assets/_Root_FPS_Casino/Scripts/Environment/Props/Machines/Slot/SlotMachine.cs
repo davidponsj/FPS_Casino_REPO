@@ -9,6 +9,7 @@ using UnityEngine.Serialization;
 /// cilindros (símbolo de cada uno elegido por pesos con WeightedRandom). Si salen todos iguales,
 /// ganas apuesta × multiplicador del símbolo. La suerte de la botella morada (PlayerBuffs.SlotLuck)
 /// es la probabilidad de premio seguro. SlotLeverAnimator baja la palanca mientras gira.
+/// Cada símbolo puede tener una marca en el primer cilindro para que pare justo en su centro.
 /// </summary>
 public class SlotMachine : MonoBehaviour, IInteractable
 {
@@ -21,6 +22,8 @@ public class SlotMachine : MonoBehaviour, IInteractable
         [Min(0f)] public float weight = 1f;
         [Tooltip("Si salen todos iguales, ganas apuesta × este número. 5 = una apuesta de 10 da 50 puntos.")]
         [Min(0f)] public float multiplier = 5f;
+        [Tooltip("Objeto vacío sobre el centro de esta fruta, dentro del primer cilindro. La marca del símbolo 0 indica la posición \"de frente\". Vacío = reparto automático.")]
+        public Transform marker;
     }
 
     [Header("Referencias")]
@@ -63,9 +66,9 @@ public class SlotMachine : MonoBehaviour, IInteractable
     [Header("Parada")]
     [Tooltip("Desmarcado = frenada suave. Marcado = gira a velocidad constante, frena en seco y rebota un poco al parar.")]
     [SerializeField] private bool snappyStop = false;
-    [Tooltip("Parte final del giro en la que frena (solo con parada rápida). 0.15 = frenazo corto.")]
-    [Range(0.05f, 0.5f)]
-    [SerializeField] private float snappyBrakePortion = 0.15f;
+    [Tooltip("Parte final del giro en la que frena (solo con parada rápida). 0.02 = frenazo seco, 0.15 = frenada corta.")]
+    [Range(0.01f, 0.5f)]
+    [SerializeField] private float snappyBrakePortion = 0.02f;
     [Tooltip("Grados que se pasa de la fruta antes de volver a su sitio (solo con parada rápida). 6 = rebote suave.")]
     [Min(0f)]
     [SerializeField] private float bounceDegrees = 6f;
@@ -89,6 +92,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
     private SlotBetButton selectedBet;
     private bool spinning;
     private float[] reelAngles;
+    private float[] symbolAngles;       // giro con el que cada símbolo queda de frente
     private Quaternion[] reelStartRotations;
     private Coroutine hideRoutine;
     private string lastResult = "-";
@@ -111,6 +115,11 @@ public class SlotMachine : MonoBehaviour, IInteractable
         reelStartRotations = new Quaternion[reels.Length];
         for (int i = 0; i < reels.Length; i++)
             reelStartRotations[i] = reels[i].localRotation;
+
+        // Se mide con los cilindros todavía en reposo (la fruta 0 de frente)
+        symbolAngles = new float[symbols.Length];
+        for (int i = 0; i < symbols.Length; i++)
+            symbolAngles[i] = MeasureSymbolAngle(i);
 
         if (resultText != null)
             resultText.gameObject.SetActive(false);
@@ -138,6 +147,33 @@ public class SlotMachine : MonoBehaviour, IInteractable
     }
 
     private void RefreshPointsText() => pointsText.text = $"Puntos: {shownPoints.CurrentPoints}";
+
+    /// <summary>
+    /// Grados que hay que girar el cilindro para que el símbolo quede donde está la marca del símbolo 0.
+    /// Sin marcas, reparte los símbolos a partes iguales.
+    /// </summary>
+    private float MeasureSymbolAngle(int index)
+    {
+        float evenAngle = index * (360f / symbols.Length);
+
+        Transform front = symbols[0].marker;
+        Transform mark = symbols[index].marker;
+        if (front == null || mark == null || reels.Length == 0) return evenAngle;
+
+        Transform reel = reels[0];
+        if (!mark.IsChildOf(reel) || !front.IsChildOf(reel))
+        {
+            Debug.LogWarning($"[Tragaperras] La marca de {symbols[index].symbolName} tiene que estar dentro del primer cilindro ({reel.name}).", this);
+            return evenAngle;
+        }
+
+        // Posiciones de las marcas vistas desde el centro del cilindro, sin la componente del eje
+        Quaternion toLocal = Quaternion.Inverse(reel.rotation);
+        Vector3 frontDir = Vector3.ProjectOnPlane(toLocal * (front.position - reel.position), reelAxis);
+        Vector3 markDir = Vector3.ProjectOnPlane(toLocal * (mark.position - reel.position), reelAxis);
+
+        return Mathf.Repeat(Vector3.SignedAngle(markDir, frontDir, reelAxis), 360f);
+    }
 
     // ---------------- Apuesta ----------------
 
@@ -196,7 +232,6 @@ public class SlotMachine : MonoBehaviour, IInteractable
         HideResult();
 
         int count = reels.Length;
-        float step = 360f / symbols.Length;
 
         int[] results = new int[count];
         float[] start = new float[count];
@@ -211,7 +246,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
             results[i] = (luckyWin && i > 0) ? results[0] : WeightedRandom.PickIndex(symbols, s => s.weight);
             start[i] = reelAngles[i];
 
-            float target = results[i] * step;
+            float target = symbolAngles[results[i]];
             float delta = Mathf.Repeat(target - start[i], 360f);
             total[i] = delta + 360f * UnityEngine.Random.Range(minSpins, maxSpins + 1);
             duration[i] = firstReelSeconds + i * extraSecondsPerReel;
@@ -340,6 +375,18 @@ public class SlotMachine : MonoBehaviour, IInteractable
         if (!showDebug) return;
         string bet = spinning ? "girando" : selectedBet != null ? $"apuesta {selectedBet.BetAmount} pts" : "sin apuesta";
         DebugLabels.At(transform.position + Vector3.up * 2.5f, 0, $"Tragaperras · {bet}\nÚltimo: {lastResult}", DebugLabels.Casino);
+    }
+
+    private void OnDrawGizmosSelected()
+    {
+        // Marcas de las frutas: verde = la de frente (símbolo 0), amarillo = las demás
+        if (symbols == null) return;
+        for (int i = 0; i < symbols.Length; i++)
+        {
+            if (symbols[i].marker == null) continue;
+            Gizmos.color = i == 0 ? Color.green : Color.yellow;
+            Gizmos.DrawSphere(symbols[i].marker.position, 0.01f);
+        }
     }
 #endif
 }
