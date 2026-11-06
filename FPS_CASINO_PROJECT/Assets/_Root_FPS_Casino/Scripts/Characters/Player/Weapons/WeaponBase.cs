@@ -53,6 +53,11 @@ public abstract class WeaponBase : MonoBehaviour
     [Min(0f)]
     [SerializeField] protected float damage = 25f;
 
+    [Tooltip("Daño multiplicado al dar en la cabeza (el % de arriba del robot que marca Headshot Height Percent en KillScore). 2 = el doble, como en CoD Zombies. 1 = sin bonus.")]
+    [Min(1f)]
+    [SerializeField] protected float headshotDamageMultiplier = 2f;
+
+
     [Header("Dispersión (estilo CS)")]
     [Tooltip("Grados de dispersión cuando estás completamente quieto y sin disparar. 0 = precisión perfecta al centro.")]
     [SerializeField] protected float minSpreadDegrees = 0f;
@@ -132,14 +137,31 @@ public abstract class WeaponBase : MonoBehaviour
     /// <summary>Se dispara al apretar el gatillo con el cargador vacío (para el "clic" de WeaponAnimator).</summary>
     public event Action OnDryFire;
 
-    /// <summary>
-    /// Se dispara cada vez que CUALQUIER arma da a un enemigo vivo (bala o granada): a qué enemigo, en qué punto
-    /// del mundo y si lo ha matado. Es estático para que el hitmarker se entere de todas las armas sin buscarlas.
-    /// </summary>
-    public static event Action<EnemyHealth, Vector3, bool> OnAnyEnemyHit;
+    /// <summary>Un impacto a un enemigo: a quién, dónde (punto en el mundo), si lo ha matado y si ha sido en la cabeza.</summary>
+    public readonly struct EnemyHit
+    {
+        public readonly EnemyHealth Enemy;
+        public readonly Vector3 Point;
+        public readonly bool Killed;
+        public readonly bool Headshot;
 
-    /// <summary>Avisa al hitmarker de un impacto que no viene de una bala (p. ej. la explosión de la granada).</summary>
-    public static void ReportEnemyHit(EnemyHealth enemy, Vector3 point, bool killed) => OnAnyEnemyHit?.Invoke(enemy, point, killed);
+        public EnemyHit(EnemyHealth enemy, Vector3 point, bool killed, bool headshot)
+        {
+            Enemy = enemy;
+            Point = point;
+            Killed = killed;
+            Headshot = headshot;
+        }
+    }
+
+    /// <summary>
+    /// Se dispara cada vez que CUALQUIER arma da a un enemigo vivo (bala o granada), con los datos del impacto.
+    /// Es estático para que el hitmarker se entere de todas las armas sin buscarlas.
+    /// </summary>
+    public static event Action<EnemyHit> OnAnyEnemyHit;
+
+    /// <summary>Avisa al hitmarker de un impacto que no viene de una bala (p. ej. la explosión de la granada). Nunca es en la cabeza.</summary>
+    public static void ReportEnemyHit(EnemyHealth enemy, Vector3 point, bool killed) => OnAnyEnemyHit?.Invoke(new EnemyHit(enemy, point, killed, false));
 
     public float CurrentSpreadDegrees => currentSpreadDegrees;
     /// <summary>Cámara desde la que dispara el arma. La retícula la usa para pasar grados a píxeles.</summary>
@@ -294,7 +316,9 @@ public abstract class WeaponBase : MonoBehaviour
             EnemyHealth hitEnemy = damageable as EnemyHealth;
             bool enemyWasAlive = hitEnemy != null && !hitEnemy.IsDead;
 
-            damageable?.TakeDamage(shotDamage);
+            // Cabeza: la misma regla que los puntos de KillScore (el % de arriba del robot), así daño y puntos dicen lo mismo.
+            bool headshot = hitEnemy != null && killScore != null && killScore.IsHeadshot(hit);
+            damageable?.TakeDamage(headshot ? shotDamage * headshotDamageMultiplier : shotDamage);
 
             // La partícula (polvo, esquirlas, agujero) solo en objetos: en un personaje quedaría pegada en el aire
             // cuando se mueve. Los personajes son los que tienen vida de personaje (enemigos y jugador).
@@ -308,7 +332,7 @@ public abstract class WeaponBase : MonoBehaviour
                 if (enemyImpactEffectPrefab != null)
                     Instantiate(enemyImpactEffectPrefab, hit.point, Quaternion.LookRotation(hit.normal));
                 if (enemyWasAlive)
-                    OnAnyEnemyHit?.Invoke(hitEnemy, hit.point, hitEnemy.IsDead);
+                    OnAnyEnemyHit?.Invoke(new EnemyHit(hitEnemy, hit.point, hitEnemy.IsDead, headshot));
             }
 
             tracerEndPoint = hit.point;

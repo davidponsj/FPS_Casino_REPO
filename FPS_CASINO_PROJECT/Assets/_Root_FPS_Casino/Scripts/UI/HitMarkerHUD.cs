@@ -4,9 +4,10 @@ using UnityEngine.UI;
 /// <summary>
 /// Hitmarkers de neón que salen JUSTO donde ha dado la bala y siguen al robot mientras se mueve: 4 rayas en diagonal
 /// que aparecen grandes, se encogen de golpe y se desvanecen abriéndose. Al matar salen más grandes, de otro color
-/// y duran más. Puede haber muchos a la vez (el subfusil y la escopeta llenan la pantalla).
+/// y duran más. En la cabeza salen DORADOS (y un poco más grandes), también al matar de un tiro a la cabeza.
+/// Puede haber muchos a la vez (el subfusil y la escopeta llenan la pantalla).
 ///
-/// Se entera de los impactos por WeaponBase.OnAnyEnemyHit (qué enemigo, dónde y si lo ha matado), así que vale
+/// Se entera de los impactos por WeaponBase.OnAnyEnemyHit (qué enemigo, dónde, si lo ha matado y si fue en la cabeza), así que vale
 /// para todas las armas sin asignarlas. Si un perdigón mata, los demás perdigones de ese disparo al mismo enemigo
 /// también se ponen en modo "baja".
 ///
@@ -78,6 +79,15 @@ public class HitMarkerHUD : MonoBehaviour
     [Min(0f)]
     [SerializeField] private float killFadeSeconds = 0.3f;
 
+    [Header("En la cabeza")]
+    [Tooltip("Color del núcleo en la cabeza (al dar y al matar).")]
+    [SerializeField] private Color headshotCoreColor = new Color(1f, 0.96f, 0.75f, 1f);
+    [Tooltip("Color del halo en la cabeza. Dorado = cabeza, aunque mates.")]
+    [SerializeField] private Color headshotGlowColor = new Color(1f, 0.72f, 0.08f, 0.7f);
+    [Tooltip("Tamaño al dar en la cabeza sin matar, respecto al de dar. 1.2 = un 20% más grande. Al matar manda Kill Scale.")]
+    [Min(0.1f)]
+    [SerializeField] private float headshotScale = 1.2f;
+
     [Header("Animación")]
     [Tooltip("Tamaño con el que aparece antes de encogerse. 1.5 = salta grande y vuelve a su tamaño.")]
     [Min(1f)]
@@ -113,6 +123,7 @@ public class HitMarkerHUD : MonoBehaviour
         public Vector3 worldPoint;   // último punto conocido en el mundo (si el enemigo desaparece, se queda aquí)
         public float showTime = -1f; // -1 = libre
         public bool isKill;
+        public bool isHeadshot;
         public int frame;
         public bool IsActive => showTime >= 0f;
     }
@@ -145,8 +156,12 @@ public class HitMarkerHUD : MonoBehaviour
     private void OnEnable() => WeaponBase.OnAnyEnemyHit += HandleEnemyHit;
     private void OnDisable() => WeaponBase.OnAnyEnemyHit -= HandleEnemyHit;
 
-    private void HandleEnemyHit(EnemyHealth enemy, Vector3 point, bool killed)
+    private void HandleEnemyHit(WeaponBase.EnemyHit hit)
     {
+        EnemyHealth enemy = hit.Enemy;
+        Vector3 point = hit.Point;
+        bool killed = hit.Killed;
+
         // Si este perdigón mata, los otros del mismo disparo a este enemigo también pasan a "baja".
         if (killed)
         {
@@ -164,6 +179,7 @@ public class HitMarkerHUD : MonoBehaviour
         marker.localPoint = marker.target != null ? marker.target.InverseTransformPoint(point) : point;
         marker.worldPoint = point;
         marker.isKill = killed;
+        marker.isHeadshot = hit.Headshot;
         marker.frame = Time.frameCount;
         marker.showTime = Time.unscaledTime;
         marker.rect.localRotation = Quaternion.Euler(0f, 0f, Random.Range(-randomTiltDegrees, randomTiltDegrees));
@@ -206,7 +222,8 @@ public class HitMarkerHUD : MonoBehaviour
         // Salta grande y se encoge de golpe (ease out), luego se queda a su tamaño.
         float pop01 = popSeconds > 0f ? Mathf.Clamp01(age / popSeconds) : 1f;
         float easeOut = 1f - (1f - pop01) * (1f - pop01) * (1f - pop01);
-        float scale = (marker.isKill ? killScale : 1f) * Mathf.Lerp(popScale, 1f, easeOut);
+        float baseScale = marker.isKill ? killScale : marker.isHeadshot ? headshotScale : 1f;
+        float scale = baseScale * Mathf.Lerp(popScale, 1f, easeOut);
         marker.rect.localScale = new Vector3(scale, scale, 1f);
 
         LayoutBars(marker, gap + expandOnFade * fade01);
@@ -328,8 +345,9 @@ public class HitMarkerHUD : MonoBehaviour
 
     private void ApplyColors(Marker marker)
     {
-        Color core = marker.isKill ? killCoreColor : hitCoreColor;
-        Color glow = marker.isKill ? killGlowColor : hitGlowColor;
+        // La cabeza manda sobre la baja: un tiro a la cabeza que mata sale dorado (y grande, por ser baja).
+        Color core = marker.isHeadshot ? headshotCoreColor : marker.isKill ? killCoreColor : hitCoreColor;
+        Color glow = marker.isHeadshot ? headshotGlowColor : marker.isKill ? killGlowColor : hitGlowColor;
         for (int i = 0; i < BarCount; i++)
         {
             marker.cores[i].color = core;
