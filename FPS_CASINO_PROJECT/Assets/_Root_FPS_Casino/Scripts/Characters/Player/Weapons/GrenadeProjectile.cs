@@ -54,6 +54,17 @@ public class GrenadeProjectile : MonoBehaviour
     [Tooltip("Efecto visual de la explosión. Vacío = sin efecto.")]
     [SerializeField] private GameObject explosionEffectPrefab;
 
+
+    [Header("Giro al salir")]
+    [Tooltip("Grados por segundo mínimos con los que gira la fruta al salir. Cada disparo elige un giro al azar entre este y el máximo, en un eje al azar.")]
+    [Min(0f)]
+    [SerializeField] private float minSpinDegreesPerSecond = 360f;
+    [Tooltip("Grados por segundo máximos. 900 = dos vueltas y media por segundo, muy vivo.")]
+    [Min(0f)]
+    [SerializeField] private float maxSpinDegreesPerSecond = 900f;
+    [Tooltip("Marcado: cada fruta sale con una orientación al azar, así ni la primera vuelta se parece a la del disparo anterior.")]
+    [SerializeField] private bool randomStartRotation = true;
+
     [Header("Depuración")]
     [Tooltip("Muestra en la vista Scene el radio de la explosión, los rebotes que lleva y los segundos que le quedan.")]
     [SerializeField] private bool showDebug;
@@ -78,6 +89,14 @@ public class GrenadeProjectile : MonoBehaviour
             Physics.IgnoreCollision(GetComponent<Collider>(), ownerCollider);
 
         rb.linearVelocity = velocity;
+
+        // Cada fruta sale girando a su manera: eje al azar y velocidad al azar.
+        // Unity limita el giro de los Rigidbody a unos 400°/s por defecto (maxAngularVelocity = 7), así que se sube el tope.
+        if (randomStartRotation)
+            rb.rotation = Random.rotation;
+        float spin = Random.Range(minSpinDegreesPerSecond, maxSpinDegreesPerSecond) * Mathf.Deg2Rad;
+        rb.maxAngularVelocity = Mathf.Max(rb.maxAngularVelocity, spin);
+        rb.angularVelocity = Random.onUnitSphere * spin;
         explodeTime = Time.time + fuseSeconds;
         Invoke(nameof(ExplodeAtCurrentPosition), fuseSeconds);
     }
