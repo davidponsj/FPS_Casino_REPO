@@ -1,19 +1,25 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 /// <summary>
-/// Popup de la puntuación de las bajas, junto a la mira (estilo How to Fish). Escucha a KillScore:
-/// - Cada truco entra arriba, grande y con un "klink" que sube de tono con cada línea del combo.
-///   La línea anterior se encoge, se vuelve gris y baja. Como mucho se ven Max Visible Lines.
-/// - Si se acumulan muchas líneas (escopetazo, combo rápido), se revelan más deprisa para no ir por detrás.
-/// - Al cobrar el combo entra el total con "!" y suena el "chan". Si se pierde, "¡COMBO PERDIDO!" en rojo.
-///   Después de Hold Seconds, todo el popup se desvanece.
+/// Popup de la puntuación de las bajas, a la derecha de la mira (estilo How to Fish, pero de casino futurista). Escucha a KillScore:
+/// - Cada truco entra arriba, grande, desde la derecha y girado, con un "klink" que sube de tono con cada línea del combo.
+///   Sus letras hacen una ola al entrar y llevan un degradado dorado. La línea anterior se encoge, se vuelve gris y baja.
+/// - El JACKPOT va en arcoíris que se mueve y sus letras no paran de ondular.
+/// - Al cobrar el combo entra el total contando hacia arriba como una tragaperras, con "!" y el "chan".
+///   Si se pierde, "¡COMBO PERDIDO!" en rojo. Después de Hold Seconds, todo el popup se desvanece.
+/// - El texto del combo ("COMBO ×1,4") da un golpe con cada baja y cambia de color según el multiplicador.
 ///
+/// La inclinación del popup entero se pone girando su RectTransform en el Inspector (Rotation Z). La fuente y el brillo
+/// (outline, glow, sombra) van en el material de la fuente del Line Template.
 /// Las líneas se crean al empezar copiando Line Template (no se crea nada mientras juegas).
 /// </summary>
 public class KillScoreHUD : MonoBehaviour
 {
+    private enum LineStyle { Normal, Jackpot, Total, Lost }
+
     [Header("Referencias")]
     [Tooltip("KillScore del jugador. Vacío = lo busca en el objeto con el tag Player.")]
     [SerializeField] private KillScore killScore;
@@ -46,6 +52,27 @@ public class KillScoreHUD : MonoBehaviour
     [Range(10f, 100f)]
     [SerializeField] private float labelSizePercent = 45f;
 
+    [Header("Entrada de cada línea")]
+    [Tooltip("Desde dónde entra la línea nueva, en píxeles respecto a su sitio. (90, -25) = desde la derecha y un poco abajo.")]
+    [SerializeField] private Vector2 entryOffset = new Vector2(90f, -25f);
+    [Tooltip("Grados que entra girada antes de enderezarse. 14 = entra torcida y se coloca de golpe. 0 = recta.")]
+    [Range(-45f, 45f)]
+    [SerializeField] private float entryRotationDegrees = 14f;
+
+    [Header("Ola de letras")]
+    [Tooltip("Segundos que ondulan las letras de la línea nueva. 0.6 = la ola se nota y se calma. 0 = sin ola.")]
+    [Min(0f)]
+    [SerializeField] private float waveSeconds = 0.6f;
+    [Tooltip("Cuánto suben y bajan las letras, en píxeles. 8 = se nota sin descolocar.")]
+    [Min(0f)]
+    [SerializeField] private float waveAmplitude = 8f;
+    [Tooltip("Rapidez de la ola. 18 = vibra con energía.")]
+    [Min(0f)]
+    [SerializeField] private float waveSpeed = 18f;
+    [Tooltip("Desfase entre una letra y la siguiente. 0.6 = la ola recorre la palabra.")]
+    [Min(0f)]
+    [SerializeField] private float waveSpacing = 0.6f;
+
     [Header("Ritmo")]
     [Tooltip("Segundos entre una línea y la siguiente. 0.25 = da tiempo a leer cada klink.")]
     [Min(0f)]
@@ -67,20 +94,47 @@ public class KillScoreHUD : MonoBehaviour
     [Tooltip("Tamaño del total respecto a una línea normal. 1.4 = destaca sobre todo lo demás.")]
     [Min(0.1f)]
     [SerializeField] private float totalScale = 1.4f;
+    [Tooltip("Segundos que tarda el total en contar desde 0, como el contador de una tragaperras. 0.5 = rápido. 0 = sale directo.")]
+    [Min(0f)]
+    [SerializeField] private float totalCountSeconds = 0.5f;
     [Tooltip("Texto cuando pierdes el combo.")]
     [SerializeField] private string comboLostText = "¡COMBO PERDIDO!";
 
-    [Header("Colores")]
-    [Tooltip("Color de la línea nueva.")]
-    [SerializeField] private Color newestColor = Color.white;
-    [Tooltip("Color de las líneas viejas (gris).")]
+    [Header("Colores (degradado de arriba a abajo de las letras)")]
+    [Tooltip("Arriba de las letras de la línea nueva.")]
+    [FormerlySerializedAs("newestColor")]
+    [SerializeField] private Color newestTopColor = new Color(1f, 0.97f, 0.75f);
+    [Tooltip("Abajo de las letras de la línea nueva. Dorado = casino.")]
+    [SerializeField] private Color newestBottomColor = new Color(1f, 0.62f, 0.1f);
+    [Tooltip("Tinte de las líneas viejas (gris = se apagan).")]
     [SerializeField] private Color olderColor = new Color(0.6f, 0.6f, 0.6f);
-    [Tooltip("Color de la línea del JACKPOT.")]
-    [SerializeField] private Color jackpotColor = new Color(1f, 0.82f, 0.2f);
-    [Tooltip("Color del total.")]
-    [SerializeField] private Color totalColor = new Color(1f, 0.95f, 0.4f);
+    [Tooltip("Arriba de las letras del total.")]
+    [FormerlySerializedAs("totalColor")]
+    [SerializeField] private Color totalTopColor = new Color(1f, 0.95f, 0.4f);
+    [Tooltip("Abajo de las letras del total. Magenta neón.")]
+    [SerializeField] private Color totalBottomColor = new Color(1f, 0.24f, 0.72f);
     [Tooltip("Color de ¡COMBO PERDIDO!.")]
     [SerializeField] private Color comboLostColor = new Color(1f, 0.25f, 0.25f);
+    [Tooltip("Vueltas por segundo del arcoíris del JACKPOT. 0.8 = gira rápido sin marear.")]
+    [Min(0f)]
+    [SerializeField] private float jackpotRainbowSpeed = 0.8f;
+
+    [Header("Texto del combo")]
+    [Tooltip("Tamaño con el que da el golpe el texto del combo al subir. 1.5 = un 50% más grande y vuelve.")]
+    [Min(1f)]
+    [SerializeField] private float comboPunchScale = 1.5f;
+    [Tooltip("Color del combo con multiplicador bajo.")]
+    [SerializeField] private Color comboLowColor = new Color(0.3f, 0.95f, 1f);
+    [Tooltip("Color del combo desde Combo Mid Multiplier.")]
+    [SerializeField] private Color comboMidColor = new Color(1f, 0.3f, 0.8f);
+    [Tooltip("Color del combo desde Combo High Multiplier.")]
+    [SerializeField] private Color comboHighColor = new Color(1f, 0.8f, 0.2f);
+    [Tooltip("Multiplicador a partir del que el combo pasa al color medio. 1.5 = ×1,5.")]
+    [Min(1f)]
+    [SerializeField] private float comboMidMultiplier = 1.5f;
+    [Tooltip("Multiplicador a partir del que el combo pasa al color alto. 2 = ×2.")]
+    [Min(1f)]
+    [SerializeField] private float comboHighMultiplier = 2f;
 
     [Header("Sonidos (opcionales)")]
     [Tooltip("Suena con cada línea (el \"klink\"). Vacío = sin sonido.")]
@@ -101,14 +155,18 @@ public class KillScoreHUD : MonoBehaviour
     [Range(0.1f, 3f)]
     [SerializeField] private float klinkMaxPitch = 2f;
 
-    /// <summary>Una línea en pantalla: su texto y su puesto (0 = la nueva, arriba).</summary>
+    /// <summary>Una línea en pantalla: su texto, su puesto (0 = la nueva, arriba) y su estilo.</summary>
     private class Line
     {
         public TMP_Text Text;
         public RectTransform Rect;
         public int Slot;
-        public float Scale; // tamaño al que se asienta (la nueva 1, el total Total Scale)
-        public Color Color;
+        public float Scale;       // tamaño al que se asienta (la nueva 1, el total Total Scale)
+        public LineStyle Style;
+        public float ShowTime;    // cuándo entró (para la ola)
+        public bool Deformed;     // sus letras están movidas: hay que dejarlas rectas al acabar la ola
+        public int CountTarget;   // total al que cuenta (solo el total)
+        public bool Counting;
     }
 
     private enum Ending { None, Cashed, Lost }
@@ -121,6 +179,7 @@ public class KillScoreHUD : MonoBehaviour
     private Ending pendingEnding;
     private int pendingTotal;
     private float fadeStartTime = float.PositiveInfinity;
+    private float lastComboMultiplier;
 
     private void Awake()
     {
@@ -142,6 +201,7 @@ public class KillScoreHUD : MonoBehaviour
         {
             TMP_Text text = Instantiate(lineTemplate, lineTemplate.transform.parent);
             text.gameObject.SetActive(false);
+            text.enableVertexGradient = true; // el degradado se multiplica por el color (que usamos como tinte)
             lines.Add(new Line { Text = text, Rect = text.rectTransform });
         }
 
@@ -175,9 +235,7 @@ public class KillScoreHUD : MonoBehaviour
             queued.Enqueue(line);
 
         canvasGroup.alpha = 1f;
-
-        if (comboText != null)
-            comboText.text = killScore.ComboKills >= 2 ? $"COMBO ×{killScore.ComboMultiplier:0.0}" : "";
+        UpdateComboText();
     }
 
     private void HandleComboCashed(int total)
@@ -204,8 +262,7 @@ public class KillScoreHUD : MonoBehaviour
             if (queued.Count > 0)
             {
                 KillScore.ScoreLine data = queued.Dequeue();
-                string text = $"{data.Points:N0} <size={labelSizePercent}%>{data.Label}</size>";
-                ShowLine(text, data.IsJackpot ? jackpotColor : newestColor, 1f);
+                ShowLine(FormatLine(data.Points, data.Label), data.IsJackpot ? LineStyle.Jackpot : LineStyle.Normal, 1f);
                 PlayKlink(data.IsJackpot);
                 nextRevealTime = now + (queued.Count >= fastRevealFromQueued ? fastRevealSeconds : revealSeconds);
             }
@@ -215,7 +272,8 @@ public class KillScoreHUD : MonoBehaviour
             }
         }
 
-        AnimateLines();
+        AnimateLines(now);
+        AnimateComboText();
 
         if (now >= fadeStartTime)
         {
@@ -224,27 +282,35 @@ public class KillScoreHUD : MonoBehaviour
         }
     }
 
+    private string FormatLine(int points, string label) => $"{points:N0} <size={labelSizePercent}%>{label}</size>";
+
     private void ShowEnding()
     {
         if (pendingEnding == Ending.Cashed)
         {
-            ShowLine($"{pendingTotal:N0}!", totalColor, totalScale);
+            Line total = ShowLine(totalCountSeconds > 0f ? "0!" : $"{pendingTotal:N0}!", LineStyle.Total, totalScale);
+            if (total != null && totalCountSeconds > 0f)
+            {
+                total.CountTarget = pendingTotal;
+                total.Counting = true;
+            }
             Play(chanSound, 1f);
         }
         else
         {
-            ShowLine(comboLostText, comboLostColor, totalScale);
+            ShowLine(comboLostText, LineStyle.Lost, totalScale);
             Play(comboLostSound, 1f);
         }
 
         pendingEnding = Ending.None;
         klinksThisCombo = 0;
+        lastComboMultiplier = 0f;
         if (comboText != null) comboText.text = "";
         fadeStartTime = Time.unscaledTime + holdSeconds;
     }
 
-    /// <summary>Baja un puesto todas las líneas y pone una nueva arriba, entrando con el "golpe" de tamaño.</summary>
-    private void ShowLine(string text, Color color, float scale)
+    /// <summary>Baja un puesto todas las líneas y pone una nueva arriba, entrando desde un lado, girada y con el "golpe" de tamaño.</summary>
+    private Line ShowLine(string text, LineStyle style, float scale)
     {
         Line newest = null;
 
@@ -261,20 +327,36 @@ public class KillScoreHUD : MonoBehaviour
             if (newest == null && line.Slot > maxVisibleLines) newest = line;
         }
 
-        if (newest == null) return;
+        if (newest == null) return null;
 
         newest.Slot = 0;
         newest.Scale = scale;
-        newest.Color = color;
+        newest.Style = style;
+        newest.ShowTime = Time.unscaledTime;
+        newest.Counting = false;
         newest.Text.text = text;
-        newest.Text.color = color;
-        newest.Rect.anchoredPosition = Vector2.zero;
+        newest.Text.color = Color.white;
+        newest.Text.colorGradient = GetGradient(style);
+        newest.Rect.anchoredPosition = entryOffset;
+        newest.Rect.localRotation = Quaternion.Euler(0f, 0f, entryRotationDegrees);
         newest.Rect.localScale = Vector3.one * scale * punchScale;
         newest.Text.gameObject.SetActive(true);
+        return newest;
     }
 
-    /// <summary>Lleva cada línea suavemente a su puesto, tamaño y color; las que pasan del tope se desvanecen.</summary>
-    private void AnimateLines()
+    private VertexGradient GetGradient(LineStyle style)
+    {
+        switch (style)
+        {
+            case LineStyle.Total: return new VertexGradient(totalTopColor, totalTopColor, totalBottomColor, totalBottomColor);
+            case LineStyle.Lost: return new VertexGradient(comboLostColor);
+            case LineStyle.Jackpot: return new VertexGradient(Color.white); // el arcoíris se pinta letra a letra
+            default: return new VertexGradient(newestTopColor, newestTopColor, newestBottomColor, newestBottomColor);
+        }
+    }
+
+    /// <summary>Lleva cada línea suavemente a su puesto, tamaño, giro y color; las que pasan del tope se desvanecen.</summary>
+    private void AnimateLines(float now)
     {
         float t = 1f - Mathf.Exp(-animationSpeed * Time.unscaledDeltaTime);
 
@@ -282,20 +364,123 @@ public class KillScoreHUD : MonoBehaviour
         {
             if (!line.Text.gameObject.activeSelf) continue;
 
+            if (line.Counting) UpdateCount(line, now);
+
             bool isNewest = line.Slot == 0;
             float targetScale = isNewest ? line.Scale : olderLineScale;
-            Color targetColor = isNewest ? line.Color : olderColor;
+            Color targetColor = isNewest ? Color.white : olderColor; // tinte: blanco = degradado tal cual
             targetColor.a = line.Slot < maxVisibleLines ? 1f : 0f;
 
             Vector2 targetPosition = new Vector2(0f, -line.Slot * lineSpacingPixels);
             line.Rect.anchoredPosition = Vector2.Lerp(line.Rect.anchoredPosition, targetPosition, t);
             line.Rect.localScale = Vector3.one * Mathf.Lerp(line.Rect.localScale.x, targetScale, t);
+            line.Rect.localRotation = Quaternion.Slerp(line.Rect.localRotation, Quaternion.identity, t);
             line.Text.color = Color.Lerp(line.Text.color, targetColor, t);
+
+            ApplyLetterEffects(line, now);
 
             if (line.Slot >= maxVisibleLines && line.Text.color.a < 0.02f)
                 line.Text.gameObject.SetActive(false);
         }
     }
+
+    /// <summary>El total cuenta de 0 a su valor (rápido al principio y frenando al final), como el contador de una tragaperras.</summary>
+    private void UpdateCount(Line line, float now)
+    {
+        float count01 = Mathf.Clamp01((now - line.ShowTime) / totalCountSeconds);
+        float eased = 1f - (1f - count01) * (1f - count01);
+        line.Text.text = $"{Mathf.RoundToInt(line.CountTarget * eased):N0}!";
+        if (count01 >= 1f) line.Counting = false;
+    }
+
+    /// <summary>
+    /// Mueve las letras una a una: ola al entrar (se calma en Wave Seconds) y, en el JACKPOT, ola continua con arcoíris.
+    /// Se hace después de cambiar color y texto: ForceMeshUpdate rehace la malla y luego se tocan sus vértices.
+    /// </summary>
+    private void ApplyLetterEffects(Line line, float now)
+    {
+        bool isJackpot = line.Style == LineStyle.Jackpot;
+        float age = now - line.ShowTime;
+        float wave01 = isJackpot ? 1f : (waveSeconds > 0f ? 1f - age / waveSeconds : 0f);
+
+        if (wave01 <= 0f && !isJackpot)
+        {
+            if (line.Deformed)
+            {
+                line.Text.ForceMeshUpdate(); // deja las letras rectas otra vez
+                line.Deformed = false;
+            }
+            return;
+        }
+
+        TMP_Text text = line.Text;
+        text.ForceMeshUpdate();
+        TMP_TextInfo info = text.textInfo;
+        float amplitude = waveAmplitude * wave01 * wave01; // se calma suave
+
+        for (int i = 0; i < info.characterCount; i++)
+        {
+            TMP_CharacterInfo character = info.characterInfo[i];
+            if (!character.isVisible) continue;
+
+            int meshIndex = character.materialReferenceIndex;
+            int vertex = character.vertexIndex;
+            Vector3[] vertices = info.meshInfo[meshIndex].vertices;
+            float offset = Mathf.Sin(now * waveSpeed - i * waveSpacing) * amplitude;
+            for (int v = 0; v < 4; v++)
+                vertices[vertex + v].y += offset;
+
+            if (isJackpot)
+            {
+                Color32[] colors = info.meshInfo[meshIndex].colors32;
+                Color rainbow = Color.HSVToRGB(Mathf.Repeat(now * jackpotRainbowSpeed + i * 0.08f, 1f), 0.75f, 1f);
+                for (int v = 0; v < 4; v++)
+                {
+                    byte alpha = colors[vertex + v].a;
+                    Color32 tinted = rainbow * text.color;
+                    tinted.a = alpha;
+                    colors[vertex + v] = tinted;
+                }
+            }
+        }
+
+        text.UpdateVertexData(TMP_VertexDataUpdateFlags.Vertices | TMP_VertexDataUpdateFlags.Colors32);
+        line.Deformed = true;
+    }
+
+    // ---------------- TEXTO DEL COMBO ----------------
+
+    private void UpdateComboText()
+    {
+        if (comboText == null) return;
+
+        if (killScore.ComboKills < 2)
+        {
+            comboText.text = "";
+            return;
+        }
+
+        float multiplier = killScore.ComboMultiplier;
+        comboText.text = $"COMBO ×{multiplier:0.0}";
+        comboText.color = multiplier >= comboHighMultiplier ? comboHighColor
+                        : multiplier >= comboMidMultiplier ? comboMidColor
+                        : comboLowColor;
+
+        // Golpe solo cuando sube (no con cada línea del mismo multiplicador).
+        if (multiplier > lastComboMultiplier)
+            comboText.rectTransform.localScale = Vector3.one * comboPunchScale;
+        lastComboMultiplier = multiplier;
+    }
+
+    private void AnimateComboText()
+    {
+        if (comboText == null) return;
+        float t = 1f - Mathf.Exp(-animationSpeed * Time.unscaledDeltaTime);
+        RectTransform rect = comboText.rectTransform;
+        rect.localScale = Vector3.one * Mathf.Lerp(rect.localScale.x, 1f, t);
+    }
+
+    // ---------------- SONIDO ----------------
 
     private void PlayKlink(bool isJackpot)
     {
@@ -319,11 +504,16 @@ public class KillScoreHUD : MonoBehaviour
     private void ClearAll()
     {
         foreach (Line line in lines)
+        {
             line.Text.gameObject.SetActive(false);
+            line.Counting = false;
+            line.Deformed = false;
+        }
 
         queued.Clear();
         pendingEnding = Ending.None;
         klinksThisCombo = 0;
+        lastComboMultiplier = 0f;
         fadeStartTime = float.PositiveInfinity;
         canvasGroup.alpha = 0f;
         if (comboText != null) comboText.text = "";
