@@ -60,6 +60,19 @@ public class SlotMachine : MonoBehaviour, IInteractable
     [Min(0f)]
     [SerializeField] private float extraSecondsPerReel = 0.7f;
 
+    [Header("Parada")]
+    [Tooltip("Desmarcado = frenada suave. Marcado = gira a velocidad constante, frena en seco y rebota un poco al parar.")]
+    [SerializeField] private bool snappyStop = false;
+    [Tooltip("Parte final del giro en la que frena (solo con parada rápida). 0.15 = frenazo corto.")]
+    [Range(0.05f, 0.5f)]
+    [SerializeField] private float snappyBrakePortion = 0.15f;
+    [Tooltip("Grados que se pasa de la fruta antes de volver a su sitio (solo con parada rápida). 6 = rebote suave.")]
+    [Min(0f)]
+    [SerializeField] private float bounceDegrees = 6f;
+    [Tooltip("Segundos que dura el rebote (solo con parada rápida). 0.35 = rebote corto.")]
+    [Min(0.01f)]
+    [SerializeField] private float bounceSeconds = 0.35f;
+
     [Header("Resultado")]
     [Tooltip("Segundos que se ve el texto del resultado. 3 = da tiempo a leerlo.")]
     [FormerlySerializedAs("resultDisplayTime")]
@@ -204,19 +217,19 @@ public class SlotMachine : MonoBehaviour, IInteractable
             duration[i] = firstReelSeconds + i * extraSecondsPerReel;
         }
 
-        float time = 0f;
-        float maxDuration = duration[count - 1];
+        // Con parada rápida, cada cilindro se pasa un poco y luego rebota hasta su sitio
+        float overshoot = snappyStop ? bounceDegrees : 0f;
+        float settle = snappyStop ? bounceSeconds : 0f;
 
-        while (time < maxDuration)
+        float time = 0f;
+        float endTime = duration[count - 1] + settle;
+
+        while (time < endTime)
         {
             time += Time.deltaTime;
 
             for (int i = 0; i < count; i++)
-            {
-                float k = Mathf.Clamp01(time / duration[i]);
-                float eased = 1f - Mathf.Pow(1f - k, 3f);
-                SetReelAngle(i, start[i] + total[i] * eased);
-            }
+                SetReelAngle(i, start[i] + ReelProgress(time, duration[i], total[i], overshoot, settle));
 
             yield return null;
         }
@@ -231,6 +244,36 @@ public class SlotMachine : MonoBehaviour, IInteractable
 
         if (!keepBetAfterSpin) ClearBet();
         spinning = false;
+    }
+
+    // Grados que ha girado un cilindro en el instante "time" de la tirada
+    private float ReelProgress(float time, float duration, float total, float overshoot, float settle)
+    {
+        if (time < duration)
+        {
+            float k = Mathf.Clamp01(time / duration);
+            if (!snappyStop) return total * (1f - Mathf.Pow(1f - k, 3f));
+            return (total + overshoot) * SnappyEase(k);
+        }
+
+        if (!snappyStop || settle <= 0f) return total;
+
+        // Rebote: se ha pasado "overshoot" grados y vuelve a su sitio con un pequeño vaivén
+        float x = Mathf.Clamp01((time - duration) / settle);
+        return total + overshoot * Mathf.Exp(-4f * x) * Mathf.Cos(x * Mathf.PI * 3f) * (1f - x);
+    }
+
+    // Velocidad constante y frenada corta al final. Devuelve el progreso (0..1) para un tiempo k (0..1).
+    private float SnappyEase(float k)
+    {
+        float brake = snappyBrakePortion;
+        float speed = 1f / (1f - brake * 0.5f);   // para que al final el progreso sea justo 1
+
+        if (k < 1f - brake)
+            return speed * k;
+
+        float u = (k - (1f - brake)) / brake;
+        return speed * (1f - brake) + speed * brake * (u - 0.5f * u * u);
     }
 
     private void SetReelAngle(int index, float angle)
