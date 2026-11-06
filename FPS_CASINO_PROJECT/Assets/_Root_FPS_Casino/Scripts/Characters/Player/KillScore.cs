@@ -183,6 +183,11 @@ public class KillScore : MonoBehaviour
     /// <summary>El combo se ha cobrado: puntos totales (con el multiplicador) que han ido a PlayerPoints.</summary>
     public event Action<int> OnComboCashed;
     /// <summary>El combo se ha perdido por recibir demasiado daño.</summary>
+    /// 
+    /// <summary>Enemigo de la última baja puntuada. Lo lee KillPointsHUD en OnKillScored para poner los puntos encima.</summary>
+    public EnemyHealth LastKilledEnemy { get; private set; }
+    /// <summary>Puntos de la última baja (la suma de sus líneas, sin el multiplicador del combo).</summary>
+    public int LastKillPoints { get; private set; }
     public event Action OnComboLost;
 
     private const int SpinSamples = 256; // frames que se recuerdan para el 360° (de sobra para 1 s a 240 fps)
@@ -346,6 +351,9 @@ public class KillScore : MonoBehaviour
         comboKills++;
         comboPoints += killPoints;
         comboEndTime = Time.time + comboWindowSeconds;
+
+        LastKilledEnemy = enemy;
+        LastKillPoints = killPoints;
 
         OnKillScored?.Invoke();
     }
