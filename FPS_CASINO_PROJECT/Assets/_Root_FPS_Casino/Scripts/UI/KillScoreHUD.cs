@@ -119,6 +119,26 @@ public class KillScoreHUD : MonoBehaviour
     [Min(0f)]
     [SerializeField] private float jackpotRainbowSpeed = 0.8f;
 
+    [Header("Brillo (glow) de cada línea")]
+    [Tooltip("Brillo de las líneas normales. Naranja dorado = va con el degradado de las letras. A = fuerza del brillo.")]
+    [SerializeField] private Color normalGlowColor = new Color(1f, 0.55f, 0.05f, 0.75f);
+    [Tooltip("Brillo del total. Magenta neón.")]
+    [SerializeField] private Color totalGlowColor = new Color(1f, 0.16f, 0.6f, 0.85f);
+    [Tooltip("Brillo de ¡COMBO PERDIDO!.")]
+    [SerializeField] private Color lostGlowColor = new Color(1f, 0.1f, 0.1f, 0.8f);
+    [Tooltip("Fuerza del brillo del JACKPOT (su color va con el arcoíris). 0.85 = muy brillante.")]
+    [Range(0f, 1f)]
+    [SerializeField] private float jackpotGlowAlpha = 0.85f;
+    [Tooltip("Brillo que les queda a las líneas viejas, respecto al suyo. 0.15 = casi apagadas, así destaca la nueva.")]
+    [Range(0f, 1f)]
+    [SerializeField] private float olderGlowPercent = 0.15f;
+    [Tooltip("Cuánto late el total mientras está en pantalla. 0.06 = un 6% más grande y vuelve. 0 = quieto.")]
+    [Range(0f, 0.3f)]
+    [SerializeField] private float totalPulse = 0.06f;
+    [Tooltip("Latidos por segundo del total. 3 = como un corazón acelerado.")]
+    [Min(0f)]
+    [SerializeField] private float totalPulseSpeed = 3f;
+
     [Header("Texto del combo")]
     [Tooltip("Tamaño con el que da el golpe el texto del combo al subir. 1.5 = un 50% más grande y vuelve.")]
     [Min(1f)]
@@ -167,7 +187,11 @@ public class KillScoreHUD : MonoBehaviour
         public bool Deformed;     // sus letras están movidas: hay que dejarlas rectas al acabar la ola
         public int CountTarget;   // total al que cuenta (solo el total)
         public bool Counting;
+        public Material Material; // copia propia del material de la fuente, para que cada línea brille de su color
+        public Color Glow;        // brillo actual (va hacia el de su estilo)
     }
+
+    private static readonly int GlowColorId = Shader.PropertyToID("_GlowColor");
 
     private enum Ending { None, Cashed, Lost }
 
@@ -180,6 +204,7 @@ public class KillScoreHUD : MonoBehaviour
     private int pendingTotal;
     private float fadeStartTime = float.PositiveInfinity;
     private float lastComboMultiplier;
+    private Material comboMaterial;
 
     private void Awake()
     {
@@ -202,11 +227,24 @@ public class KillScoreHUD : MonoBehaviour
             TMP_Text text = Instantiate(lineTemplate, lineTemplate.transform.parent);
             text.gameObject.SetActive(false);
             text.enableVertexGradient = true; // el degradado se multiplica por el color (que usamos como tinte)
-            lines.Add(new Line { Text = text, Rect = text.rectTransform });
+            // fontMaterial crea una copia del material solo para esta línea: así cada una brilla de su color.
+            lines.Add(new Line { Text = text, Rect = text.rectTransform, Material = text.fontMaterial });
         }
 
         canvasGroup.alpha = 0f;
-        if (comboText != null) comboText.text = "";
+        if (comboText != null)
+        {
+            comboText.text = "";
+            comboMaterial = comboText.fontMaterial; // el combo también brilla del color de su multiplicador
+        }
+    }
+
+    private void OnDestroy()
+    {
+        // Las copias de material no se borran solas al cambiar de escena.
+        foreach (Line line in lines)
+            if (line.Material != null) Destroy(line.Material);
+        if (comboMaterial != null) Destroy(comboMaterial);
     }
 
     private void OnEnable()
@@ -340,8 +378,29 @@ public class KillScoreHUD : MonoBehaviour
         newest.Rect.anchoredPosition = entryOffset;
         newest.Rect.localRotation = Quaternion.Euler(0f, 0f, entryRotationDegrees);
         newest.Rect.localScale = Vector3.one * scale * punchScale;
+        newest.Glow = GetGlowColor(style, Time.unscaledTime); // entra ya brillando, sin fundido
+        SetGlow(newest.Material, newest.Glow);
         newest.Text.gameObject.SetActive(true);
         return newest;
+    }
+
+    private Color GetGlowColor(LineStyle style, float now)
+    {
+        switch (style)
+        {
+            case LineStyle.Total: return totalGlowColor;
+            case LineStyle.Lost: return lostGlowColor;
+            case LineStyle.Jackpot:
+                Color rainbow = Color.HSVToRGB(Mathf.Repeat(now * jackpotRainbowSpeed, 1f), 0.9f, 1f);
+                rainbow.a = jackpotGlowAlpha;
+                return rainbow;
+            default: return normalGlowColor;
+        }
+    }
+
+    private static void SetGlow(Material material, Color color)
+    {
+        if (material != null) material.SetColor(GlowColorId, color);
     }
 
     private VertexGradient GetGradient(LineStyle style)
@@ -371,11 +430,21 @@ public class KillScoreHUD : MonoBehaviour
             Color targetColor = isNewest ? Color.white : olderColor; // tinte: blanco = degradado tal cual
             targetColor.a = line.Slot < maxVisibleLines ? 1f : 0f;
 
+            // El total late mientras está arriba (solo cuando ya ha entrado, para no pelear con el golpe).
+            if (isNewest && line.Style == LineStyle.Total && now - line.ShowTime > 0.3f)
+                targetScale *= 1f + totalPulse * Mathf.Sin((now - line.ShowTime) * totalPulseSpeed * Mathf.PI * 2f);
+
             Vector2 targetPosition = new Vector2(0f, -line.Slot * lineSpacingPixels);
             line.Rect.anchoredPosition = Vector2.Lerp(line.Rect.anchoredPosition, targetPosition, t);
             line.Rect.localScale = Vector3.one * Mathf.Lerp(line.Rect.localScale.x, targetScale, t);
             line.Rect.localRotation = Quaternion.Slerp(line.Rect.localRotation, Quaternion.identity, t);
             line.Text.color = Color.Lerp(line.Text.color, targetColor, t);
+
+            // Brillo: el de su estilo en la nueva; casi apagado en las viejas.
+            Color targetGlow = GetGlowColor(line.Style, now);
+            if (!isNewest) targetGlow.a *= olderGlowPercent;
+            line.Glow = line.Style == LineStyle.Jackpot && isNewest ? targetGlow : Color.Lerp(line.Glow, targetGlow, t);
+            SetGlow(line.Material, line.Glow);
 
             ApplyLetterEffects(line, now);
 
@@ -465,6 +534,9 @@ public class KillScoreHUD : MonoBehaviour
         comboText.color = multiplier >= comboHighMultiplier ? comboHighColor
                         : multiplier >= comboMidMultiplier ? comboMidColor
                         : comboLowColor;
+        Color comboGlow = comboText.color;
+        comboGlow.a = 0.7f;
+        SetGlow(comboMaterial, comboGlow);
 
         // Golpe solo cuando sube (no con cada línea del mismo multiplicador).
         if (multiplier > lastComboMultiplier)
