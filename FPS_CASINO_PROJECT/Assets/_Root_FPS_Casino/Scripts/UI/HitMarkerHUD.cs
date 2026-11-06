@@ -2,27 +2,41 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Hitmarker de neón: 4 rayas en diagonal alrededor del centro de la pantalla que saltan al dar a un enemigo
-/// (aparecen grandes, se encogen de golpe y se desvanecen abriéndose un poco). Al matar salen más grandes,
-/// de otro color y duran más, como en CoD Zombies.
+/// Hitmarkers de neón que salen JUSTO donde ha dado la bala y siguen al robot mientras se mueve: 4 rayas en diagonal
+/// que aparecen grandes, se encogen de golpe y se desvanecen abriéndose. Al matar salen más grandes, de otro color
+/// y duran más. Puede haber muchos a la vez (el subfusil y la escopeta llenan la pantalla).
 ///
-/// Se entera de los impactos por WeaponBase.OnAnyEnemyHit, así que vale para todas las armas sin asignarlas.
-/// Los perdigones de un escopetazo llegan en el mismo frame: cuentan como un solo impacto, y si alguno mata, sale el de baja.
+/// Se entera de los impactos por WeaponBase.OnAnyEnemyHit (qué enemigo, dónde y si lo ha matado), así que vale
+/// para todas las armas sin asignarlas. Si un perdigón mata, los demás perdigones de ese disparo al mismo enemigo
+/// también se ponen en modo "baja".
 ///
-/// Las rayas las crea el propio script al empezar (no hay que montarlas a mano). Cada una es un núcleo fino y claro
-/// con un halo más ancho y transparente detrás: eso es lo que le da el aspecto de neón.
+/// Los hitmarkers los crea el propio script al empezar (no hay que montarlos a mano). Cada raya es un núcleo fino
+/// y claro con un halo más ancho y transparente detrás: eso es lo que le da el aspecto de neón.
 ///
 /// Va en un objeto vacío del Canvas, anclado al centro de la pantalla y colocado el último (para que se pinte encima).
 /// Usa el tiempo real (no le afecta Time.timeScale), así sigue funcionando con cámara lenta o una micro‑pausa al matar.
 /// </summary>
 [RequireComponent(typeof(RectTransform))]
-[RequireComponent(typeof(CanvasGroup))]
 public class HitMarkerHUD : MonoBehaviour
 {
     private const int BarCount = 4;
 
+    [Header("Referencias")]
+    [Tooltip("Cámara del jugador, para pasar el punto del impacto a la pantalla. Vacío = Camera.main.")]
+    [SerializeField] private Camera worldCamera;
+
+    [Header("Posición")]
+    [Tooltip("Marcado: sale donde ha dado la bala y sigue al robot. Desmarcado: siempre en el centro de la pantalla.")]
+    [SerializeField] private bool showAtImpactPoint = true;
+    [Tooltip("Hitmarkers que puede haber a la vez. 24 = sobra para el subfusil y la escopeta. Si se llenan, se reutiliza el más antiguo.")]
+    [Min(1)]
+    [SerializeField] private int maxMarkers = 24;
+    [Tooltip("Giro aleatorio de cada hitmarker, en grados. 10 = cada uno sale un poco torcido y se ve más vivo. 0 = todos rectos.")]
+    [Range(0f, 45f)]
+    [SerializeField] private float randomTiltDegrees = 10f;
+
     [Header("Forma (en unidades del Canvas: 1920x1080 de referencia)")]
-    [Tooltip("Distancia del centro al principio de cada raya. 18 = deja libre el centro de la retícula.")]
+    [Tooltip("Distancia del centro del hitmarker al principio de cada raya. 18 = deja ver el punto del impacto.")]
     [Min(0f)]
     [SerializeField] private float gap = 18f;
     [Tooltip("Largo de cada raya. 16 = se ve bien sin tapar.")]
@@ -86,90 +100,198 @@ public class HitMarkerHUD : MonoBehaviour
     [Range(0f, 1f)]
     [SerializeField] private float volume = 0.6f;
 
-    private RectTransform rect;
-    private CanvasGroup canvasGroup;
-    private readonly Image[] cores = new Image[BarCount];
-    private readonly Image[] glows = new Image[BarCount];
+    /// <summary>Un hitmarker en pantalla: sus rayas y a qué punto del mundo está pegado.</summary>
+    private class Marker
+    {
+        public RectTransform rect;
+        public CanvasGroup group;
+        public readonly Image[] cores = new Image[BarCount];
+        public readonly Image[] glows = new Image[BarCount];
+        public EnemyHealth enemy;    // a quién ha dado (para pasar a "baja" los perdigones del mismo disparo)
+        public Transform target;     // lo que sigue: el enemigo (vacío = punto fijo)
+        public Vector3 localPoint;   // punto del impacto relativo al enemigo
+        public Vector3 worldPoint;   // último punto conocido en el mundo (si el enemigo desaparece, se queda aquí)
+        public float showTime = -1f; // -1 = libre
+        public bool isKill;
+        public int frame;
+        public bool IsActive => showTime >= 0f;
+    }
 
-    private float showTime = -1f; // cuándo saltó el último (-1 = oculto)
-    private bool isKill;
-    private int killFrame = -1;   // frame de la última baja (para que un perdigón que no mata no la tape)
-    private int soundFrame = -1;  // frame del último sonido (para no sonar 6 veces con la escopeta)
+    private RectTransform rect;
+    private Canvas canvas;
+    private Marker[] markers;
+
+    private int soundFrame = -1; // frame del último sonido (para no sonar 6 veces con la escopeta)
     private bool soundWasKill;
 
     private void Awake()
     {
         rect = (RectTransform)transform;
-        canvasGroup = GetComponent<CanvasGroup>();
-        canvasGroup.alpha = 0f;
-        canvasGroup.interactable = false;
-        canvasGroup.blocksRaycasts = false;
+        canvas = GetComponentInParent<Canvas>();
 
-        BuildBars();
-        LayoutBars(gap);
+        // La versión anterior apagaba un CanvasGroup en este objeto. Si sigue ahí, que no oculte nada.
+        if (TryGetComponent(out CanvasGroup rootGroup))
+        {
+            rootGroup.alpha = 1f;
+            rootGroup.blocksRaycasts = false;
+        }
+        rect.localScale = Vector3.one;
+
+        markers = new Marker[maxMarkers];
+        for (int i = 0; i < maxMarkers; i++)
+            markers[i] = BuildMarker(i);
     }
 
     private void OnEnable() => WeaponBase.OnAnyEnemyHit += HandleEnemyHit;
     private void OnDisable() => WeaponBase.OnAnyEnemyHit -= HandleEnemyHit;
 
-    private void HandleEnemyHit(bool killed)
+    private void HandleEnemyHit(EnemyHealth enemy, Vector3 point, bool killed)
     {
-        // En el mismo frame, si un perdigón ya ha matado, otro que solo da no lo cambia a "dar".
-        if (!killed && killFrame == Time.frameCount) return;
-        if (killed) killFrame = Time.frameCount;
+        // Si este perdigón mata, los otros del mismo disparo a este enemigo también pasan a "baja".
+        if (killed)
+        {
+            foreach (Marker other in markers)
+            {
+                if (!other.IsActive || other.enemy != enemy || other.frame != Time.frameCount) continue;
+                other.isKill = true;
+                ApplyColors(other);
+            }
+        }
 
-        isKill = killed;
-        showTime = Time.unscaledTime;
-        ApplyColors();
+        Marker marker = GetFreeMarker();
+        marker.enemy = enemy;
+        marker.target = enemy != null ? enemy.transform : null;
+        marker.localPoint = marker.target != null ? marker.target.InverseTransformPoint(point) : point;
+        marker.worldPoint = point;
+        marker.isKill = killed;
+        marker.frame = Time.frameCount;
+        marker.showTime = Time.unscaledTime;
+        marker.rect.localRotation = Quaternion.Euler(0f, 0f, Random.Range(-randomTiltDegrees, randomTiltDegrees));
+        marker.rect.SetAsLastSibling(); // el más nuevo, encima
+        marker.rect.gameObject.SetActive(true);
+        ApplyColors(marker);
+        UpdateMarker(marker); // colocado ya en este frame, sin un frame en el centro
+
         PlaySound(killed);
     }
 
-    private void Update()
+    // LateUpdate: después de que la cámara y los robots se hayan movido en este frame, así no va con retraso.
+    private void LateUpdate()
     {
-        if (showTime < 0f) return;
+        foreach (Marker marker in markers)
+            if (marker.IsActive) UpdateMarker(marker);
+    }
 
-        float age = Time.unscaledTime - showTime;
-        float hold = isKill ? killHoldSeconds : hitHoldSeconds;
-        float fade = isKill ? killFadeSeconds : hitFadeSeconds;
+    private void UpdateMarker(Marker marker)
+    {
+        float age = Time.unscaledTime - marker.showTime;
+        float hold = marker.isKill ? killHoldSeconds : hitHoldSeconds;
+        float fade = marker.isKill ? killFadeSeconds : hitFadeSeconds;
 
         if (age >= hold + fade)
         {
-            canvasGroup.alpha = 0f;
-            showTime = -1f;
+            Hide(marker);
+            return;
+        }
+
+        if (!PlaceMarker(marker))
+        {
+            marker.group.alpha = 0f; // el impacto está detrás de la cámara: no se dibuja, pero sigue su tiempo
             return;
         }
 
         float fade01 = fade > 0f ? Mathf.Clamp01((age - hold) / fade) : 0f;
-        canvasGroup.alpha = 1f - fade01;
+        marker.group.alpha = 1f - fade01;
 
         // Salta grande y se encoge de golpe (ease out), luego se queda a su tamaño.
         float pop01 = popSeconds > 0f ? Mathf.Clamp01(age / popSeconds) : 1f;
         float easeOut = 1f - (1f - pop01) * (1f - pop01) * (1f - pop01);
-        float scale = (isKill ? killScale : 1f) * Mathf.Lerp(popScale, 1f, easeOut);
-        rect.localScale = new Vector3(scale, scale, 1f);
+        float scale = (marker.isKill ? killScale : 1f) * Mathf.Lerp(popScale, 1f, easeOut);
+        marker.rect.localScale = new Vector3(scale, scale, 1f);
 
-        LayoutBars(gap + expandOnFade * fade01);
+        LayoutBars(marker, gap + expandOnFade * fade01);
     }
 
-    // ---------------- RAYAS ----------------
-
-    /// <summary>Crea las 4 rayas en diagonal (45°, 135°, 225° y 315°), cada una con su halo detrás.</summary>
-    private void BuildBars()
+    /// <summary>Pone el hitmarker en pantalla encima del punto del impacto. False si ese punto está detrás de la cámara.</summary>
+    private bool PlaceMarker(Marker marker)
     {
+        if (!showAtImpactPoint)
+        {
+            marker.rect.anchoredPosition = Vector2.zero;
+            return true;
+        }
+
+        // Sigue al robot: el punto se mueve con él (si el robot ya no existe, se queda en el último sitio).
+        if (marker.target != null)
+            marker.worldPoint = marker.target.TransformPoint(marker.localPoint);
+
+        Camera cam = worldCamera != null ? worldCamera : Camera.main;
+        if (cam == null) return false;
+
+        Vector3 screenPoint = cam.WorldToScreenPoint(marker.worldPoint);
+        if (screenPoint.z <= 0f) return false;
+
+        // Con un Canvas "Screen Space - Overlay" no hay cámara de UI (null); con "Screen Space - Camera", la suya.
+        Camera uiCamera = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(rect, screenPoint, uiCamera, out Vector2 localPoint))
+            return false;
+
+        marker.rect.anchoredPosition = localPoint;
+        return true;
+    }
+
+    private Marker GetFreeMarker()
+    {
+        Marker oldest = markers[0];
+        foreach (Marker marker in markers)
+        {
+            if (!marker.IsActive) return marker;
+            if (marker.showTime < oldest.showTime) oldest = marker;
+        }
+        return oldest; // todos ocupados: se reutiliza el más antiguo
+    }
+
+    private static void Hide(Marker marker)
+    {
+        marker.showTime = -1f;
+        marker.enemy = null;
+        marker.target = null;
+        marker.rect.gameObject.SetActive(false);
+    }
+
+    // ---------------- CONSTRUCCIÓN ----------------
+
+    /// <summary>Crea un hitmarker: 4 rayas en diagonal (45°, 135°, 225° y 315°), cada una con su halo detrás.</summary>
+    private Marker BuildMarker(int index)
+    {
+        var marker = new Marker();
+
+        var root = new GameObject($"Marker{index}", typeof(RectTransform), typeof(CanvasGroup));
+        marker.rect = (RectTransform)root.transform;
+        marker.rect.SetParent(rect, false);
+        marker.rect.anchorMin = marker.rect.anchorMax = new Vector2(0.5f, 0.5f);
+        marker.rect.sizeDelta = Vector2.zero;
+
+        marker.group = root.GetComponent<CanvasGroup>();
+        marker.group.interactable = false;
+        marker.group.blocksRaycasts = false;
+
         for (int i = 0; i < BarCount; i++)
         {
             // Un "brazo" girado en la diagonal: dentro, las rayas solo se colocan en su eje X.
             var arm = new GameObject($"Arm{i}", typeof(RectTransform));
             var armRect = (RectTransform)arm.transform;
-            armRect.SetParent(rect, false);
+            armRect.SetParent(marker.rect, false);
             armRect.sizeDelta = Vector2.zero;
             armRect.localRotation = Quaternion.Euler(0f, 0f, 45f + 90f * i);
 
-            glows[i] = CreateBar(armRect, "Glow", glowSprite); // primero el halo, para que el núcleo quede encima
-            cores[i] = CreateBar(armRect, "Core", null);
+            marker.glows[i] = CreateBar(armRect, "Glow", glowSprite); // primero el halo, para que el núcleo quede encima
+            marker.cores[i] = CreateBar(armRect, "Core", null);
         }
 
-        ApplyColors();
+        LayoutBars(marker, gap);
+        root.SetActive(false);
+        return marker;
     }
 
     private static Image CreateBar(RectTransform parent, string barName, Sprite sprite)
@@ -186,32 +308,32 @@ public class HitMarkerHUD : MonoBehaviour
         return image;
     }
 
-    /// <summary>Coloca cada raya a 'distance' del centro. El halo sobresale lo mismo por cada lado.</summary>
-    private void LayoutBars(float distance)
+    /// <summary>Coloca cada raya a 'distance' del centro del hitmarker. El halo sobresale lo mismo por cada lado.</summary>
+    private void LayoutBars(Marker marker, float distance)
     {
         float glowThickness = thickness * glowThicknessMultiplier;
         float glowExtra = glowThickness - thickness;
 
         for (int i = 0; i < BarCount; i++)
         {
-            RectTransform core = cores[i].rectTransform;
+            RectTransform core = marker.cores[i].rectTransform;
             core.anchoredPosition = new Vector2(distance, 0f);
             core.sizeDelta = new Vector2(length, thickness);
 
-            RectTransform glow = glows[i].rectTransform;
+            RectTransform glow = marker.glows[i].rectTransform;
             glow.anchoredPosition = new Vector2(distance - glowExtra * 0.5f, 0f);
             glow.sizeDelta = new Vector2(length + glowExtra, glowThickness);
         }
     }
 
-    private void ApplyColors()
+    private void ApplyColors(Marker marker)
     {
-        Color core = isKill ? killCoreColor : hitCoreColor;
-        Color glow = isKill ? killGlowColor : hitGlowColor;
+        Color core = marker.isKill ? killCoreColor : hitCoreColor;
+        Color glow = marker.isKill ? killGlowColor : hitGlowColor;
         for (int i = 0; i < BarCount; i++)
         {
-            cores[i].color = core;
-            glows[i].color = glow;
+            marker.cores[i].color = core;
+            marker.glows[i].color = glow;
         }
     }
 

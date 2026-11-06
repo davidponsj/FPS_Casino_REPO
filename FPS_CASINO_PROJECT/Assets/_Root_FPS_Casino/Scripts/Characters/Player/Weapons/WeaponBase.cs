@@ -133,13 +133,13 @@ public abstract class WeaponBase : MonoBehaviour
     public event Action OnDryFire;
 
     /// <summary>
-    /// Se dispara cada vez que CUALQUIER arma da a un enemigo vivo (bala o granada). El bool dice si lo ha matado.
-    /// Es estático para que el hitmarker se entere de todas las armas sin buscarlas.
+    /// Se dispara cada vez que CUALQUIER arma da a un enemigo vivo (bala o granada): a qué enemigo, en qué punto
+    /// del mundo y si lo ha matado. Es estático para que el hitmarker se entere de todas las armas sin buscarlas.
     /// </summary>
-    public static event Action<bool> OnAnyEnemyHit;
+    public static event Action<EnemyHealth, Vector3, bool> OnAnyEnemyHit;
 
     /// <summary>Avisa al hitmarker de un impacto que no viene de una bala (p. ej. la explosión de la granada).</summary>
-    public static void ReportEnemyHit(bool killed) => OnAnyEnemyHit?.Invoke(killed);
+    public static void ReportEnemyHit(EnemyHealth enemy, Vector3 point, bool killed) => OnAnyEnemyHit?.Invoke(enemy, point, killed);
 
     public float CurrentSpreadDegrees => currentSpreadDegrees;
     /// <summary>Cámara desde la que dispara el arma. La retícula la usa para pasar grados a píxeles.</summary>
@@ -308,7 +308,7 @@ public abstract class WeaponBase : MonoBehaviour
                 if (enemyImpactEffectPrefab != null)
                     Instantiate(enemyImpactEffectPrefab, hit.point, Quaternion.LookRotation(hit.normal));
                 if (enemyWasAlive)
-                    OnAnyEnemyHit?.Invoke(hitEnemy.IsDead);
+                    OnAnyEnemyHit?.Invoke(hitEnemy, hit.point, hitEnemy.IsDead);
             }
 
             tracerEndPoint = hit.point;
