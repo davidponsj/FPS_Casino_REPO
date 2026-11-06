@@ -35,6 +35,8 @@ public abstract class WeaponBase : MonoBehaviour
     [Min(0f)]
     [FormerlySerializedAs("reloadTime")]
     [SerializeField] protected float reloadSeconds = 1.4f;
+    [Tooltip("Marcado: al vaciar el cargador recarga sola, en cuanto termina el disparo. Desmarcado: hay que pulsar recargar.")]
+    [SerializeField] protected bool autoReloadWhenEmpty = true;
 
     [Header("Cadencia")]
     [Tooltip("Disparos por segundo como máximo. 4 = semiautomática rápida; 14 = Tommy Gun; 0.8 = sniper de cerrojo.")]
@@ -50,6 +52,11 @@ public abstract class WeaponBase : MonoBehaviour
     [Tooltip("Daño de cada bala (de cada perdigón en la escopeta). 25 = cuatro balas para 100 de vida.")]
     [Min(0f)]
     [SerializeField] protected float damage = 25f;
+
+    [Tooltip("Daño multiplicado al dar en la cabeza (el % de arriba del robot que marca Headshot Height Percent en KillScore). 2 = el doble, como en CoD Zombies. 1 = sin bonus.")]
+    [Min(1f)]
+    [SerializeField] protected float headshotDamageMultiplier = 2f;
+
 
     [Header("Dispersión (estilo CS)")]
     [Tooltip("Grados de dispersión cuando estás completamente quieto y sin disparar. 0 = precisión perfecta al centro.")]
@@ -92,12 +99,18 @@ public abstract class WeaponBase : MonoBehaviour
     [SerializeField] protected BulletTracerEffect tracerPrefab;
     [Tooltip("Efecto que aparece donde da la bala (agujero y chispas). Vacío = sin efecto.")]
     [SerializeField] protected GameObject impactEffectPrefab;
+
+    [Tooltip("Efecto que aparece donde la bala da a un enemigo (las chispas del robot). Vacío = sin efecto.")]
+    [SerializeField] protected GameObject enemyImpactEffectPrefab;
+
     [Tooltip("Fogonazo del cañón, hijo del arma. Vacío = sin fogonazo.")]
     [SerializeField] protected MuzzleFlash muzzleFlash;
 
     [Header("Depuración")]
     [Tooltip("Muestra en la vista Scene el cono de dispersión a 5 m, la munición, la recarga y los últimos impactos.")]
     [SerializeField] protected bool showDebug;
+
+    private const float DryFireRepeatSeconds = 0.3f; // segundos entre "clics" si mantienes el gatillo sin balas
 
     protected int currentAmmo;
     protected int reserveAmmo;
@@ -121,6 +134,34 @@ public abstract class WeaponBase : MonoBehaviour
     public event Action OnReloadFinished;
     /// <summary>Se dispara con cada disparo (una vez por gatillazo, aunque la escopeta suelte varios perdigones).</summary>
     public event Action OnFired;
+    /// <summary>Se dispara al apretar el gatillo con el cargador vacío (para el "clic" de WeaponAnimator).</summary>
+    public event Action OnDryFire;
+
+    /// <summary>Un impacto a un enemigo: a quién, dónde (punto en el mundo), si lo ha matado y si ha sido en la cabeza.</summary>
+    public readonly struct EnemyHit
+    {
+        public readonly EnemyHealth Enemy;
+        public readonly Vector3 Point;
+        public readonly bool Killed;
+        public readonly bool Headshot;
+
+        public EnemyHit(EnemyHealth enemy, Vector3 point, bool killed, bool headshot)
+        {
+            Enemy = enemy;
+            Point = point;
+            Killed = killed;
+            Headshot = headshot;
+        }
+    }
+
+    /// <summary>
+    /// Se dispara cada vez que CUALQUIER arma da a un enemigo vivo (bala o granada), con los datos del impacto.
+    /// Es estático para que el hitmarker se entere de todas las armas sin buscarlas.
+    /// </summary>
+    public static event Action<EnemyHit> OnAnyEnemyHit;
+
+    /// <summary>Avisa al hitmarker de un impacto que no viene de una bala (p. ej. la explosión de la granada). Nunca es en la cabeza.</summary>
+    public static void ReportEnemyHit(EnemyHealth enemy, Vector3 point, bool killed) => OnAnyEnemyHit?.Invoke(new EnemyHit(enemy, point, killed, false));
 
     public float CurrentSpreadDegrees => currentSpreadDegrees;
     /// <summary>Cámara desde la que dispara el arma. La retícula la usa para pasar grados a píxeles.</summary>
@@ -135,6 +176,8 @@ public abstract class WeaponBase : MonoBehaviour
         : Mathf.InverseLerp(minSpreadDegrees, maxSpreadDegrees, currentSpreadDegrees);
 
     public int CurrentAmmo => currentAmmo;
+    /// <summary>Balas que caben en el cargador. Lo usa WeaponAnimator para saber cuándo se ha gastado un tercio, etc.</summary>
+    public int MagazineSize => magazineSize;
     public int ReserveAmmo => reserveAmmo;
     public bool IsReloading => isReloading;
     public float ReloadProgress01 => isReloading
@@ -172,6 +215,19 @@ public abstract class WeaponBase : MonoBehaviour
     protected virtual void Update()
     {
         UpdateSpread();
+        TryAutoReload();
+    }
+
+    /// <summary>
+    /// Con el cargador vacío recarga sola. Espera a nextFireTime para que primero se vea y se oiga
+    /// el disparo entero (animación, corredero de la escopeta) y después empiece la recarga.
+    /// </summary>
+    private void TryAutoReload()
+    {
+        if (!autoReloadWhenEmpty || isReloading || currentAmmo > 0) return;
+        if (Time.time < nextFireTime) return;
+
+        TryReload(); // ya comprueba que quede munición en la reserva
     }
 
     private void UpdateSpread()
@@ -257,10 +313,27 @@ public abstract class WeaponBase : MonoBehaviour
             if (killScore != null && damageable is EnemyHealth enemy)
                 killScore.RegisterHit(enemy, hit, this);
 
-            damageable?.TakeDamage(shotDamage);
+            EnemyHealth hitEnemy = damageable as EnemyHealth;
+            bool enemyWasAlive = hitEnemy != null && !hitEnemy.IsDead;
 
-            if (impactEffectPrefab != null)
+            // Cabeza: la misma regla que los puntos de KillScore (el % de arriba del robot), así daño y puntos dicen lo mismo.
+            bool headshot = hitEnemy != null && killScore != null && killScore.IsHeadshot(hit);
+            damageable?.TakeDamage(headshot ? shotDamage * headshotDamageMultiplier : shotDamage);
+
+            // La partícula (polvo, esquirlas, agujero) solo en objetos: en un personaje quedaría pegada en el aire
+            // cuando se mueve. Los personajes son los que tienen vida de personaje (enemigos y jugador).
+            bool hitCharacter = damageable is EnemyHealth || damageable is PlayerHealth;
+            if (impactEffectPrefab != null && !hitCharacter)
                 Instantiate(impactEffectPrefab, hit.point, Quaternion.LookRotation(hit.normal));
+
+            // En los enemigos, chispas que salen disparadas (no se quedan pegadas) y aviso al hitmarker.
+            if (hitEnemy != null)
+            {
+                if (enemyImpactEffectPrefab != null)
+                    Instantiate(enemyImpactEffectPrefab, hit.point, Quaternion.LookRotation(hit.normal));
+                if (enemyWasAlive)
+                    OnAnyEnemyHit?.Invoke(new EnemyHit(hitEnemy, hit.point, hitEnemy.IsDead, headshot));
+            }
 
             tracerEndPoint = hit.point;
             result = hit;
@@ -311,7 +384,12 @@ public abstract class WeaponBase : MonoBehaviour
         bool infiniteMagazine = buffs != null && buffs.InfiniteMagazine;
 
         if (currentAmmo <= 0 && !infiniteMagazine)
+        {
+            // Sin balas: solo suena el "clic". La espera evita que una automática haga clic en cada frame.
+            nextFireTime = Time.time + DryFireRepeatSeconds;
+            OnDryFire?.Invoke();
             return;
+        }
 
         // Con la botella de munición infinita el cargador no baja.
         if (!infiniteMagazine)

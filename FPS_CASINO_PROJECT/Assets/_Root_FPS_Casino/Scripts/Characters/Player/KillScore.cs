@@ -183,6 +183,11 @@ public class KillScore : MonoBehaviour
     /// <summary>El combo se ha cobrado: puntos totales (con el multiplicador) que han ido a PlayerPoints.</summary>
     public event Action<int> OnComboCashed;
     /// <summary>El combo se ha perdido por recibir demasiado daño.</summary>
+    /// 
+    /// <summary>Enemigo de la última baja puntuada. Lo lee KillPointsHUD en OnKillScored para poner los puntos encima.</summary>
+    public EnemyHealth LastKilledEnemy { get; private set; }
+    /// <summary>Puntos de la última baja (la suma de sus líneas, sin el multiplicador del combo).</summary>
+    public int LastKillPoints { get; private set; }
     public event Action OnComboLost;
 
     private const int SpinSamples = 256; // frames que se recuerdan para el 360° (de sobra para 1 s a 240 fps)
@@ -293,6 +298,17 @@ public class KillScore : MonoBehaviour
         if (IsComboActive && Time.time >= comboEndTime)
             CashOut();
     }
+    /// <summary>
+    /// True si el impacto ha dado en la cabeza: en el Headshot Height Percent de arriba del collider del enemigo.
+    /// Lo usan las armas para el daño ×2 y el hitmarker dorado, así daño, puntos y hitmarker dicen lo mismo.
+    /// </summary>
+    public bool IsHeadshot(RaycastHit hit)
+    {
+        Bounds body = hit.collider.bounds;
+        return Mathf.InverseLerp(body.min.y, body.max.y, hit.point.y) * 100f >= headshotHeightPercent;
+    }
+
+
 
     /// <summary>
     /// Lo llama el arma justo ANTES de hacer daño a un enemigo con una bala. Da los puntos por impacto
@@ -346,6 +362,9 @@ public class KillScore : MonoBehaviour
         comboKills++;
         comboPoints += killPoints;
         comboEndTime = Time.time + comboWindowSeconds;
+
+        LastKilledEnemy = enemy;
+        LastKillPoints = killPoints;
 
         OnKillScored?.Invoke();
     }
