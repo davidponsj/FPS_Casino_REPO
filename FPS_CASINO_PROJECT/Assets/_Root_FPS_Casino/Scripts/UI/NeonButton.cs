@@ -10,6 +10,7 @@ using UnityEngine.UI;
 /// - Quieto: brilla a medias.
 /// - Ratón encima: se enciende del todo, late suave y el texto crece un poco.
 /// - Al pulsar: el texto se hunde un instante.
+/// - Neón viejo (opcional): sin el ratón encima, de vez en cuando pega unos parpadeos, como un tubo que falla.
 ///
 /// Va en el objeto del botón, EN LUGAR del Image: es el que recibe el ratón (todo el rectángulo del botón es clicable)
 /// y el que dibuja el marco alrededor de ese rectángulo. En el Button pon Target Graphic = este componente y
@@ -62,6 +63,17 @@ public class NeonButton : MaskableGraphic, IPointerEnterHandler, IPointerExitHan
     [Min(0.1f)]
     [SerializeField] private float fadeSpeed = 12f;
 
+    [Header("Neón viejo")]
+    [Tooltip("De vez en cuando (sin el ratón encima) el neón falla: unos parpadeos rápidos. Desmarcado = brillo fijo.")]
+    [SerializeField] private bool faulty = true;
+    [Tooltip("Segundos mínimo y máximo entre fallos.")]
+    [SerializeField] private Vector2 faultEverySeconds = new Vector2(2f, 7f);
+    [Tooltip("Segundos mínimo y máximo que dura cada fallo.")]
+    [SerializeField] private Vector2 faultSeconds = new Vector2(0.15f, 0.5f);
+    [Tooltip("Brillo en los bajones del fallo, respecto al normal. 0.1 = casi se apaga.")]
+    [Range(0f, 1f)]
+    [SerializeField] private float faultDimTo = 0.1f;
+
     [Header("Texto")]
     [Tooltip("Texto del botón, para que crezca y se hunda. Vacío = lo busca en los hijos.")]
     [SerializeField] private TMP_Text label;
@@ -79,6 +91,8 @@ public class NeonButton : MaskableGraphic, IPointerEnterHandler, IPointerExitHan
     private bool hovered;
     private bool pressed;
     private float brightness = -1f; // -1 = aún sin calcular
+    private float nextFault, faultEnd, nextFaultToggle;
+    private bool faultDim;
     private Selectable selectable;
     private readonly List<Vector2> outline = new List<Vector2>();
     private readonly List<Vector2> normals = new List<Vector2>();
@@ -95,6 +109,7 @@ public class NeonButton : MaskableGraphic, IPointerEnterHandler, IPointerExitHan
         base.OnEnable();
         hovered = pressed = false;
         brightness = idleBrightness;
+        nextFault = Time.unscaledTime + Random.Range(faultEverySeconds.x, faultEverySeconds.y);
         if (label != null) label.rectTransform.localScale = Vector3.one;
         SetVerticesDirty();
     }
@@ -130,6 +145,28 @@ public class NeonButton : MaskableGraphic, IPointerEnterHandler, IPointerExitHan
 
         float blend = 1f - Mathf.Exp(-fadeSpeed * Time.unscaledDeltaTime);
         float next = Mathf.Lerp(brightness, target, blend);
+
+        // Neón viejo: parpadeos secos (sin transición), solo con el ratón fuera.
+        float now = Time.unscaledTime;
+        if (faulty && !lit && Application.isPlaying)
+        {
+            if (now >= nextFault)
+            {
+                faultEnd = now + Random.Range(faultSeconds.x, faultSeconds.y);
+                nextFault = faultEnd + Random.Range(faultEverySeconds.x, faultEverySeconds.y);
+                nextFaultToggle = now;
+            }
+            if (now < faultEnd)
+            {
+                if (now >= nextFaultToggle)
+                {
+                    faultDim = !faultDim;
+                    nextFaultToggle = now + Random.Range(0.03f, 0.09f);
+                }
+                next = faultDim ? idleBrightness * faultDimTo : idleBrightness;
+            }
+            else faultDim = false;
+        }
         if (Mathf.Abs(next - brightness) > 0.002f)
         {
             brightness = next;
