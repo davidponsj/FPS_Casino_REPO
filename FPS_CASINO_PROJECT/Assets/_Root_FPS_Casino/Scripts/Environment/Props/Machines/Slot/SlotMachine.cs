@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.Serialization;
 
 /// <summary>
@@ -89,6 +90,18 @@ public class SlotMachine : MonoBehaviour, IInteractable
     [Tooltip("Muestra la apuesta elegida, el último resultado y el premio sobre la máquina en la vista Scene (y en Game con el botón Gizmos activado).")]
     [SerializeField] private bool showDebug;
 
+    [Header("Eventos (opcionales, para sonidos/VFX)")]
+    [Tooltip("Al elegir apuesta con un botón.")]
+    public UnityEvent onBetSelected;
+    [Tooltip("Al empezar a girar.")]
+    public UnityEvent onSpinStart;
+    [Tooltip("Cada vez que se para un cilindro. Recibe su número (0 = el de la izquierda).")]
+    public UnityEvent<int> onReelStopped;
+    [Tooltip("Al ganar. Recibe los puntos ganados.")]
+    public UnityEvent<int> onWin;
+    [Tooltip("Al perder.")]
+    public UnityEvent onLose;
+
     private PlayerPoints shownPoints;   // los que pinta pointsText
     private SlotBetButton selectedBet;
     private bool spinning;
@@ -99,6 +112,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
     private string lastResult = "-";
 
     public bool IsSpinning => spinning;
+    public int ReelCount => reels != null ? reels.Length : 0;
 
     public string InteractionPrompt
     {
@@ -185,6 +199,8 @@ public class SlotMachine : MonoBehaviour, IInteractable
         selectedBet = button;
         foreach (var b in betButtons)
             if (b != null) b.SetSelected(b == button);
+
+        onBetSelected?.Invoke();
     }
 
     private void ClearBet()
@@ -231,6 +247,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
     {
         spinning = true;
         HideResult();
+        onSpinStart?.Invoke();
 
         int count = reels.Length;
 
@@ -259,13 +276,23 @@ public class SlotMachine : MonoBehaviour, IInteractable
 
         float time = 0f;
         float endTime = duration[count - 1] + settle;
+        bool[] stopped = new bool[count];
 
         while (time < endTime)
         {
             time += Time.deltaTime;
 
             for (int i = 0; i < count; i++)
+            {
                 SetReelAngle(i, start[i] + ReelProgress(time, duration[i], total[i], overshoot, settle));
+
+                // Aviso en el instante en que el cilindro llega a su fruta (antes del rebote)
+                if (!stopped[i] && time >= duration[i])
+                {
+                    stopped[i] = true;
+                    onReelStopped?.Invoke(i);
+                }
+            }
 
             yield return null;
         }
@@ -333,6 +360,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
         {
             lastResult = $"{names} · perdido (apuesta {bet})";
             ShowResult("Has perdido");
+            onLose?.Invoke();
             return;
         }
 
@@ -343,6 +371,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
 
         lastResult = $"{names} · ganado x{multiplier} = {won} pts";
         ShowResult($"¡Has ganado! x{multiplier}\n{won} puntos");
+        onWin?.Invoke(won);
     }
 
     // ---------------- Texto de resultado ----------------
