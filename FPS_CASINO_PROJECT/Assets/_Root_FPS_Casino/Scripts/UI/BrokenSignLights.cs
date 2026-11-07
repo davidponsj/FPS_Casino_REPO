@@ -8,8 +8,8 @@ using UnityEngine;
 /// unos segundos, como un contacto flojo) y el resto están encendidas y de vez en cuando pegan un parpadeo corto.
 ///
 /// Al aparecer el cartel todo empieza APAGADO y se enciende como un cartel viejo al darle a la corriente: las bombillas
-/// (modo Aleatorio) arrancan cada una en un momento al azar dentro de Power On Seconds; las fundidas solo chisporrotean
-/// un instante y se quedan apagadas.
+/// (modo Aleatorio) se van encendiendo cada una en un momento al azar dentro de Power On Seconds, sin parpadeos, y las
+/// fundidas se quedan apagadas. Luego cada una sigue a su ritmo normal.
 /// Los grupos en modo Secuencia (las letras de YOU LOST y sus círculos) empiezan apagados y se encienden UNA A UNA al
 /// aparecer el cartel, de izquierda a derecha y de arriba abajo, con un chisporroteo al arrancar como un neón. Si dos
 /// grupos en Secuencia tienen las mismas piezas (7 letras y 7 círculos), cada letra se enciende a la vez que su círculo.
@@ -84,7 +84,7 @@ public class BrokenSignLights : MonoBehaviour
     [Tooltip("Segundos entre una letra y la siguiente (grupos en Secuencia). 0.22 = Y... O... U...")]
     [Min(0f)]
     [SerializeField] private float sequenceStepSeconds = 0.22f;
-    [Tooltip("Segundos que chisporrotea cada letra al encenderse, como un neón que arranca. 0 = se enciende de golpe.")]
+    [Tooltip("Segundos que chisporrotea cada letra al encenderse, como un neón que arranca (las bombillas no chisporrotean). 0 = se enciende de golpe.")]
     [Min(0f)]
     [SerializeField] private float ignitionSeconds = 0.3f;
 
@@ -175,26 +175,29 @@ public class BrokenSignLights : MonoBehaviour
             switch (part.State)
             {
                 case LightState.Waiting:
-                    // Le toca: empieza a chisporrotear.
-                    part.State = LightState.Igniting;
-                    part.IgnitionEnd = now + ignitionSeconds;
-                    part.On = true;
-                    part.NextChange = now + RandomIn(flickerSeconds) * 0.6f;
+                    if (part.Group.mode == LightMode.Random || ignitionSeconds <= 0f)
+                    {
+                        // Bombillas: se encienden sin más (las fundidas se quedan apagadas) y siguen a su ritmo normal.
+                        Settle(part, now);
+                    }
+                    else
+                    {
+                        // Letras: chisporrotean un momento al arrancar, como un neón.
+                        part.State = LightState.Igniting;
+                        part.IgnitionEnd = now + ignitionSeconds;
+                        part.On = true;
+                        part.NextChange = now + RandomIn(flickerSeconds);
+                    }
                     break;
                 case LightState.Igniting:
                     if (now >= part.IgnitionEnd)
                     {
-                        // Ya ha arrancado: encendida (o se funde, si le tocó estar fundida) y sigue como las demás.
-                        part.State = part.FinalState;
-                        part.On = part.State != LightState.Dead;
-                        part.NextChange = now + (part.State == LightState.Dead ? RandomIn(deadSeconds)
-                                               : part.State == LightState.Flicker ? RandomIn(calmSeconds)
-                                               : SteadyWait(part));
+                        Settle(part, now);
                     }
                     else
                     {
                         part.On = !part.On;
-                        part.NextChange = now + RandomIn(flickerSeconds) * 0.6f;
+                        part.NextChange = now + RandomIn(flickerSeconds);
                     }
                     break;
                 case LightState.Flicker:
@@ -245,6 +248,16 @@ public class BrokenSignLights : MonoBehaviour
     }
 
     private static float RandomIn(Vector2 range) => UnityEngine.Random.Range(range.x, range.y);
+
+    /// <summary>Ya ha arrancado: encendida (o apagada, si le tocó estar fundida) y a partir de aquí sigue su ritmo normal.</summary>
+    private void Settle(LightPart part, float now)
+    {
+        part.State = part.FinalState;
+        part.On = part.State != LightState.Dead;
+        part.NextChange = now + (part.State == LightState.Dead ? RandomIn(deadSeconds)
+                               : part.State == LightState.Flicker ? RandomIn(calmSeconds)
+                               : SteadyWait(part));
+    }
 
     /// <summary>Lo que aguanta encendida una luz buena antes del parpadeo corto. Sin parpadeos = para siempre.</summary>
     private float SteadyWait(LightPart part) => part.Group.steadyBlinks ? RandomIn(steadySeconds) : float.PositiveInfinity;
