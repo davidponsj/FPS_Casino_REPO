@@ -41,8 +41,10 @@ public class PlayGameTarget : MonoBehaviour
     [Header("Cámara")]
     [Tooltip("Cámara del menú. Vacío = Camera.main.")]
     [SerializeField] private Camera menuCamera;
-    [Tooltip("Punto (vacío hijo de la puerta) hasta el que entra la cámara: justo pasado el umbral, mirando hacia dentro. Vacío = la cámara no se mueve.")]
+    [Tooltip("Punto (vacío) hasta el que avanza la cámara: delante de la puerta, a media altura. Vacío = la cámara no se mueve.")]
     [SerializeField] private Transform enterPoint;
+    [Tooltip("Desmarcado (recomendado) = la cámara va derecha a la puerta mirando hacia donde avanza, sin importar cómo esté girado Enter Point. Marcado = acaba con el giro de Enter Point.")]
+    [SerializeField] private bool useEnterPointRotation = false;
     [Tooltip("Segundos desde el clic hasta que la cámara empieza a avanzar. 0.3 = primero se ve abrirse la puerta.")]
     [Min(0f)]
     [SerializeField] private float enterDelaySeconds = 0.3f;
@@ -107,16 +109,24 @@ public class PlayGameTarget : MonoBehaviour
         Transform cam = menuCamera != null ? menuCamera.transform : null;
         Vector3 fromPosition = cam != null ? cam.position : Vector3.zero;
         Quaternion fromRotation = cam != null ? cam.rotation : Quaternion.identity;
+        Quaternion toRotation = fromRotation;
+        if (enterPoint != null && cam != null)
+        {
+            Vector3 direction = enterPoint.position - fromPosition;
+            if (useEnterPointRotation) toRotation = enterPoint.rotation;
+            else if (direction.sqrMagnitude > 0.0001f) toRotation = Quaternion.LookRotation(direction, Vector3.up);
+        }
 
         for (float t = 0f; t < total; t += Time.deltaTime)
         {
-            // La cámara entra acelerando (como quien echa a andar) y gira suave hacia donde mira el punto.
+            // La cámara va en línea recta a la puerta, acelerando (como quien echa a andar). Al principio se encara
+            // con la puerta (si no la tenía justo delante) y luego avanza recta.
             if (enterPoint != null && cam != null && t >= enterDelaySeconds)
             {
                 float k = Mathf.Clamp01((t - enterDelaySeconds) / enterSeconds);
                 float move = k * k * (3f - 2f * k) * 0.5f + k * k * 0.5f; // arranca suave y acaba con prisa
                 cam.position = Vector3.Lerp(fromPosition, enterPoint.position, move);
-                cam.rotation = Quaternion.Slerp(fromRotation, enterPoint.rotation, Mathf.SmoothStep(0f, 1f, k));
+                cam.rotation = Quaternion.Slerp(fromRotation, toRotation, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(k * 2.5f)));
             }
 
             if (fade != null && t >= fadeStart)
