@@ -11,6 +11,7 @@ using UnityEngine.UI;
 /// Play, para ajustarlo). El color del neón es el Color de este componente. Si es solo decoración, desmarca Raycast
 /// Target para que no tape los clics. No usa texturas ni materiales. Va en tiempo real (funciona con el juego parado).
 /// </summary>
+[RequireComponent(typeof(CanvasRenderer))]
 public class NeonFrame : MaskableGraphic
 {
     [Header("Marco (en unidades del Canvas)")]
