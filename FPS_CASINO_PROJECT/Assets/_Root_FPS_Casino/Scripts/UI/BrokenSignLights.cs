@@ -3,20 +3,22 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Luces de cartel roto: cada bombilla (o cada círculo de YOU LOST) parpadea por su cuenta. Unas están fundidas (apagadas,
-/// con algún chispazo de vez en cuando), otras parpadean sin parar como si fallara el contacto, y el resto están
-/// encendidas y de vez en cuando pegan un parpadeo corto.
+/// Luces de cartel roto: cada bombilla (o cada círculo de YOU LOST) va por su cuenta. Unas están fundidas (apagadas,
+/// con algún chispazo de vez en cuando), otras fallan a ratos (una ráfaga corta de parpadeos y luego se quedan quietas
+/// unos segundos, como un contacto flojo) y el resto están encendidas y de vez en cuando pegan un parpadeo corto.
 ///
 /// En el FBX todas las bombillas son UNA sola malla, así que al empezar este script la separa en sus piezas sueltas
 /// (cada bombilla, cada círculo) y les da vida por separado. Para poder leer la malla, el FBX necesita
 /// Read/Write activado (pestaña Model). Las piezas que se tocan (bombilla + casquillo) se tratan como una sola.
 ///
 /// Va en el modelo del cartel (o en cualquier padre). Usa el tiempo real: parpadea aunque el juego esté parado.
-/// El brillo se cambia con un MaterialPropertyBlock (_BaseColor), así que no crea materiales nuevos.
+/// Respeta el color del material (p. ej. cristal azul): apagada lo oscurece, encendida le suma brillo con la emisión
+/// (el material tiene que tener Emission activada). Se cambia con un MaterialPropertyBlock: no crea materiales nuevos.
 /// </summary>
 public class BrokenSignLights : MonoBehaviour
 {
     private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+    private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
 
     [Serializable]
     public class LightGroup
@@ -25,8 +27,10 @@ public class BrokenSignLights : MonoBehaviour
         public MeshRenderer renderer;
         [Tooltip("Parte de las luces que están fundidas (casi siempre apagadas). 0.2 = una de cada cinco.")]
         [Range(0f, 1f)] public float deadChance = 0.2f;
-        [Tooltip("Parte de las luces que parpadean sin parar (contacto roto). 0.25 = una de cada cuatro.")]
-        [Range(0f, 1f)] public float flickerChance = 0.25f;
+        [Tooltip("Parte de las luces que fallan a ratos (contacto flojo). 0.15 = una de cada siete.")]
+        [Range(0f, 1f)] public float flickerChance = 0.15f;
+        [Tooltip("Brillo de las luces encendidas de este grupo (color HDR: la intensidad hace que brillen con el Bloom). Negro = sin brillo extra.")]
+        [ColorUsage(false, true)] public Color glowColor = new Color(0.2f, 0.6f, 1.6f);
     }
 
     private enum LightState { Steady, Flicker, Dead }
@@ -37,6 +41,10 @@ public class BrokenSignLights : MonoBehaviour
         public LightState State;
         public bool On;
         public float NextChange;
+        public bool InBurst;       // está en plena ráfaga de parpadeos (solo las que fallan a ratos)
+        public float BurstEnd;     // cuándo acaba esa ráfaga
+        public Color BaseColor;    // color del material, para oscurecerlo sin perder el tono
+        public Color Glow;
     }
 
     [Header("Luces")]
@@ -46,16 +54,17 @@ public class BrokenSignLights : MonoBehaviour
     [SerializeField] private float mergeDistance = 0.02f;
 
     [Header("Brillo")]
-    [Tooltip("Brillo de una luz encendida respecto a su textura. 1.5 = más clara que la textura; con Bloom, brilla.")]
-    [Min(0f)]
-    [SerializeField] private float onBrightness = 1.5f;
-    [Tooltip("Brillo de una luz apagada. 0.25 = oscura pero se ve la bombilla.")]
-    [Min(0f)]
-    [SerializeField] private float offBrightness = 0.25f;
+    [Tooltip("Cuánto se oscurece una luz apagada (sobre el color de su material). 0.35 = apagada pero se ve el cristal.")]
+    [Range(0f, 1f)]
+    [SerializeField] private float offBrightness = 0.35f;
 
     [Header("Ritmo")]
-    [Tooltip("Segundos mínimo y máximo entre cambios de una luz que parpadea. (0.04, 0.25) = nervioso, como un contacto roto.")]
-    [SerializeField] private Vector2 flickerSeconds = new Vector2(0.04f, 0.25f);
+    [Tooltip("Segundos mínimo y máximo entre parpadeos dentro de una ráfaga. (0.05, 0.15) = chisporroteo rápido.")]
+    [SerializeField] private Vector2 flickerSeconds = new Vector2(0.05f, 0.15f);
+    [Tooltip("Segundos mínimo y máximo que dura una ráfaga de parpadeos.")]
+    [SerializeField] private Vector2 burstSeconds = new Vector2(0.3f, 0.8f);
+    [Tooltip("Segundos mínimo y máximo de calma (encendida) entre ráfagas.")]
+    [SerializeField] private Vector2 calmSeconds = new Vector2(2f, 6f);
     [Tooltip("Segundos mínimo y máximo que una luz buena se queda encendida antes de un parpadeo corto.")]
     [SerializeField] private Vector2 steadySeconds = new Vector2(1.5f, 5f);
     [Tooltip("Segundos mínimo y máximo que una luz fundida se queda apagada antes de un chispazo.")]
@@ -90,7 +99,9 @@ public class BrokenSignLights : MonoBehaviour
         var state = roll < group.deadChance ? LightState.Dead
                   : roll < group.deadChance + group.flickerChance ? LightState.Flicker
                   : LightState.Steady;
-        var part = new LightPart { Renderer = piece, State = state, On = state != LightState.Dead };
+        Material material = piece.sharedMaterial;
+        Color baseColor = material != null && material.HasProperty(BaseColorId) ? material.GetColor(BaseColorId) : Color.white;
+        var part = new LightPart { Renderer = piece, State = state, On = state != LightState.Dead, BaseColor = baseColor, Glow = group.glowColor };
         part.NextChange = Time.unscaledTime + UnityEngine.Random.Range(0f, 1f); // cada una empieza a su ritmo
         Apply(part);
         return part;
@@ -106,8 +117,26 @@ public class BrokenSignLights : MonoBehaviour
             switch (part.State)
             {
                 case LightState.Flicker:
-                    part.On = !part.On;
-                    part.NextChange = now + RandomIn(flickerSeconds);
+                    if (!part.InBurst)
+                    {
+                        // Fin de la calma: empieza una ráfaga de parpadeos.
+                        part.InBurst = true;
+                        part.BurstEnd = now + RandomIn(burstSeconds);
+                        part.On = false;
+                        part.NextChange = now + RandomIn(flickerSeconds);
+                    }
+                    else if (now >= part.BurstEnd)
+                    {
+                        // Fin de la ráfaga: se queda encendida un rato.
+                        part.InBurst = false;
+                        part.On = true;
+                        part.NextChange = now + RandomIn(calmSeconds);
+                    }
+                    else
+                    {
+                        part.On = !part.On;
+                        part.NextChange = now + RandomIn(flickerSeconds);
+                    }
                     break;
                 case LightState.Steady:
                     // Encendida mucho rato, apagada un instante.
@@ -126,9 +155,11 @@ public class BrokenSignLights : MonoBehaviour
 
     private void Apply(LightPart part)
     {
-        float brightness = part.On ? onBrightness : offBrightness;
+        Color color = part.On ? part.BaseColor : part.BaseColor * offBrightness;
+        color.a = part.BaseColor.a; // la transparencia del cristal no cambia
         part.Renderer.GetPropertyBlock(block);
-        block.SetColor(BaseColorId, new Color(brightness, brightness, brightness, 1f));
+        block.SetColor(BaseColorId, color);
+        block.SetColor(EmissionColorId, part.On ? part.Glow : Color.black);
         part.Renderer.SetPropertyBlock(block);
     }
 
