@@ -3,7 +3,8 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Animación de la cámara al morir, en primera persona:
-/// - Te matan (robots, granadas...): miras hacia arriba, la cabeza se ladea y caes al suelo con un pequeño rebote.
+/// - Te matan (robots, granadas...): miras hacia arriba, la cabeza se ladea, caes al suelo con un pequeño rebote y se te
+///   cierran los ojos, así el cartel sale sobre negro.
 /// - Blackout (beber demasiado): se te cierran los ojos de borracho (párpados que se cierran, se abren un poco y se
 ///   cierran del todo), la cabeza se tambalea y te vas cayendo de lado poco a poco.
 /// Va en tiempo real, así que se ve igual aunque la pantalla de muerte frene el juego. DeathScreen espera a que acabe
@@ -23,9 +24,9 @@ public class PlayerDeathAnimation : MonoBehaviour
     [SerializeField] private GameObject[] hideOnDeath;
 
     [Header("Caída (te matan)")]
-    [Tooltip("Segundos que dura la caída hasta quedarte en el suelo.")]
+    [Tooltip("Segundos que dura la caída, con los ojos cerrándose al final. 1.6 = se ve caer con calma.")]
     [Min(0.1f)]
-    [SerializeField] private float fallSeconds = 0.9f;
+    [SerializeField] private float fallSeconds = 1.6f;
     [Tooltip("Metros que baja la cámara (de la altura de los ojos al suelo). 1.4 = tumbado.")]
     [Min(0f)]
     [SerializeField] private float fallDropMeters = 1.4f;
@@ -38,6 +39,14 @@ public class PlayerDeathAnimation : MonoBehaviour
     [Tooltip("Rebote al tocar el suelo, en metros. 0.08 = un golpe seco. 0 = sin rebote.")]
     [Min(0f)]
     [SerializeField] private float fallBounceMeters = 0.08f;
+    [Tooltip("Momento de la caída en que tocas el suelo (0-1). 0.6 = toca suelo al 60% y el resto es cerrar los ojos.")]
+    [Range(0.2f, 1f)]
+    [SerializeField] private float fallGroundAt = 0.6f;
+    [Tooltip("Cierre de los párpados durante la caída (0 = abiertos, 1 = cerrados). Por defecto: abiertos al caer y se cierran al quedar en el suelo, con un último parpadeo.")]
+    [SerializeField]
+    private AnimationCurve fallEyelidCurve = new AnimationCurve(
+        new Keyframe(0f, 0f), new Keyframe(0.6f, 0f), new Keyframe(0.75f, 0.7f),
+        new Keyframe(0.83f, 0.45f), new Keyframe(1f, 1f));
 
     [Header("Ojos cerrándose (blackout)")]
     [Tooltip("Segundos que tarda en cerrar los ojos del todo.")]
@@ -122,7 +131,7 @@ public class PlayerDeathAnimation : MonoBehaviour
         float holderPitch = holder != null ? Mathf.DeltaAngle(0f, holder.localEulerAngles.x) : 0f;
         extraPitchToLookUp = -fallLookUpDegrees - holderPitch; // pitch negativo = mirar hacia arriba
 
-        if (style == DeathStyle.Drunk) CreateEyelids();
+        CreateEyelids(); // en las dos muertes acabas con los ojos cerrados
     }
 
     // LateUpdate: después de que PlayerController coloque el CameraHolder en este frame.
@@ -135,16 +144,22 @@ public class PlayerDeathAnimation : MonoBehaviour
         else AnimateDrunk(t01);
     }
 
-    /// <summary>Cae rápido al principio (gravedad), rebota un poco al tocar el suelo y la cabeza acaba mirando arriba y ladeada.</summary>
+    /// <summary>
+    /// Cae acelerando (gravedad) hasta tocar el suelo en Fall Ground At, rebota un poco y la cabeza acaba mirando arriba
+    /// y ladeada. Los párpados siguen su curva: se cierran ya en el suelo.
+    /// </summary>
     private void AnimateFall(float t01)
     {
-        float fall = t01 * t01; // acelera como al caer
-        float bounce = t01 > 0.75f ? Mathf.Sin((t01 - 0.75f) / 0.25f * Mathf.PI) * fallBounceMeters : 0f;
-        float drop = fallDropMeters * Mathf.Min(fall / 0.5625f, 1f) - bounce; // 0.5625 = 0.75²: toca suelo al 75%
+        float ground01 = Mathf.Clamp01(t01 / fallGroundAt);   // 0-1 hasta tocar el suelo
+        float drop = fallDropMeters * ground01 * ground01;     // acelera como al caer
+        float afterGround = fallGroundAt < 1f ? Mathf.Clamp01((t01 - fallGroundAt) / ((1f - fallGroundAt) * 0.5f)) : 0f;
+        float bounce = afterGround > 0f && afterGround < 1f ? Mathf.Sin(afterGround * Mathf.PI) * fallBounceMeters : 0f;
 
-        float turn = 1f - (1f - t01) * (1f - t01); // la cabeza gira rápido al principio
-        transform.localPosition = startLocalPosition + localDown * drop;
+        float turn = 1f - (1f - ground01) * (1f - ground01);   // la cabeza gira rápido al principio
+        transform.localPosition = startLocalPosition + localDown * (drop - bounce);
         transform.localRotation = startLocalRotation * Quaternion.Euler(extraPitchToLookUp * turn, 0f, fallRollDegrees * turn);
+
+        SetEyelids(fallEyelidCurve.Evaluate(t01));
     }
 
     /// <summary>Párpados según la curva, la cabeza se tambalea y se va cayendo de lado poco a poco.</summary>

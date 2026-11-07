@@ -6,6 +6,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 /// <summary>
@@ -62,10 +63,18 @@ public class DeathScreen : MonoBehaviour
     [SerializeField] private int maxRows = 13;
     [Tooltip("Texto opcional con el título de la página (\"TU PARTIDA\" / \"RANKING\"). Vacío = sin título.")]
     [SerializeField] private TMP_Text pageTitle;
-    [Tooltip("Color normal de las filas.")]
-    [SerializeField] private Color rowColor = new Color(1f, 0.9f, 0.3f);
-    [Tooltip("Color de tu fila en el ranking.")]
-    [SerializeField] private Color highlightColor = Color.white;
+    [Tooltip("Color de los números (columna de la izquierda). Dorado = casino.")]
+    [FormerlySerializedAs("rowColor")]
+    [SerializeField] private Color valueColor = new Color(1f, 0.82f, 0.25f);
+    [Tooltip("Color de los nombres (columna de la derecha).")]
+    [SerializeField] private Color labelColor = Color.white;
+    [Tooltip("Color de la fila destacada: los puntos en \"Tu partida\" y tu partida en el ranking.")]
+    [SerializeField] private Color highlightColor = new Color(0.3f, 0.95f, 1f);
+    [Tooltip("Tamaño de la segunda línea del ranking (ronda, bajas, tiempo) respecto al nombre, en %. 55 = pequeña debajo.")]
+    [Range(20f, 100f)]
+    [SerializeField] private float rankingDetailSizePercent = 55f;
+    [Tooltip("Color de la segunda línea del ranking.")]
+    [SerializeField] private Color rankingDetailColor = new Color(1f, 1f, 1f, 0.6f);
 
     [Header("Nombre (si entras en el top 10)")]
     [Tooltip("Objeto con el campo y el botón de guardar. Solo se enseña si la partida entra en el ranking.")]
@@ -266,10 +275,12 @@ public class DeathScreen : MonoBehaviour
         for (int i = 0; i < entries.Count; i++)
         {
             Leaderboard.Entry entry = entries[i];
+            // Dos líneas: el puesto y el nombre, y debajo, pequeño, ronda · bajas · tiempo. Así los nombres largos caben.
+            string detail = $"R{entry.round} · {entry.kills} {killsLabel.ToLowerInvariant()} · {RunStats.FormatTime(entry.seconds)}";
             data.Add(new RowData
             {
                 Number = entry.points,
-                Label = $"{i + 1}. {entry.name}  R{entry.round} · {entry.kills} · {RunStats.FormatTime(entry.seconds)}",
+                Label = $"{i + 1}. {entry.name}\n<size={rankingDetailSizePercent}%><color=#{ColorUtility.ToHtmlStringRGBA(rankingDetailColor)}>{detail}</color></size>",
                 Highlight = i == savedIndex
             });
         }
@@ -320,9 +331,8 @@ public class DeathScreen : MonoBehaviour
 
                 row.Value.text = string.IsNullOrEmpty(item.Text) ? Mathf.RoundToInt(item.Number * eased).ToString("N0") : item.Text;
                 row.Label.text = item.Label;
-                Color color = item.Highlight ? highlightColor : rowColor;
-                row.Value.color = color;
-                row.Label.color = color;
+                row.Value.color = item.Highlight ? highlightColor : valueColor;
+                row.Label.color = item.Highlight ? highlightColor : labelColor;
             }
 
             if (done) break;
