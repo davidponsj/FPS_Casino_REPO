@@ -7,6 +7,9 @@ using UnityEngine;
 /// con algún chispazo de vez en cuando), otras fallan a ratos (una ráfaga corta de parpadeos y luego se quedan quietas
 /// unos segundos, como un contacto flojo) y el resto están encendidas y de vez en cuando pegan un parpadeo corto.
 ///
+/// Al aparecer el cartel todo empieza APAGADO y se enciende como un cartel viejo al darle a la corriente: las bombillas
+/// (modo Aleatorio) arrancan cada una en un momento al azar dentro de Power On Seconds; las fundidas solo chisporrotean
+/// un instante y se quedan apagadas.
 /// Los grupos en modo Secuencia (las letras de YOU LOST y sus círculos) empiezan apagados y se encienden UNA A UNA al
 /// aparecer el cartel, de izquierda a derecha y de arriba abajo, con un chisporroteo al arrancar como un neón. Si dos
 /// grupos en Secuencia tienen las mismas piezas (7 letras y 7 círculos), cada letra se enciende a la vez que su círculo.
@@ -71,11 +74,14 @@ public class BrokenSignLights : MonoBehaviour
     [Range(0f, 1f)]
     [SerializeField] private float offBrightness = 0.35f;
 
-    [Header("Secuencia (letras)")]
-    [Tooltip("Segundos desde que aparece el cartel hasta que se enciende la primera letra.")]
+    [Header("Encendido al aparecer")]
+    [Tooltip("Segundos desde que aparece el cartel hasta que empieza a encenderse (bombillas y primera letra).")]
     [Min(0f)]
     [SerializeField] private float sequenceDelay = 0.35f;
-    [Tooltip("Segundos entre una letra y la siguiente. 0.22 = Y... O... U...")]
+    [Tooltip("Segundos en los que se van encendiendo las bombillas (cada una en un momento al azar). 1 = en un segundo está todo arrancado.")]
+    [Min(0f)]
+    [SerializeField] private float powerOnSeconds = 1f;
+    [Tooltip("Segundos entre una letra y la siguiente (grupos en Secuencia). 0.22 = Y... O... U...")]
     [Min(0f)]
     [SerializeField] private float sequenceStepSeconds = 0.22f;
     [Tooltip("Segundos que chisporrotea cada letra al encenderse, como un neón que arranca. 0 = se enciende de golpe.")]
@@ -132,20 +138,29 @@ public class BrokenSignLights : MonoBehaviour
         return part;
     }
 
-    /// <summary>Cada vez que aparece el cartel, las luces en Secuencia se apagan y vuelven a encenderse una a una.</summary>
+    /// <summary>
+    /// Cada vez que aparece el cartel, todo se apaga y vuelve a encenderse: las luces en Secuencia una a una y las demás
+    /// cada una en un momento al azar. Después cada una hace lo que le tocó (buena, fallando o fundida).
+    /// </summary>
     private void OnEnable()
     {
         float start = Time.unscaledTime + sequenceDelay;
         var indexInGroup = new Dictionary<LightGroup, int>();
         foreach (LightPart part in parts)
         {
-            if (part.Group.mode != LightMode.Sequence) continue;
-            indexInGroup.TryGetValue(part.Group, out int index);
-            indexInGroup[part.Group] = index + 1;
+            float delay;
+            if (part.Group.mode == LightMode.Sequence)
+            {
+                indexInGroup.TryGetValue(part.Group, out int index);
+                indexInGroup[part.Group] = index + 1;
+                delay = index * sequenceStepSeconds;
+            }
+            else delay = UnityEngine.Random.Range(0f, powerOnSeconds);
 
             part.State = LightState.Waiting;
+            part.InBurst = false;
             part.On = false;
-            part.NextChange = start + index * sequenceStepSeconds;
+            part.NextChange = start + delay;
             Apply(part);
         }
     }
