@@ -7,6 +7,10 @@ using UnityEngine;
 /// con algún chispazo de vez en cuando), otras fallan a ratos (una ráfaga corta de parpadeos y luego se quedan quietas
 /// unos segundos, como un contacto flojo) y el resto están encendidas y de vez en cuando pegan un parpadeo corto.
 ///
+/// Los grupos en modo Secuencia (las letras de YOU LOST y sus círculos) empiezan apagados y se encienden UNA A UNA al
+/// aparecer el cartel, de izquierda a derecha y de arriba abajo, con un chisporroteo al arrancar como un neón. Si dos
+/// grupos en Secuencia tienen las mismas piezas (7 letras y 7 círculos), cada letra se enciende a la vez que su círculo.
+///
 /// En el FBX todas las bombillas son UNA sola malla, así que al empezar este script la separa en sus piezas sueltas
 /// (cada bombilla, cada círculo) y les da vida por separado. Para poder leer la malla, el FBX necesita
 /// Read/Write activado (pestaña Model). Las piezas que se tocan (bombilla + casquillo) se tratan como una sola.
@@ -31,14 +35,23 @@ public class BrokenSignLights : MonoBehaviour
         [Range(0f, 1f)] public float flickerChance = 0.15f;
         [Tooltip("Brillo de las luces encendidas de este grupo (color HDR: la intensidad hace que brillen con el Bloom). Negro = sin brillo extra.")]
         [ColorUsage(false, true)] public Color glowColor = new Color(0.2f, 0.6f, 1.6f);
+        [Tooltip("Aleatorio = cada luz va a su aire desde el principio (bombillas). Secuencia = empiezan apagadas y se encienden una a una al aparecer el cartel (letras).")]
+        public LightMode mode = LightMode.Random;
+        [Tooltip("Si las luces buenas pegan de vez en cuando un parpadeo corto. Desmárcalo en las letras para que se queden fijas.")]
+        public bool steadyBlinks = true;
     }
 
-    private enum LightState { Steady, Flicker, Dead }
+    public enum LightMode { Random, Sequence }
+
+    private enum LightState { Steady, Flicker, Dead, Waiting, Igniting }
 
     private class LightPart
     {
         public Renderer Renderer;
+        public LightGroup Group;
         public LightState State;
+        public LightState FinalState;  // lo que hace después de encenderse (solo en Secuencia)
+        public float IgnitionEnd;      // cuándo acaba el chisporroteo de arranque
         public bool On;
         public float NextChange;
         public bool InBurst;       // está en plena ráfaga de parpadeos (solo las que fallan a ratos)
@@ -57,6 +70,17 @@ public class BrokenSignLights : MonoBehaviour
     [Tooltip("Cuánto se oscurece una luz apagada (sobre el color de su material). 0.35 = apagada pero se ve el cristal.")]
     [Range(0f, 1f)]
     [SerializeField] private float offBrightness = 0.35f;
+
+    [Header("Secuencia (letras)")]
+    [Tooltip("Segundos desde que aparece el cartel hasta que se enciende la primera letra.")]
+    [Min(0f)]
+    [SerializeField] private float sequenceDelay = 0.35f;
+    [Tooltip("Segundos entre una letra y la siguiente. 0.22 = Y... O... U...")]
+    [Min(0f)]
+    [SerializeField] private float sequenceStepSeconds = 0.22f;
+    [Tooltip("Segundos que chisporrotea cada letra al encenderse, como un neón que arranca. 0 = se enciende de golpe.")]
+    [Min(0f)]
+    [SerializeField] private float ignitionSeconds = 0.3f;
 
     [Header("Ritmo")]
     [Tooltip("Segundos mínimo y máximo entre parpadeos dentro de una ráfaga. (0.05, 0.15) = chisporroteo rápido.")]
@@ -87,6 +111,7 @@ public class BrokenSignLights : MonoBehaviour
         {
             if (group == null || group.renderer == null) continue;
             List<Renderer> pieces = SplitIntoPieces(group.renderer);
+            if (group.mode == LightMode.Sequence) SortForReading(pieces);
             foreach (Renderer piece in pieces)
                 parts.Add(CreatePart(piece, group));
             if (showDebug) Debug.Log($"{name}: {group.renderer.name} separado en {pieces.Count} luces.", this);
@@ -101,10 +126,28 @@ public class BrokenSignLights : MonoBehaviour
                   : LightState.Steady;
         Material material = piece.sharedMaterial;
         Color baseColor = material != null && material.HasProperty(BaseColorId) ? material.GetColor(BaseColorId) : Color.white;
-        var part = new LightPart { Renderer = piece, State = state, On = state != LightState.Dead, BaseColor = baseColor, Glow = group.glowColor };
+        var part = new LightPart { Renderer = piece, Group = group, State = state, FinalState = state, On = state != LightState.Dead, BaseColor = baseColor, Glow = group.glowColor };
         part.NextChange = Time.unscaledTime + UnityEngine.Random.Range(0f, 1f); // cada una empieza a su ritmo
         Apply(part);
         return part;
+    }
+
+    /// <summary>Cada vez que aparece el cartel, las luces en Secuencia se apagan y vuelven a encenderse una a una.</summary>
+    private void OnEnable()
+    {
+        float start = Time.unscaledTime + sequenceDelay;
+        var indexInGroup = new Dictionary<LightGroup, int>();
+        foreach (LightPart part in parts)
+        {
+            if (part.Group.mode != LightMode.Sequence) continue;
+            indexInGroup.TryGetValue(part.Group, out int index);
+            indexInGroup[part.Group] = index + 1;
+
+            part.State = LightState.Waiting;
+            part.On = false;
+            part.NextChange = start + index * sequenceStepSeconds;
+            Apply(part);
+        }
     }
 
     private void Update()
@@ -116,6 +159,29 @@ public class BrokenSignLights : MonoBehaviour
 
             switch (part.State)
             {
+                case LightState.Waiting:
+                    // Le toca: empieza a chisporrotear.
+                    part.State = LightState.Igniting;
+                    part.IgnitionEnd = now + ignitionSeconds;
+                    part.On = true;
+                    part.NextChange = now + RandomIn(flickerSeconds) * 0.6f;
+                    break;
+                case LightState.Igniting:
+                    if (now >= part.IgnitionEnd)
+                    {
+                        // Ya ha arrancado: encendida (o se funde, si le tocó estar fundida) y sigue como las demás.
+                        part.State = part.FinalState;
+                        part.On = part.State != LightState.Dead;
+                        part.NextChange = now + (part.State == LightState.Dead ? RandomIn(deadSeconds)
+                                               : part.State == LightState.Flicker ? RandomIn(calmSeconds)
+                                               : SteadyWait(part));
+                    }
+                    else
+                    {
+                        part.On = !part.On;
+                        part.NextChange = now + RandomIn(flickerSeconds) * 0.6f;
+                    }
+                    break;
                 case LightState.Flicker:
                     if (!part.InBurst)
                     {
@@ -139,9 +205,9 @@ public class BrokenSignLights : MonoBehaviour
                     }
                     break;
                 case LightState.Steady:
-                    // Encendida mucho rato, apagada un instante.
-                    part.On = !part.On;
-                    part.NextChange = now + (part.On ? RandomIn(steadySeconds) : blinkSeconds);
+                    // Encendida mucho rato, apagada un instante (o siempre encendida, si el grupo no parpadea).
+                    part.On = !part.On || !part.Group.steadyBlinks;
+                    part.NextChange = now + (part.On ? SteadyWait(part) : blinkSeconds);
                     break;
                 case LightState.Dead:
                     // Apagada mucho rato, chispazo de un instante.
@@ -164,6 +230,44 @@ public class BrokenSignLights : MonoBehaviour
     }
 
     private static float RandomIn(Vector2 range) => UnityEngine.Random.Range(range.x, range.y);
+
+    /// <summary>Lo que aguanta encendida una luz buena antes del parpadeo corto. Sin parpadeos = para siempre.</summary>
+    private float SteadyWait(LightPart part) => part.Group.steadyBlinks ? RandomIn(steadySeconds) : float.PositiveInfinity;
+
+    /// <summary>
+    /// Ordena las piezas como se lee el cartel desde la cámara: por filas de arriba abajo y cada fila de izquierda a
+    /// derecha. Dos piezas están en la misma fila si sus centros están a menos de media pieza de altura.
+    /// </summary>
+    private void SortForReading(List<Renderer> pieces)
+    {
+        if (pieces.Count < 2) return;
+        Camera viewer = GetComponentInParent<Camera>();
+        Transform view = viewer != null ? viewer.transform : transform;
+
+        var centers = new Dictionary<Renderer, Vector3>();
+        float averageHalfHeight = 0f;
+        foreach (Renderer piece in pieces)
+        {
+            centers[piece] = view.InverseTransformPoint(piece.bounds.center);
+            averageHalfHeight += piece.bounds.extents.y;
+        }
+        averageHalfHeight /= pieces.Count;
+
+        pieces.Sort((a, b) => centers[b].y.CompareTo(centers[a].y)); // de arriba abajo
+        var sorted = new List<Renderer>(pieces.Count);
+        int rowStart = 0;
+        for (int i = 1; i <= pieces.Count; i++)
+        {
+            bool newRow = i == pieces.Count || centers[pieces[rowStart]].y - centers[pieces[i]].y > averageHalfHeight;
+            if (!newRow) continue;
+            List<Renderer> row = pieces.GetRange(rowStart, i - rowStart);
+            row.Sort((a, b) => centers[a].x.CompareTo(centers[b].x)); // de izquierda a derecha
+            sorted.AddRange(row);
+            rowStart = i;
+        }
+        pieces.Clear();
+        pieces.AddRange(sorted);
+    }
 
     // ---------------- SEPARAR LA MALLA EN PIEZAS ----------------
 

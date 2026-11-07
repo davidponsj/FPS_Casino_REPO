@@ -36,6 +36,7 @@ public class DeathScreen : MonoBehaviour
     private class Row
     {
         public GameObject Root;
+        public RectTransform Rect;
         public TMP_Text Value;
         public TMP_Text Label;
     }
@@ -75,6 +76,8 @@ public class DeathScreen : MonoBehaviour
     [SerializeField] private float rankingDetailSizePercent = 55f;
     [Tooltip("Color de la segunda línea del ranking.")]
     [SerializeField] private Color rankingDetailColor = new Color(1f, 1f, 1f, 0.6f);
+    [Tooltip("Centra las filas en la pantalla de la tabla: en vertical (entre el molde y el campo del nombre o el botón de página) y en horizontal (números + nombres como un bloque, midiendo lo que ocupan). Desmarcado = filas desde el molde hacia abajo.")]
+    [SerializeField] private bool centerRows = true;
 
     [Header("Nombre (si entras en el top 10)")]
     [Tooltip("Objeto con el campo y el botón de guardar. Solo se enseña si la partida entra en el ranking.")]
@@ -128,6 +131,9 @@ public class DeathScreen : MonoBehaviour
     [SerializeField] private string timeLabel = "Tiempo";
 
     private readonly List<Row> rows = new List<Row>();
+    private float rowHeight;
+    private float columnGap;        // hueco entre el final de los números y el principio de los nombres, como en el molde
+    private Vector2 valueTemplatePosition, labelTemplatePosition;
     private Coroutine revealRoutine;
     private bool isDead;
     private bool saved;
@@ -309,6 +315,16 @@ public class DeathScreen : MonoBehaviour
         foreach (Row row in rows) row.Root.SetActive(false);
 
         int count = Mathf.Min(data.Count, rows.Count);
+
+        // Las filas se activan ya (vacías, no se ven) para poder medir sus textos y centrarlas antes de que salgan.
+        for (int i = 0; i < count; i++)
+        {
+            rows[i].Root.SetActive(true);
+            rows[i].Value.text = "";
+            rows[i].Label.text = "";
+        }
+        LayoutRows(data, count);
+
         float startTime = Time.unscaledTime;
 
         while (true)
@@ -323,7 +339,6 @@ public class DeathScreen : MonoBehaviour
 
                 Row row = rows[i];
                 RowData item = data[i];
-                row.Root.SetActive(true);
 
                 float count01 = countUpSeconds > 0f ? Mathf.Clamp01(rowAge / countUpSeconds) : 1f;
                 if (count01 < 1f) done = false;
@@ -340,6 +355,69 @@ public class DeathScreen : MonoBehaviour
         }
 
         revealRoutine = null;
+    }
+
+    /// <summary>
+    /// Coloca las filas de esta página. En vertical, el bloque de filas queda centrado en el hueco libre de la pantalla
+    /// (del molde hacia abajo hasta el campo del nombre o el botón de página). En horizontal, mide el número más ancho y
+    /// el nombre más ancho y centra los dos juntos, así no queda todo a un lado cuando los números son cortos o los
+    /// nombres largos.
+    /// </summary>
+    private void LayoutRows(List<RowData> data, int count)
+    {
+        if (count == 0 || rowTemplate == null) return;
+
+        // Vertical.
+        float firstOffset = 0f; // respecto al molde (hacia abajo es negativo)
+        if (centerRows)
+        {
+            Transform parent = rowTemplate.parent;
+            float templateCenter = rowTemplate.localPosition.y + rowTemplate.rect.center.y;
+            float top = templateCenter + rowHeight * 0.5f;
+            float bottom = top - rowHeight * maxRows;
+            if (nameEntry != null && nameEntry.activeSelf) bottom = Mathf.Max(bottom, TopEdge(nameEntry.transform as RectTransform, parent));
+            if (pageButton != null && pageButton.gameObject.activeSelf) bottom = Mathf.Max(bottom, TopEdge(pageButton.transform as RectTransform, parent));
+
+            float blockHeight = rowHeight * count;
+            if (blockHeight < top - bottom)
+                firstOffset = (top + bottom) * 0.5f + blockHeight * 0.5f - rowHeight * 0.5f - templateCenter;
+        }
+        for (int i = 0; i < rows.Count; i++)
+            rows[i].Rect.anchoredPosition = rowTemplate.anchoredPosition + new Vector2(0f, firstOffset - rowHeight * i);
+
+        // Horizontal.
+        RectTransform valueRect = rows[0].Value.rectTransform;
+        RectTransform labelRect = rows[0].Label.rectTransform;
+        float valueX = valueTemplatePosition.x, labelX = labelTemplatePosition.x;
+        if (centerRows)
+        {
+            float widestValue = 0f, widestLabel = 0f;
+            for (int i = 0; i < count; i++)
+            {
+                string finalValue = string.IsNullOrEmpty(data[i].Text) ? data[i].Number.ToString("N0") : data[i].Text;
+                widestValue = Mathf.Max(widestValue, rows[i].Value.GetPreferredValues(finalValue).x);
+                widestLabel = Mathf.Max(widestLabel, rows[i].Label.GetPreferredValues(data[i].Label).x);
+            }
+            widestValue = Mathf.Min(widestValue, valueRect.rect.width);
+            widestLabel = Mathf.Min(widestLabel, labelRect.rect.width);
+
+            float valueRight = -(widestValue + columnGap + widestLabel) * 0.5f + widestValue;
+            valueX = valueRight - (1f - valueRect.pivot.x) * valueRect.rect.width;                // números pegados a la derecha
+            labelX = valueRight + columnGap + labelRect.pivot.x * labelRect.rect.width;            // nombres pegados a la izquierda
+        }
+        foreach (Row row in rows)
+        {
+            row.Value.rectTransform.anchoredPosition = new Vector2(valueX, valueTemplatePosition.y);
+            row.Label.rectTransform.anchoredPosition = new Vector2(labelX, labelTemplatePosition.y);
+        }
+    }
+
+    /// <summary>Altura del borde de arriba de un objeto, medida en los ejes de otro (el padre de las filas).</summary>
+    private static float TopEdge(RectTransform target, Transform space)
+    {
+        if (target == null || space == null) return float.NegativeInfinity;
+        Vector3 topCenter = target.TransformPoint(new Vector3(target.rect.center.x, target.rect.yMax, 0f));
+        return space.InverseTransformPoint(topCenter).y;
     }
 
     // ---------------- NOMBRE ----------------
@@ -391,7 +469,7 @@ public class DeathScreen : MonoBehaviour
         if (rowTemplate == null) return;
 
         rowTemplate.gameObject.SetActive(false);
-        float rowHeight = rowTemplate.rect.height;
+        rowHeight = rowTemplate.rect.height;
 
         for (int i = 0; i < maxRows; i++)
         {
@@ -402,6 +480,7 @@ public class DeathScreen : MonoBehaviour
             var row = new Row
             {
                 Root = copy.gameObject,
+                Rect = copy,
                 Value = copy.Find("Value")?.GetComponent<TMP_Text>(),
                 Label = copy.Find("Label")?.GetComponent<TMP_Text>()
             };
@@ -412,6 +491,18 @@ public class DeathScreen : MonoBehaviour
                 return;
             }
             rows.Add(row);
+        }
+
+        // Cómo están las columnas en el molde: su sitio y el hueco entre el final de los números y el principio de los nombres.
+        if (rows.Count > 0)
+        {
+            RectTransform valueRect = rows[0].Value.rectTransform;
+            RectTransform labelRect = rows[0].Label.rectTransform;
+            valueTemplatePosition = valueRect.anchoredPosition;
+            labelTemplatePosition = labelRect.anchoredPosition;
+            float valueRight = valueTemplatePosition.x + (1f - valueRect.pivot.x) * valueRect.rect.width;
+            float labelLeft = labelTemplatePosition.x - labelRect.pivot.x * labelRect.rect.width;
+            columnGap = Mathf.Max(0f, labelLeft - valueRight);
         }
     }
 
