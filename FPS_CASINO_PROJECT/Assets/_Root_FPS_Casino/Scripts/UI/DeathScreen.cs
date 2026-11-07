@@ -43,6 +43,8 @@ public class DeathScreen : MonoBehaviour
     [SerializeField] private PlayerHealth playerHealth;
     [SerializeField] private RunStats runStats;
     [SerializeField] private PlayerInput playerInput;
+    [Tooltip("Animación de la cámara al morir. El cartel espera a que acabe. Vacío = la busca en los padres (la Main Camera).")]
+    [SerializeField] private PlayerDeathAnimation deathAnimation;
 
     [Header("Panel")]
     [Tooltip("Lo que aparece al morir: el modelo YOU LOST con su Canvas. Déjalo DESACTIVADO en la escena.")]
@@ -130,6 +132,7 @@ public class DeathScreen : MonoBehaviour
         if (playerHealth == null) playerHealth = GetComponentInParent<PlayerHealth>();
         if (runStats == null) runStats = GetComponentInParent<RunStats>();
         if (playerInput == null) playerInput = GetComponentInParent<PlayerInput>();
+        if (deathAnimation == null) deathAnimation = GetComponentInParent<PlayerDeathAnimation>();
 
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
@@ -199,6 +202,11 @@ public class DeathScreen : MonoBehaviour
             yield return null;
         }
         Time.timeScale = 0f;
+
+        // Si la animación de muerte (caer, cerrar los ojos) dura más que la cámara lenta, se espera a que acabe.
+        float animationLeft = (deathAnimation != null ? deathAnimation.Duration : 0f) - slowMoSeconds;
+        if (animationLeft > 0f)
+            yield return new WaitForSecondsRealtime(animationLeft);
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
