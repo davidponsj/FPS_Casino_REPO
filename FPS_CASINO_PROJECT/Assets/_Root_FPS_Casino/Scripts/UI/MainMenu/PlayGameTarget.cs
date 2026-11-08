@@ -19,12 +19,15 @@ public class PlayGameTarget : MonoBehaviour
     [Serializable]
     public class DoorLeaf
     {
-        [Tooltip("Hoja de la puerta que gira (su pivote tiene que estar en las bisagras).")]
+        [Tooltip("Hoja de la puerta (para que gire, su pivote tiene que estar en la bisagra).")]
         public Transform leaf;
-        [Tooltip("Giro al abrirse, en grados (en sus ejes locales). (0, -100, 0) = se abre hacia dentro por la izquierda.")]
-        public Vector3 openEuler = new Vector3(0f, -100f, 0f);
+        [Tooltip("Giro al abrirse, en grados (en sus ejes locales). (0, 0, 0) = no gira (puerta corredera).")]
+        public Vector3 openEuler = Vector3.zero;
+        [Tooltip("Desplazamiento al abrirse, en los ejes de su padre (puerta corredera: se aparta hacia un lado). (0, 0, 0) = no se desplaza.")]
+        public Vector3 openOffset = Vector3.zero;
 
         [NonSerialized] public Quaternion closedRotation;
+        [NonSerialized] public Vector3 closedPosition;
     }
 
     [Header("Escena")]
@@ -80,7 +83,11 @@ public class PlayGameTarget : MonoBehaviour
         if (menuCamera == null) menuCamera = Camera.main;
 
         foreach (DoorLeaf door in doors)
-            if (door != null && door.leaf != null) door.closedRotation = door.leaf.localRotation;
+            if (door != null && door.leaf != null)
+            {
+                door.closedRotation = door.leaf.localRotation;
+                door.closedPosition = door.leaf.localPosition;
+            }
 
         if (!Application.CanStreamedLevelBeLoaded(gameplaySceneName))
             Debug.LogWarning($"{name}: la escena \"{gameplaySceneName}\" no está en Build Settings. Al hacer clic en la puerta no cargará.", this);
@@ -148,14 +155,20 @@ public class PlayGameTarget : MonoBehaviour
         {
             float k = Mathf.SmoothStep(0f, 1f, t / doorOpenSeconds);
             foreach (DoorLeaf door in doors)
-                if (door != null && door.leaf != null)
-                    door.leaf.localRotation = door.closedRotation * Quaternion.Euler(door.openEuler * k);
+                SetDoor(door, k);
             yield return null;
         }
 
         foreach (DoorLeaf door in doors)
-            if (door != null && door.leaf != null)
-                door.leaf.localRotation = door.closedRotation * Quaternion.Euler(door.openEuler);
+            SetDoor(door, 1f);
+    }
+
+    /// <summary>open01: 0 = cerrada, 1 = abierta del todo (gira y/o se desplaza).</summary>
+    private static void SetDoor(DoorLeaf door, float open01)
+    {
+        if (door == null || door.leaf == null) return;
+        door.leaf.localRotation = door.closedRotation * Quaternion.Euler(door.openEuler * open01);
+        door.leaf.localPosition = door.closedPosition + door.openOffset * open01;
     }
 
     /// <summary>Pantalla negra (transparente al principio) por encima de todo, creada al hacer clic.</summary>
