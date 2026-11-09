@@ -73,8 +73,24 @@ public class PlayGameTarget : MonoBehaviour
     /// <summary>True desde el clic hasta que carga la partida: el menú deja de responder.</summary>
     public static bool IsStarting { get; private set; }
 
+    /// <summary>
+    /// True si la partida se acaba de cargar entrando por la puerta (y no dándole a Play directamente en SCN_Gameplay).
+    /// La animación de despertar lo usa para empezar del mismo color en que acabó el fundido, sin corte.
+    /// </summary>
+    public static bool CameFromMenu { get; private set; }
+
+    /// <summary>Color en que acabó el fundido al entrar por la puerta.</summary>
+    public static Color EnterFadeColor { get; private set; } = Color.black;
+
+    /// <summary>Lo llama quien recoge la entrada (PlayerWakeUpIntro) para que no se use dos veces.</summary>
+    public static void ClearEntry() => CameFromMenu = false;
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    private static void ResetStatics() => IsStarting = false;
+    private static void ResetStatics()
+    {
+        IsStarting = false;
+        CameFromMenu = false;
+    }
 
     private void Awake()
     {
@@ -144,6 +160,10 @@ public class PlayGameTarget : MonoBehaviour
 
         if (fade != null) fade.color = WithAlpha(fadeColor, 1f);
         if (showDebug) Debug.Log($"{name}: cargando {gameplaySceneName}.", this);
+
+        // La partida empieza de este mismo color y lo funde a negro (PlayerWakeUpIntro): así no se nota el cambio de escena.
+        CameFromMenu = true;
+        EnterFadeColor = WithAlpha(fadeColor, 1f);
         SceneManager.LoadScene(gameplaySceneName);
     }
 

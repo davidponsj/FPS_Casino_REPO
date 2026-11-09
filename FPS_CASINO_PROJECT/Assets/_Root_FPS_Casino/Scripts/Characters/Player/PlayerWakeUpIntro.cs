@@ -11,6 +11,9 @@ using UnityEngine.UI;
 /// 2) Abre los ojos a duras penas (parpadeos) y ve la mesa de lado, con la cabeza aún apoyada.
 /// 3) Levanta la cabeza (sigue sentado, mirando la mesa) y se pone de pie tambaleándose.
 /// 4) Al acabar: saca la pistola, aparece el HUD, se activan los controles y empiezan las rondas.
+/// Si vienes de la puerta del menú, la pantalla empieza del color en que acabó aquel fundido (dorado) y pasa a negro
+/// poco a poco; solo entonces empieza la animación (así el cambio de escena no se nota).
+/// Los enemigos no empiezan a salir hasta unos segundos después de levantarte (Round Start Delay Seconds).
 /// Mientras dura no hay controles, ni HUD, ni enemigos. Se puede saltar con cualquier tecla o clic.
 ///
 /// Va en la Main Camera del jugador, como PlayerDeathAnimation. Mueve SOLO la cámara (no el CameraHolder que controla
@@ -63,6 +66,9 @@ public class PlayerWakeUpIntro : MonoBehaviour
     [SerializeField] private float weaponRaiseSeconds = 0.4f;
     [Tooltip("Desde dónde sube el arma, respecto a su sitio. (0, -0.3, 0) = desde abajo.")]
     [SerializeField] private Vector3 weaponRaiseOffset = new Vector3(0f, -0.3f, 0f);
+    [Tooltip("Segundos desde que te levantas hasta que empiezan las rondas (y salen enemigos). 3 = tiempo para situarte.")]
+    [Min(0f)]
+    [SerializeField] private float roundStartDelaySeconds = 3f;
     [Tooltip("Se lanza al acabar la animación (un sonido, un mensaje...).")]
     [SerializeField] private UnityEvent onFinished;
 
@@ -89,6 +95,11 @@ public class PlayerWakeUpIntro : MonoBehaviour
     [Min(0f)]
     [SerializeField] private float swaySpeed = 0.8f;
 
+    [Header("Entrada desde el menú")]
+    [Tooltip("Segundos en que el color con el que entraste por la puerta (dorado) pasa a negro. La animación de despertar empieza cuando acaba. 0 = negro desde el principio.")]
+    [Min(0f)]
+    [SerializeField] private float entryFadeSeconds = 2f;
+
     [Header("Saltar")]
     [Tooltip("Si se puede saltar la animación con cualquier tecla o clic.")]
     [SerializeField] private bool allowSkip = true;
@@ -109,6 +120,9 @@ public class PlayerWakeUpIntro : MonoBehaviour
     private float elapsed;
     private bool finished;
     private RectTransform topLid, bottomLid;
+    private Image topLidImage, bottomLidImage;
+    private Color entryColor = Color.black;
+    private float entrySeconds;   // lo que dura el fundido de entrada en esta partida (0 si no vienes del menú)
     private GameObject eyelidsRoot;
     private CanvasGroup[] hudGroups = new CanvasGroup[0];
 
@@ -134,6 +148,15 @@ public class PlayerWakeUpIntro : MonoBehaviour
         HideHud();
         CreateEyelids();
         SetEyelids(1f);
+
+        // Vienes de la puerta del menú: empieza del color del fundido para que no haya corte.
+        if (PlayGameTarget.CameFromMenu)
+        {
+            entryColor = PlayGameTarget.EnterFadeColor;
+            entrySeconds = entryFadeSeconds;
+        }
+        PlayGameTarget.ClearEntry();
+        SetLidColor(entryColor);
     }
 
     private void Start()
@@ -154,14 +177,19 @@ public class PlayerWakeUpIntro : MonoBehaviour
         if (finished) return;
 
         elapsed += Time.deltaTime;
-        if (elapsed >= Duration || WantsToSkip())
+
+        // Primero el fundido de entrada (dorado → negro, suave al principio y al final); después, la animación.
+        float t = Mathf.Max(0f, elapsed - entrySeconds);
+        if (t >= Duration || WantsToSkip())
         {
             Finish();
             return;
         }
 
-        ApplyPose(elapsed);
-        SetEyelids(eyesClosed.Evaluate(elapsed));
+        float fade01 = entrySeconds > 0f ? Mathf.SmoothStep(0f, 1f, elapsed / entrySeconds) : 1f;
+        SetLidColor(Color.Lerp(entryColor, Color.black, fade01));
+        ApplyPose(t);
+        SetEyelids(eyesClosed.Evaluate(t));
     }
 
     private bool WantsToSkip()
@@ -215,11 +243,19 @@ public class PlayerWakeUpIntro : MonoBehaviour
         StartCoroutine(FadeInHud());
         if (playerInput != null) playerInput.ActivateInput();
         if (hitReaction != null) hitReaction.enabled = true;
-        if (roundManager != null) roundManager.enabled = true;
+        if (roundManager != null) StartCoroutine(StartRoundsAfterDelay());
 
         IsPlaying = false;
         if (showDebug) Debug.Log($"{name}: fin de la animación de despertar.", this);
         onFinished?.Invoke();
+    }
+
+    /// <summary>Unos segundos de calma tras levantarse; luego empiezan las rondas.</summary>
+    private IEnumerator StartRoundsAfterDelay()
+    {
+        if (roundStartDelaySeconds > 0f) yield return new WaitForSeconds(roundStartDelaySeconds);
+        roundManager.enabled = true;
+        if (showDebug) Debug.Log($"{name}: empiezan las rondas.", this);
     }
 
     /// <summary>El arma sube desde abajo de la pantalla hasta su sitio, como al sacarla.</summary>
@@ -286,6 +322,8 @@ public class PlayerWakeUpIntro : MonoBehaviour
 
         topLid = CreateLid(eyelidsRoot.transform, "TopLid");
         bottomLid = CreateLid(eyelidsRoot.transform, "BottomLid");
+        topLidImage = topLid.GetComponent<Image>();
+        bottomLidImage = bottomLid.GetComponent<Image>();
     }
 
     private RectTransform CreateLid(Transform parent, string lidName)
@@ -299,6 +337,12 @@ public class PlayerWakeUpIntro : MonoBehaviour
         image.color = Color.black;
         image.raycastTarget = false;
         return rect;
+    }
+
+    private void SetLidColor(Color color)
+    {
+        if (topLidImage != null) topLidImage.color = color;
+        if (bottomLidImage != null) bottomLidImage.color = color;
     }
 
     /// <summary>closed01: 0 = ojos abiertos, 1 = cerrados (las dos franjas se juntan en el centro y se solapan un poco).</summary>
