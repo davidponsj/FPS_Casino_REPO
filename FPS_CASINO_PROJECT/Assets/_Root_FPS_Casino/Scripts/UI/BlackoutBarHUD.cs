@@ -8,6 +8,8 @@ using UnityEngine.UI;
 /// parpadea para avisar de que una botella más te mata.
 ///
 /// Requiere una Image con Image Type = Filled y Fill Method = Horizontal.
+/// Si el sprite de la barra no ocupa toda su imagen (barra dibujada en un lienzo más grande), Fill Range dice entre qué
+/// fracciones de ancho está la barra dentro de la imagen, para que "vacía" y "llena" coincidan con el dibujo.
 /// </summary>
 public class BlackoutBarHUD : MonoBehaviour
 {
@@ -21,6 +23,10 @@ public class BlackoutBarHUD : MonoBehaviour
     [Tooltip("Hijo que se oculta cuando la barra está a 0. NO pongas el propio objeto del script.")]
     [SerializeField] private GameObject content;
 
+    [Header("Encaje del dibujo")]
+    [Tooltip("Dónde empieza y acaba la barra dentro de su imagen, en fracción del ancho (0 = borde izquierdo, 1 = derecho). (0, 1) = la barra ocupa toda la imagen.")]
+    [SerializeField] private Vector2 fillRange = new Vector2(0f, 1f);
+
     [Header("Colores")]
     [Tooltip("De izquierda (vacía) a derecha (llena).")]
     [SerializeField] private Gradient colorByLevel = DefaultGradient();
@@ -32,6 +38,9 @@ public class BlackoutBarHUD : MonoBehaviour
     [Tooltip("Velocidad del parpadeo en la zona de peligro. 6 = rápido, llama la atención.")]
     [Min(0f)]
     [SerializeField] private float blinkSpeed = 6f;
+    [Tooltip("Cuánto se apaga la barra en cada parpadeo de peligro (su transparencia). 0.4 = baja hasta el 40%. Se nota aunque el dibujo ya tenga su color.")]
+    [Range(0f, 1f)]
+    [SerializeField] private float blinkMinAlpha = 0.4f;
 
     private float level;
 
@@ -58,7 +67,7 @@ public class BlackoutBarHUD : MonoBehaviour
             content.SetActive(level > 0f);
 
         if (fillImage != null)
-            fillImage.fillAmount = level;
+            fillImage.fillAmount = Mathf.Lerp(fillRange.x, fillRange.y, Mathf.Clamp01(level));
 
         if (percentText != null)
             percentText.text = Mathf.CeilToInt(level * 100f) + "%";
@@ -70,9 +79,13 @@ public class BlackoutBarHUD : MonoBehaviour
 
         Color color = colorByLevel.Evaluate(level);
 
-        // En peligro, la barra parpadea entre su color y blanco.
+        // En peligro, la barra parpadea: se aclara y se apaga a ratos.
         if (level >= dangerThreshold)
-            color = Color.Lerp(color, Color.white, (Mathf.Sin(Time.time * blinkSpeed) + 1f) * 0.25f);
+        {
+            float pulse = (Mathf.Sin(Time.time * blinkSpeed) + 1f) * 0.5f;
+            color = Color.Lerp(color, Color.white, pulse * 0.5f);
+            color.a *= Mathf.Lerp(1f, blinkMinAlpha, pulse);
+        }
 
         fillImage.color = color;
     }
