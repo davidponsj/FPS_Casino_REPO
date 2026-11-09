@@ -21,6 +21,9 @@ public class AmmoHUD : MonoBehaviour
     [Tooltip("Opcional: el símbolo '/' entre cargador y reserva, si lo tienes como texto aparte. También se ocultará durante la recarga.")]
     [SerializeField] private GameObject separator;
 
+    [Tooltip("Marcado = los numeros se esconden al recargar (circulo antiguo). Desmarcado = se ven y cuentan (ReloadHUD con barra).")]
+    [SerializeField] private bool hideWhileReloading = true;
+
     private WeaponManager weaponManager;
     private WeaponBase weapon;
 
@@ -64,12 +67,15 @@ public class AmmoHUD : MonoBehaviour
         }
 
         weapon.OnAmmoChanged += UpdateUI;
-        weapon.OnReloadStarted += HideAmmoNumbers;
-        weapon.OnReloadFinished += ShowAmmoNumbers;
+        if (hideWhileReloading)
+        {
+            weapon.OnReloadStarted += HideAmmoNumbers;
+            weapon.OnReloadFinished += ShowAmmoNumbers;
+        }
 
         UpdateUI();
         // Por si te suscribes a mitad de una recarga ya en curso
-        if (weapon.IsReloading) HideAmmoNumbers();
+        if (weapon.IsReloading && hideWhileReloading) HideAmmoNumbers();
         else ShowAmmoNumbers();
     }
 
