@@ -122,8 +122,9 @@ public class WallWeaponDisplay : MonoBehaviour
     // ---------------- MEDIR Y COLOCAR ----------------
 
     /// <summary>
-    /// Mide el modelo en los ejes del arma: el eje más fino es el que apunta a la pared; de los otros dos, el que más
-    /// se parece a "arriba" es el alto. Luego busca la pared con un rayo a cada lado para pegar la placa a ella.
+    /// Mide el modelo en los ejes del arma: el eje que más se parece a "arriba" es el alto (la placa siempre va de pie,
+    /// en la pared); de los otros dos, el más fino es el que apunta a la pared y el más largo, el ancho. Luego busca la
+    /// pared con un rayo a cada lado para pegar la placa a ella.
     /// </summary>
     private bool TryGetLayout(out Layout layout)
     {
@@ -133,7 +134,7 @@ public class WallWeaponDisplay : MonoBehaviour
 
         foreach (Renderer r in GetComponentsInChildren<Renderer>())
         {
-            if (r is ParticleSystemRenderer) continue;
+            if (r is ParticleSystemRenderer || !r.enabled) continue;
             Bounds local = r.localBounds;
             for (int i = 0; i < 8; i++)
             {
@@ -155,11 +156,14 @@ public class WallWeaponDisplay : MonoBehaviour
         };
         for (int i = 0; i < 3; i++) meters[i] = Mathf.Abs(meters[i]);
 
-        int depthAxis = 0;
-        for (int i = 1; i < 3; i++) if (meters[i] < meters[depthAxis]) depthAxis = i;
-        int a = (depthAxis + 1) % 3, b = (depthAxis + 2) % 3;
-        int heightAxis = Mathf.Abs(Vector3.Dot(axes[a], Vector3.up)) >= Mathf.Abs(Vector3.Dot(axes[b], Vector3.up)) ? a : b;
-        int widthAxis = heightAxis == a ? b : a;
+        // Alto = el eje más vertical. Así no se confunde aunque el arma sea más fina de alto que de fondo
+        // (o tenga piezas que sobresalen hacia un lado, como el tambor del subfusil).
+        int heightAxis = 0;
+        for (int i = 1; i < 3; i++)
+            if (Mathf.Abs(Vector3.Dot(axes[i], Vector3.up)) > Mathf.Abs(Vector3.Dot(axes[heightAxis], Vector3.up))) heightAxis = i;
+        int a = (heightAxis + 1) % 3, b = (heightAxis + 2) % 3;
+        int depthAxis = meters[a] <= meters[b] ? a : b;
+        int widthAxis = depthAxis == a ? b : a;
 
         Vector3 center = transform.TransformPoint((min + max) * 0.5f);
         Vector3 normal = axes[depthAxis].normalized;
