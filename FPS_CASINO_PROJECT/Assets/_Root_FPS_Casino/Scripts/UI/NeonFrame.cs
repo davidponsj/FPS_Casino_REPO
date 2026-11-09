@@ -70,6 +70,23 @@ public class NeonFrame : MaskableGraphic
     private readonly List<Vector2> outline = new List<Vector2>();
     private readonly List<Vector2> normals = new List<Vector2>();
 
+    /// <summary>
+    /// Configura el marco por código (lo usa WallWeaponDisplay al crear la placa de las armas de pared).
+    /// Medidas en unidades del Canvas, como en el Inspector.
+    /// </summary>
+    public void Configure(float newLineWidth, float newCornerRadius, float newOuterGlow, float newInnerGlow,
+                          float newIdleBrightness, bool newFaulty)
+    {
+        lineWidth = Mathf.Max(0f, newLineWidth);
+        cornerRadius = Mathf.Max(0f, newCornerRadius);
+        outerGlow = Mathf.Max(0f, newOuterGlow);
+        innerGlow = Mathf.Max(0f, newInnerGlow);
+        idleBrightness = Mathf.Clamp01(newIdleBrightness);
+        brightness = idleBrightness;
+        faulty = newFaulty;
+        SetVerticesDirty();
+    }
+
     /// <summary>Brillo normal (sin ratón encima, sin fallos).</summary>
     protected float IdleBrightness => idleBrightness;
 
