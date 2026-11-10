@@ -11,6 +11,10 @@ using UnityEngine.UI;
 /// Escape o Resume la cierran (baja y encoge a la vez) y lo dejan todo como estaba. No se abre durante la intro
 /// (PlayerWakeUpIntro) ni con el jugador muerto.
 ///
+/// Controls cambia la ventana a la lista de teclas (PauseRebindKey), con Return para volver y Reset para dejar las
+/// teclas de siempre (KeyBindings, las mismas que el ATM del menú principal). Escape mientras se cambia una tecla
+/// solo cancela ese cambio; en la lista de teclas vuelve a la pausa.
+///
 /// Va en el objeto raíz del Canvas de la pausa (SIEMPRE ACTIVO). La ventana, el oscurecido y el desenfoque empiezan
 /// ocultos. Todo va en tiempo real: funciona con el juego parado (Time.timeScale = 0).
 /// </summary>
@@ -24,11 +28,24 @@ public class PauseMenu : MonoBehaviour
     [Tooltip("Volume con el desenfoque (PauseVolume). Su Weight sube de 0 a 1 al pausar.")]
     [SerializeField] private Volume blurVolume;
 
+    [Header("Pantallas de la ventana")]
+    [Tooltip("Lo que se ve en la pausa normal (TXT_Title y GRP_Buttons).")]
+    [SerializeField] private GameObject[] pauseView;
+    [Tooltip("La pantalla de controles (GRP_Controls).")]
+    [SerializeField] private GameObject controlsView;
+
     [Header("Botones")]
     [SerializeField] private Button resumeButton;
+    [SerializeField] private Button controlsButton;
     [SerializeField] private Button mainMenuButton;
+    [SerializeField] private Button returnButton;
+    [SerializeField] private Button resetButton;
     [Tooltip("Escena del menú principal (tiene que estar en Build Settings).")]
     [SerializeField] private string menuSceneName = "SCN_MainMenu";
+
+    [Header("Teclas")]
+    [Tooltip("Las acciones del jugador (PlayerControls). Las usa Reset para volver a las teclas de siempre.")]
+    [SerializeField] private InputActionAsset controls;
 
     [Header("Jugador (vacío = lo busca solo)")]
     [SerializeField] private PlayerInput playerInput;
@@ -58,6 +75,7 @@ public class PauseMenu : MonoBehaviour
     private float dimAlpha;
     private float shownY;
     private float progress;   // 0 = abajo y pequeña, 1 = en su sitio y a su tamaño
+    private bool showingControls;
     private Coroutine routine;
 
     private void Awake()
@@ -69,9 +87,13 @@ public class PauseMenu : MonoBehaviour
         if (window != null) shownY = window.anchoredPosition.y;
 
         if (resumeButton != null) resumeButton.onClick.AddListener(Resume);
+        if (controlsButton != null) controlsButton.onClick.AddListener(ShowControls);
         if (mainMenuButton != null) mainMenuButton.onClick.AddListener(GoToMainMenu);
+        if (returnButton != null) returnButton.onClick.AddListener(ShowPauseView);
+        if (resetButton != null) resetButton.onClick.AddListener(ResetKeys);
 
         IsPaused = false;
+        ShowPauseView();
         Apply(0f);
     }
 
@@ -79,8 +101,18 @@ public class PauseMenu : MonoBehaviour
     {
         if (Keyboard.current == null || !Keyboard.current.escapeKey.wasPressedThisFrame) return;
 
-        if (IsPaused) Resume();
-        else if (CanPause()) Pause();
+        // Escape mientras se cambia una tecla: lo cancela KeyBindings, aquí no se hace nada más
+        if (KeyBindings.BlockMenuInput) return;
+
+        if (IsPaused)
+        {
+            if (showingControls) ShowPauseView();
+            else Resume();
+        }
+        else if (CanPause())
+        {
+            Pause();
+        }
     }
 
     private void LateUpdate()
@@ -116,6 +148,7 @@ public class PauseMenu : MonoBehaviour
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
+        ShowPauseView();
         StartAnimation(true);
     }
 
@@ -140,6 +173,38 @@ public class PauseMenu : MonoBehaviour
         Time.timeScale = 1f;
         AudioListener.pause = false;
         SceneManager.LoadScene(menuSceneName);
+    }
+
+    // ---------------- Pantallas ----------------
+
+    private void ShowPauseView() => SetView(false);
+
+    private void ShowControls() => SetView(true);
+
+    private void SetView(bool controlsVisible)
+    {
+        showingControls = controlsVisible;
+
+        if (pauseView != null)
+            foreach (GameObject go in pauseView)
+                if (go != null) go.SetActive(!controlsVisible);
+
+        if (controlsView != null) controlsView.SetActive(controlsVisible);
+    }
+
+    private void ResetKeys()
+    {
+        if (controls == null)
+        {
+            Debug.LogWarning("[PauseMenu] Falta asignar PlayerControls en Controls.", this);
+            return;
+        }
+
+        KeyBindings.ResetToDefaults(controls);
+
+        // Si el jugador usa su propia copia de las acciones, también vuelve a las teclas de siempre
+        if (playerInput != null && playerInput.actions != null && playerInput.actions != controls)
+            KeyBindings.Load(playerInput.actions);
     }
 
     // ---------------- Animación ----------------
