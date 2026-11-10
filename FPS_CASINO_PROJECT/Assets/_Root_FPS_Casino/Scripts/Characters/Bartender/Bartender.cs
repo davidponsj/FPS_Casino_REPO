@@ -9,10 +9,17 @@ public class Bartender : MonoBehaviour, IInteractable
     [Header("Referencias")]
     [Tooltip("BottleHolder del jugador (en PF_Player): ahí aparece la botella.")]
     [SerializeField] private BottleHolder bottleHolder;
+    [Tooltip("Bocadillo con lo que dice al darte la botella. Vacío = lo busca en este mismo objeto; si no hay, no dice nada.")]
+    [SerializeField] private BartenderSpeech speech;
 
     [Header("Depuración")]
     [Tooltip("Muestra qué lleva el jugador (ticket, botella o nada) sobre el barman en la vista Scene (y en Game con el botón Gizmos activado).")]
     [SerializeField] private bool showDebug;
+
+    private void Awake()
+    {
+        if (speech == null) speech = GetComponent<BartenderSpeech>();
+    }
 
     public string InteractionPrompt
     {
@@ -36,7 +43,9 @@ public class Bartender : MonoBehaviour, IInteractable
 
         if (bottleHolder.HasBottle || !inv.HasTicket) return;
 
-        bottleHolder.Give(inv.Take());
+        TicketData ticket = inv.Take();
+        bottleHolder.Give(ticket);
+        if (speech != null) speech.Say(ticket, bottleHolder);
     }
 
 #if UNITY_EDITOR

@@ -13,4 +13,9 @@ public class TicketData : ScriptableObject
     public GameObject worldPrefab;
     [Tooltip("Botella que da el barman por este ticket (SO_BottleEffect_*).")]
     public BottleEffect bottleEffect;
+
+    [Header("Barman")]
+    [Tooltip("Lo que dice el barman al darte esta botella (una frase al azar, sin repetir la anterior). Que cuente qué hace al beberla y al lanzarla, corto: se lee en plena partida. Lo que vaya entre *asteriscos* sale resaltado con el color de la botella.")]
+    [TextArea(2, 4)]
+    public string[] bartenderLines;
 }
