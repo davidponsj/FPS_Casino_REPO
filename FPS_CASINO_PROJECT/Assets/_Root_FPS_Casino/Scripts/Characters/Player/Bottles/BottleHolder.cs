@@ -53,7 +53,7 @@ public class BottleHolder : MonoBehaviour
 
     private TicketData current;
     private LiquidWobble bottleLiquid;
-    private Collider playerCollider;
+    private Transform playerRoot;
     private PlayerController playerController;
     private PlayerBuffs playerBuffs;
 
@@ -81,8 +81,9 @@ public class BottleHolder : MonoBehaviour
         if (playerCamera == null)
             playerCamera = Camera.main;
 
-        // El CharacterController también es un Collider: la botella lanzada lo ignorará.
-        playerCollider = GetComponentInParent<CharacterController>();
+        // Raíz del jugador (donde está el CharacterController): la botella lanzada ignorará todos sus colliders.
+        CharacterController controller = GetComponentInParent<CharacterController>();
+        playerRoot = controller != null ? controller.transform : transform.root;
         playerController = GetComponentInParent<PlayerController>();
         playerBuffs = GetComponentInParent<PlayerBuffs>();
     }
@@ -188,7 +189,12 @@ public class BottleHolder : MonoBehaviour
             velocity += playerController.Velocity; // si lanzas corriendo, la botella lleva tu inercia
 
         ThrownBottle bottle = Instantiate(thrownBottlePrefab, spawnPosition, spawnRotation);
-        bottle.Launch(velocity, throwSpinRadPerSecond, thrown, effect, playerCollider);
+        // TODOS los colliders del jugador (cuerpo, cápsulas, armas...), no solo el CharacterController: la botella
+        // sale de la mano pegada al cuerpo y si toca cualquiera de ellos se rompe en tu cara. Se buscan al lanzar
+        // (no en Awake) para incluir también las armas que hayas cogido durante la partida. Solo los activos: Unity no deja
+        // ignorar colliders apagados (da error).
+        Collider[] playerColliders = playerRoot != null ? playerRoot.GetComponentsInChildren<Collider>() : new Collider[0];
+        bottle.Launch(velocity, throwSpinRadPerSecond, thrown, effect, playerColliders);
     }
 
     // ---------------- COMÚN ----------------

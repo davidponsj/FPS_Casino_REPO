@@ -1,3 +1,4 @@
+using System.Globalization;
 using UnityEngine;
 
 /// <summary>
@@ -68,4 +69,57 @@ public class BottleEffect : ScriptableObject
     public bool HasImpact => impactRadius > 0f && (impactKills || impactDamage > 0f);
 
     public bool PuddleAffectsEnemies => enemySpeedMultiplier < 1f || enemyDamagePerSecond > 0f;
+
+    // ---------------- RESUMEN PARA EL HUD ----------------
+    // Lo usa el bocadillo del barman (BartenderSpeech). Se genera con los números de arriba, así siempre dice la
+    // verdad aunque se cambien los valores en el Inspector. Va en inglés (el idioma del juego) y con los números
+    // siempre con punto decimal, sea cual sea el idioma del ordenador. Nbsp es un espacio que no deja partir la
+    // línea ahí (para que no quede "10" en una línea y "s" en la siguiente).
+    private const string Nbsp = "\u00A0";
+
+    /// <summary>Qué hace al beberla, en corto. Ej.: "+30% move speed · 10 s". Vacío si no hace nada.</summary>
+    public string DrinkSummary()
+    {
+        string duration = drinkDuration > 0f ? $"{Nbsp}· {Num(drinkDuration, "0")}{Nbsp}s" : "";
+        switch (drinkEffect)
+        {
+            case DrinkEffect.KillSelf: return "Kills you instantly";
+            case DrinkEffect.HealPercent: return $"Heals {Num(drinkValue * 100f, "0")}% health";
+            case DrinkEffect.SpeedBoost: return $"{Percent(drinkValue - 1f)} move speed{duration}";
+            case DrinkEffect.InfiniteMagazine: return $"Infinite ammo{duration}";
+            case DrinkEffect.FireRateBoost: return $"{Percent(drinkValue - 1f)} fire rate{duration}";
+            case DrinkEffect.SlotLuck: return $"{Percent(drinkValue)} slot machine luck{duration}";
+            default: return "";
+        }
+    }
+
+    /// <summary>Qué hace al lanzarla, en corto. Ej.: "Kills everything within 3 m · Puddle: slows 50% and poisons 10/s". Vacío si nada.</summary>
+    public string ThrowSummary()
+    {
+        var parts = new System.Collections.Generic.List<string>();
+
+        if (throwSelfEffect == ThrowSelfEffect.ReloadTime && throwSelfValue > 0f && !Mathf.Approximately(throwSelfValue, 1f))
+        {
+            string speed = throwSelfValue < 1f ? $"Reload x{Num(1f / throwSelfValue, "0.#")} faster" : $"Reload x{Num(throwSelfValue, "0.#")} slower";
+            parts.Add(throwSelfDuration > 0f ? $"{speed}{Nbsp}· {Num(throwSelfDuration, "0")}{Nbsp}s" : speed);
+        }
+
+        if (HasImpact)
+            parts.Add(impactKills ? $"Kills everything within {Num(impactRadius, "0.#")}{Nbsp}m" : $"{Num(impactDamage, "0")} damage within {Num(impactRadius, "0.#")}{Nbsp}m");
+
+        if (puddleLifetime > 0f && PuddleAffectsEnemies)
+        {
+            var puddle = new System.Collections.Generic.List<string>();
+            if (enemySpeedMultiplier <= 0f) puddle.Add("paralyzes");
+            else if (enemySpeedMultiplier < 1f) puddle.Add($"slows {Num((1f - enemySpeedMultiplier) * 100f, "0")}%");
+            if (enemyDamagePerSecond > 0f) puddle.Add($"poisons {Num(enemyDamagePerSecond, "0")}/s");
+            parts.Add("Puddle: " + string.Join(" and ", puddle));
+        }
+
+        return string.Join($"{Nbsp}· ", parts);
+    }
+
+    private static string Percent(float fraction) => $"{(fraction >= 0f ? "+" : "")}{Num(fraction * 100f, "0")}%";
+
+    private static string Num(float value, string format) => value.ToString(format, CultureInfo.InvariantCulture);
 }

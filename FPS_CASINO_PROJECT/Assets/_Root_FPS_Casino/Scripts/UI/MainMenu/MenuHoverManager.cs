@@ -43,7 +43,8 @@ public class MenuHoverManager : MonoBehaviour
         if (menuCamera == null || Mouse.current == null) return;
 
         // Saliendo del juego (el taxi se está yendo): nada responde
-        if (QuitGameTarget.IsQuitting)
+        // Saliendo del juego (el taxi se está yendo) o entrando al casino: nada responde
+        if (QuitGameTarget.IsQuitting || PlayGameTarget.IsStarting)
         {
             SetCurrent(null);
             return;
@@ -89,6 +90,13 @@ public class MenuHoverManager : MonoBehaviour
 
     private void OnClicked(HoverOutline target)
     {
+        var play = target.GetComponent<PlayGameTarget>();
+        if (play != null)
+        {
+            play.Play();
+            return;
+        }
+
         var focus = target.GetComponent<CameraFocusTarget>();
         if (focus != null && cameraMover != null)
         {

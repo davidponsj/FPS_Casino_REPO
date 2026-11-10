@@ -38,6 +38,10 @@ public class ThrownBottle : MonoBehaviour
     [Tooltip("Capas a las que afecta el impacto (enemigos).")]
     [SerializeField] private LayerMask impactMask = ~0;
 
+    [Header("Depuración")]
+    [Tooltip("Escribe en la consola contra qué se ha roto la botella (objeto y velocidad del choque).")]
+    [SerializeField] private bool showDebug;
+
     private Rigidbody rb;
     private TicketData ticket;
     private BottleEffect effect;
@@ -61,16 +65,22 @@ public class ThrownBottle : MonoBehaviour
     }
 
     /// <summary>Lo llama BottleHolder justo después de instanciarla.</summary>
-    public void Launch(Vector3 velocity, float spin, TicketData bottleTicket, BottleEffect bottleEffect, Collider ownerCollider)
+    public void Launch(Vector3 velocity, float spin, TicketData bottleTicket, BottleEffect bottleEffect, IReadOnlyList<Collider> ownerColliders)
     {
         ticket = bottleTicket;
         effect = bottleEffect;
 
-        // Que no choque con el propio jugador al salir de la mano.
-        if (ownerCollider != null)
+        // Que no choque con el propio jugador al salir de la mano (con ninguno de sus colliders).
+        if (ownerColliders != null)
         {
             foreach (Collider bottleCollider in GetComponentsInChildren<Collider>())
-                Physics.IgnoreCollision(bottleCollider, ownerCollider);
+            {
+                foreach (Collider ownerCollider in ownerColliders)
+                {
+                    if (ownerCollider != null && ownerCollider.enabled)
+                        Physics.IgnoreCollision(bottleCollider, ownerCollider);
+                }
+            }
         }
 
         LiquidWobble liquid = GetComponentInChildren<LiquidWobble>();
@@ -89,6 +99,8 @@ public class ThrownBottle : MonoBehaviour
         if (collision.relativeVelocity.magnitude < minBreakSpeed) return;
 
         ContactPoint contact = collision.GetContact(0);
+        if (showDebug)
+            Debug.Log($"[Botellas] Rota contra {collision.collider.name} a {collision.relativeVelocity.magnitude:0.0} m/s.", collision.collider);
         Break(contact.point, contact.normal);
     }
 

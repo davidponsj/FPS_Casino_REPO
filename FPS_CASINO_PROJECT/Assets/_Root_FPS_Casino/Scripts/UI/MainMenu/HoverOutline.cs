@@ -21,12 +21,20 @@ public class HoverOutline : MonoBehaviour
     [Tooltip("Nombre que sale en pantalla con el ratón encima. Vacío = sin texto.")]
     [SerializeField] private string hoverLabel = "";
 
+    [Header("Extra al pasar el ratón")]
+    [Tooltip("Objetos que se encienden con el borde y se apagan al quitar el ratón (p. ej. el marco blanco de la puerta). Vacío = ninguno.")]
+    [SerializeField] private GameObject[] alsoShowOnHover = new GameObject[0];
+
     public string HoverLabel => hoverLabel;
 
     private readonly List<GameObject> outlines = new List<GameObject>();
 
     private void Awake()
     {
+        foreach (var extra in alsoShowOnHover)
+            if (extra != null) extra.SetActive(false);
+
+
         if (outlineMaterial == null)
         {
             Debug.LogWarning("[HoverOutline] Falta asignar el material del borde.", this);
@@ -81,5 +89,8 @@ public class HoverOutline : MonoBehaviour
     {
         foreach (var o in outlines)
             if (o != null) o.SetActive(value);
+
+        foreach (var extra in alsoShowOnHover)
+            if (extra != null) extra.SetActive(value);
     }
 }

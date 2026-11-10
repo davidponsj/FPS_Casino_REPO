@@ -20,6 +20,11 @@ public class WallWeaponPickup : MonoBehaviour, IInteractable
 
     public string InteractionPrompt => $"Coger {weaponDisplayName} [E]";
 
+    /// <summary>Nombre del arma (lo usa WallWeaponDisplay para la placa).</summary>
+    public string DisplayName => weaponDisplayName;
+
+
+
     public void Interact(GameObject interactor)
     {
         if (weaponPrefab == null) return;
