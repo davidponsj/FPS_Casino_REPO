@@ -33,8 +33,8 @@ public class PlayerFootsteps : MonoBehaviour
     [Tooltip("Metros entre paso y paso esprintando (zancadas más largas).")]
     [Min(0.1f)]
     [SerializeField] private float sprintStepDistance = 2.3f;
-    [SerializeField, Range(0f, 1f)] private float walkVolume = 0.45f;
-    [SerializeField, Range(0f, 1f)] private float sprintVolume = 0.65f;
+    [SerializeField, Range(0f, 1f)] private float walkVolume = 0.25f;
+    [SerializeField, Range(0f, 1f)] private float sprintVolume = 0.35f;
     [Tooltip("Variación de tono de cada paso. 0.08 = natural.")]
     [SerializeField, Range(0f, 0.3f)] private float pitchVariation = 0.08f;
 
@@ -44,7 +44,7 @@ public class PlayerFootsteps : MonoBehaviour
     [Tooltip("Metros entre pasos por la pared.")]
     [Min(0.1f)]
     [SerializeField] private float wallStepDistance = 1.9f;
-    [SerializeField, Range(0f, 1f)] private float wallVolume = 0.4f;
+    [SerializeField, Range(0f, 1f)] private float wallVolume = 0.22f;
     [Tooltip("Tono de los pasos en la pared (la pared no es moqueta: suenan algo más secos).")]
     [SerializeField, Range(0.5f, 2f)] private float wallPitch = 1.2f;
 
@@ -55,10 +55,10 @@ public class PlayerFootsteps : MonoBehaviour
     [Tooltip("Velocidad de caída (m/s) con la que suena al máximo.")]
     [Min(0.1f)]
     [SerializeField] private float maxLandSpeed = 12f;
-    [SerializeField, Range(0f, 1f)] private float landVolume = 0.8f;
+    [SerializeField, Range(0f, 1f)] private float landVolume = 0.55f;
 
     [Header("Slide")]
-    [SerializeField, Range(0f, 1f)] private float slideVolume = 0.5f;
+    [SerializeField, Range(0f, 1f)] private float slideVolume = 0.3f;
     [Tooltip("Velocidad (m/s) a la que el roce suena al máximo.")]
     [Min(0.1f)]
     [SerializeField] private float slideFullSpeed = 12f;

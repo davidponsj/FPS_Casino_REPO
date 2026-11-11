@@ -60,18 +60,25 @@ public class PlayerVomit : MonoBehaviour
         new Keyframe(0f, 0f), new Keyframe(0.24f, 0f), new Keyframe(0.25f, 250f), new Keyframe(0.3f, 0f),
         new Keyframe(0.505f, 0f), new Keyframe(0.52f, 320f), new Keyframe(0.72f, 220f), new Keyframe(0.78f, 20f),
         new Keyframe(0.95f, 8f), new Keyframe(1f, 0f));
-    [Tooltip("Colores del vómito (sale uno al azar por gota). Verde asqueroso.")]
+    [Tooltip("Colores del vómito (sale uno al azar por gota o grumo). Verde asqueroso.")]
     [SerializeField]
     private Color[] vomitColors =
     {
-        new Color(0.42f, 0.58f, 0.1f), new Color(0.58f, 0.66f, 0.14f), new Color(0.3f, 0.42f, 0.06f), new Color(0.66f, 0.62f, 0.2f)
+        new Color(0.38f, 0.52f, 0.08f), new Color(0.55f, 0.62f, 0.12f), new Color(0.45f, 0.42f, 0.12f), new Color(0.62f, 0.68f, 0.2f)
     };
-    [Tooltip("Tamaño de las gotas (mín, máx), en metros.")]
+    [Tooltip("Grosor del chorro (mín, máx), en metros. Las gotas se estiran con la velocidad, así que parece líquido.")]
     [SerializeField] private Vector2 dropSize = new Vector2(0.025f, 0.065f);
     [Tooltip("Velocidad del chorro (mín, máx), en m/s.")]
     [SerializeField] private Vector2 spewSpeed = new Vector2(2.2f, 3.6f);
-    [Tooltip("Material de las gotas. Vacío = verde húmedo (URP Particles/Lit) creado por código.")]
+    [Tooltip("Parte del vómito que son grumos sólidos (el resto es líquido). 0.25 = uno de cada cuatro.")]
+    [Range(0f, 1f)]
+    [SerializeField] private float chunkShare = 0.25f;
+    [Tooltip("Tamaño de los grumos (mín, máx), en metros.")]
+    [SerializeField] private Vector2 chunkSize = new Vector2(0.02f, 0.045f);
+    [Tooltip("Material del chorro líquido. Vacío = se crea por código (sin luz ni reflejos, así nunca sale azul).")]
     [SerializeField] private Material dropMaterial;
+    [Tooltip("Material de los grumos. Vacío = se crea por código (con luz pero mate, sin reflejar el cielo).")]
+    [SerializeField] private Material chunkMaterial;
     [Tooltip("Material de la neblina. Vacío = se crea por código.")]
     [SerializeField] private Material mistMaterial;
 
@@ -113,7 +120,7 @@ public class PlayerVomit : MonoBehaviour
     private float elapsed;
     private Vector3 startLocalPosition;
     private Quaternion startLocalRotation;
-    private ParticleSystem drops, mist;
+    private ParticleSystem drops, chunks, mist;
     private Transform mouth;
     private Image tint;
     private AudioSource audioSource;
@@ -158,6 +165,7 @@ public class PlayerVomit : MonoBehaviour
 
         if (drops == null) Build();
         drops.Play();
+        chunks.Play();
         mist.Play();
 
         if (showDebug) Debug.Log("[Vómito] Empieza.", this);
@@ -201,8 +209,10 @@ public class PlayerVomit : MonoBehaviour
         var emission = drops.emission;
         float rate = spewRate.Evaluate(t);
         emission.rateOverTime = rate;
+        var chunkEmission = chunks.emission;
+        chunkEmission.rateOverTime = rate * chunkShare;
         var mistEmission = mist.emission;
-        mistEmission.rateOverTime = rate * 0.6f;
+        mistEmission.rateOverTime = rate * 0.35f;
 
         if (tint != null)
         {
@@ -226,6 +236,7 @@ public class PlayerVomit : MonoBehaviour
         if (drops != null)
         {
             var emission = drops.emission; emission.rateOverTime = 0f;
+            var chunkEmission = chunks.emission; chunkEmission.rateOverTime = 0f;
             var mistEmission = mist.emission; mistEmission.rateOverTime = 0f;
         }
         if (showDebug) Debug.Log(finishedNormally ? "[Vómito] Acaba: ahora mueres." : "[Vómito] Cortado: te han matado.", this);
@@ -282,7 +293,7 @@ public class PlayerVomit : MonoBehaviour
         go.transform.localScale = new Vector3(0.01f, 1f, 0.01f);
         go.AddComponent<MeshFilter>();
         var renderer = go.AddComponent<MeshRenderer>();
-        renderer.sharedMaterial = puddleMaterial != null ? puddleMaterial : CreateTransparentMaterial("VomitPuddle (auto)", 0.7f);
+        renderer.sharedMaterial = puddleMaterial != null ? puddleMaterial : CreateTransparentMaterial("VomitPuddle (auto)", 0.3f);
         renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
         // PuddleVisual (el de los charcos de las botellas) lee este color al empezar y dibuja la mancha irregular.
@@ -304,9 +315,13 @@ public class PlayerVomit : MonoBehaviour
         mouth.localPosition = new Vector3(0f, -0.12f, 0.2f);
         mouth.localRotation = Quaternion.Euler(20f, 0f, 0f); // un poco hacia abajo
 
-        drops = CreateSystem("VomitDrops", out ParticleSystemRenderer dropRenderer);
+        Material liquid = dropMaterial != null ? dropMaterial : CreateUnlitMaterial("VomitLiquid (auto)", Blob(0.55f));
+        Material misty = mistMaterial != null ? mistMaterial : CreateUnlitMaterial("VomitMist (auto)", Blob(0f));
+
+        // ---- Chorro líquido: gotas estiradas con la velocidad (parece un chorro, no bolitas) ----
+        drops = CreateSystem("VomitStream", mouth, out ParticleSystemRenderer dropRenderer);
         var main = drops.main;
-        main.startLifetime = new ParticleSystem.MinMaxCurve(1f, 1.6f);
+        main.startLifetime = new ParticleSystem.MinMaxCurve(1f, 1.5f);
         main.startSpeed = new ParticleSystem.MinMaxCurve(spewSpeed.x, spewSpeed.y);
         main.startSize = new ParticleSystem.MinMaxCurve(dropSize.x, dropSize.y);
         main.gravityModifier = 1.1f;
@@ -314,40 +329,105 @@ public class PlayerVomit : MonoBehaviour
         main.startColor = RandomColors();
         var shape = drops.shape;
         shape.shapeType = ParticleSystemShapeType.Cone;
-        shape.angle = 9f;
-        shape.radius = 0.02f;
-        // Se aplastan contra el suelo y desaparecen poco después.
+        shape.angle = 7f;
+        shape.radius = 0.015f;
         var collision = drops.collision;
         collision.enabled = true;
         collision.type = ParticleSystemCollisionType.World;
         collision.mode = ParticleSystemCollisionMode.Collision3D;
-        collision.bounce = 0.05f;
-        collision.dampen = 0.85f;
-        collision.lifetimeLoss = 0.5f;
-        collision.radiusScale = 0.5f;
+        collision.bounce = 0f;
+        collision.dampen = 1f;
+        collision.lifetimeLoss = 1f;          // al tocar el suelo desaparece... y salpica (sub-emisor de abajo)
+        collision.radiusScale = 0.4f;
         collision.quality = ParticleSystemCollisionQuality.Medium;
-        var size = drops.sizeOverLifetime;
-        size.enabled = true;
-        size.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.6f), new Keyframe(0.15f, 1f), new Keyframe(0.85f, 1f), new Keyframe(1f, 0f)));
-        dropRenderer.renderMode = ParticleSystemRenderMode.Mesh;
-        dropRenderer.mesh = Resources.GetBuiltinResource<Mesh>("Sphere.fbx");
-        dropRenderer.alignment = ParticleSystemRenderSpace.World;
-        dropRenderer.sharedMaterial = dropMaterial != null ? dropMaterial : CreateDropMaterial();
+        dropRenderer.renderMode = ParticleSystemRenderMode.Stretch;
+        dropRenderer.velocityScale = 0.06f;
+        dropRenderer.lengthScale = 1.4f;
+        dropRenderer.sharedMaterial = liquid;
+        dropRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
-        mist = CreateSystem("VomitMist", out ParticleSystemRenderer mistRenderer);
+        // ---- Salpicadura: cada gota que toca el suelo suelta unas gotitas hacia los lados ----
+        ParticleSystem splat = CreateSystem("VomitSplat", drops.transform, out ParticleSystemRenderer splatRenderer);
+        var splatMain = splat.main;
+        splatMain.loop = false;
+        splatMain.startLifetime = new ParticleSystem.MinMaxCurve(0.25f, 0.45f);
+        splatMain.startSpeed = new ParticleSystem.MinMaxCurve(0.4f, 1f);
+        splatMain.startSize = new ParticleSystem.MinMaxCurve(dropSize.x * 0.4f, dropSize.x);
+        splatMain.gravityModifier = 1.4f;
+        splatMain.maxParticles = 500;
+        var splatEmission = splat.emission;
+        splatEmission.rateOverTime = 0f;
+        splatEmission.SetBursts(new[] { new ParticleSystem.Burst(0f, 2, 4) });
+        var splatShape = splat.shape;
+        splatShape.shapeType = ParticleSystemShapeType.Sphere;
+        splatShape.radius = 0.02f;
+        // Hacia arriba en el mundo (la gota choca con el suelo y salpica para arriba), da igual cómo esté la cabeza.
+        var splatUp = splat.velocityOverLifetime;
+        splatUp.enabled = true;
+        splatUp.space = ParticleSystemSimulationSpace.World;
+        splatUp.x = new ParticleSystem.MinMaxCurve(0f, 0f);
+        splatUp.y = new ParticleSystem.MinMaxCurve(1.2f, 2f);
+        splatUp.z = new ParticleSystem.MinMaxCurve(0f, 0f);
+        splatRenderer.renderMode = ParticleSystemRenderMode.Stretch;
+        splatRenderer.velocityScale = 0.05f;
+        splatRenderer.lengthScale = 1.2f;
+        splatRenderer.sharedMaterial = liquid;
+        splatRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        var subEmitters = drops.subEmitters;
+        subEmitters.enabled = true;
+        subEmitters.AddSubEmitter(splat, ParticleSystemSubEmitterType.Collision, ParticleSystemSubEmitterProperties.InheritColor);
+
+        // ---- Grumos: trozos irregulares con luz (no bolas perfectas) ----
+        chunks = CreateSystem("VomitChunks", mouth, out ParticleSystemRenderer chunkRenderer);
+        var chunkMain = chunks.main;
+        chunkMain.startLifetime = new ParticleSystem.MinMaxCurve(1.6f, 2.4f);
+        chunkMain.startSpeed = new ParticleSystem.MinMaxCurve(spewSpeed.x * 0.85f, spewSpeed.y * 0.9f);
+        chunkMain.startSize3D = true;
+        chunkMain.startSizeX = new ParticleSystem.MinMaxCurve(chunkSize.x, chunkSize.y);
+        chunkMain.startSizeY = new ParticleSystem.MinMaxCurve(chunkSize.x * 0.6f, chunkSize.y * 0.8f);
+        chunkMain.startSizeZ = new ParticleSystem.MinMaxCurve(chunkSize.x, chunkSize.y);
+        chunkMain.startRotation3D = true;
+        chunkMain.startRotationX = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+        chunkMain.startRotationY = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+        chunkMain.startRotationZ = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+        chunkMain.gravityModifier = 1.2f;
+        chunkMain.maxParticles = 250;
+        chunkMain.startColor = RandomColors();
+        var chunkShape = chunks.shape;
+        chunkShape.shapeType = ParticleSystemShapeType.Cone;
+        chunkShape.angle = 10f;
+        chunkShape.radius = 0.015f;
+        var chunkCollision = chunks.collision;
+        chunkCollision.enabled = true;
+        chunkCollision.type = ParticleSystemCollisionType.World;
+        chunkCollision.mode = ParticleSystemCollisionMode.Collision3D;
+        chunkCollision.bounce = 0.1f;
+        chunkCollision.dampen = 0.9f;
+        chunkCollision.radiusScale = 0.5f;
+        chunkCollision.quality = ParticleSystemCollisionQuality.Medium;
+        var chunkSizeLife = chunks.sizeOverLifetime;
+        chunkSizeLife.enabled = true;
+        chunkSizeLife.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(0.85f, 1f), new Keyframe(1f, 0f)));
+        chunkRenderer.renderMode = ParticleSystemRenderMode.Mesh;
+        chunkRenderer.mesh = LumpMesh();
+        chunkRenderer.alignment = ParticleSystemRenderSpace.World;
+        chunkRenderer.sharedMaterial = chunkMaterial != null ? chunkMaterial : CreateMatteMaterial();
+
+        // ---- Neblina fina alrededor del chorro ----
+        mist = CreateSystem("VomitMist", mouth, out ParticleSystemRenderer mistRenderer);
         var mistMain = mist.main;
-        mistMain.startLifetime = new ParticleSystem.MinMaxCurve(0.3f, 0.7f);
-        mistMain.startSpeed = new ParticleSystem.MinMaxCurve(1.2f, 2.6f);
-        mistMain.startSize = new ParticleSystem.MinMaxCurve(0.04f, 0.13f);
-        mistMain.gravityModifier = 0.4f;
-        mistMain.maxParticles = 400;
+        mistMain.startLifetime = new ParticleSystem.MinMaxCurve(0.25f, 0.5f);
+        mistMain.startSpeed = new ParticleSystem.MinMaxCurve(1.2f, 2.2f);
+        mistMain.startSize = new ParticleSystem.MinMaxCurve(0.03f, 0.08f);
+        mistMain.gravityModifier = 0.5f;
+        mistMain.maxParticles = 300;
         Color mistColor = vomitColors.Length > 1 ? vomitColors[1] : new Color(0.6f, 0.7f, 0.2f);
-        mistColor.a = 0.55f;
+        mistColor.a = 0.4f;
         mistMain.startColor = mistColor;
         var mistShape = mist.shape;
         mistShape.shapeType = ParticleSystemShapeType.Cone;
-        mistShape.angle = 18f;
-        mistShape.radius = 0.03f;
+        mistShape.angle = 16f;
+        mistShape.radius = 0.02f;
         var fadeOut = mist.colorOverLifetime;
         fadeOut.enabled = true;
         var gradient = new Gradient();
@@ -355,16 +435,16 @@ public class PlayerVomit : MonoBehaviour
                          new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
         fadeOut.color = gradient;
         mistRenderer.renderMode = ParticleSystemRenderMode.Billboard;
-        mistRenderer.sharedMaterial = mistMaterial != null ? mistMaterial : CreateTransparentMaterial("VomitMist (auto)", 1f, true);
+        mistRenderer.sharedMaterial = misty;
         mistRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
         BuildTint();
     }
 
-    private ParticleSystem CreateSystem(string systemName, out ParticleSystemRenderer renderer)
+    private static ParticleSystem CreateSystem(string systemName, Transform parent, out ParticleSystemRenderer renderer)
     {
         var go = new GameObject(systemName);
-        go.transform.SetParent(mouth, false);
+        go.transform.SetParent(parent, false);
         var system = go.AddComponent<ParticleSystem>();
         system.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         var main = system.main;
@@ -437,36 +517,103 @@ public class PlayerVomit : MonoBehaviour
 
     // ---------------- MATERIALES DE RESPALDO ----------------
 
-    private static Material CreateDropMaterial()
+    /// <summary>Grumo irregular: esfera de pocos polígonos con los vértices desplazados al azar.</summary>
+    private static Mesh LumpMesh()
     {
-        Shader shader = Shader.Find("Universal Render Pipeline/Particles/Lit");
-        if (shader == null) { Debug.LogWarning("[Vómito] No encuentro URP/Particles/Lit: asigna Drop Material."); return null; }
-        var material = new Material(shader) { name = "VomitDrops (auto)" };
-        material.SetColor("_BaseColor", Color.white); // el color sale de cada gota
-        material.SetFloat("_Smoothness", 0.85f);       // húmedo y brillante
-        material.SetFloat("_Metallic", 0f);
+        // Icosaedro subdividido una vez (42 vértices) y "abollado".
+        float p = (1f + Mathf.Sqrt(5f)) / 2f;
+        var verts = new System.Collections.Generic.List<Vector3>
+        {
+            new Vector3(-1, p, 0), new Vector3(1, p, 0), new Vector3(-1, -p, 0), new Vector3(1, -p, 0),
+            new Vector3(0, -1, p), new Vector3(0, 1, p), new Vector3(0, -1, -p), new Vector3(0, 1, -p),
+            new Vector3(p, 0, -1), new Vector3(p, 0, 1), new Vector3(-p, 0, -1), new Vector3(-p, 0, 1)
+        };
+        int[] faces =
+        {
+            0, 11, 5, 0, 5, 1, 0, 1, 7, 0, 7, 10, 0, 10, 11, 1, 5, 9, 5, 11, 4, 11, 10, 2, 10, 7, 6, 7, 1, 8,
+            3, 9, 4, 3, 4, 2, 3, 2, 6, 3, 6, 8, 3, 8, 9, 4, 9, 5, 2, 4, 11, 6, 2, 10, 8, 6, 7, 9, 8, 1
+        };
+        var mid = new System.Collections.Generic.Dictionary<long, int>();
+        var tris = new System.Collections.Generic.List<int>();
+        for (int i = 0; i < faces.Length; i += 3)
+        {
+            int a = faces[i], b = faces[i + 1], c = faces[i + 2];
+            int ab = Midpoint(verts, mid, a, b), bc = Midpoint(verts, mid, b, c), ca = Midpoint(verts, mid, c, a);
+            tris.AddRange(new[] { a, ab, ca, b, bc, ab, c, ca, bc, ab, bc, ca });
+        }
+        var rng = new System.Random(7);
+        for (int i = 0; i < verts.Count; i++)
+            verts[i] = verts[i].normalized * (0.5f * (0.72f + 0.5f * (float)rng.NextDouble()));
+        var mesh = new Mesh { name = "VomitLump" };
+        mesh.SetVertices(verts);
+        mesh.SetTriangles(tris, 0);
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    /// <summary>Vértice a mitad de la arista a-b (lo reutiliza si otra cara ya lo creó).</summary>
+    private static int Midpoint(System.Collections.Generic.List<Vector3> verts, System.Collections.Generic.Dictionary<long, int> mid, int a, int b)
+    {
+        long key = a < b ? ((long)a << 32) | (uint)b : ((long)b << 32) | (uint)a;
+        if (mid.TryGetValue(key, out int index)) return index;
+        verts.Add((verts[a] + verts[b]) * 0.5f);
+        mid[key] = verts.Count - 1;
+        return verts.Count - 1;
+    }
+
+    /// <summary>Sin luz ni reflejos: el color sale tal cual (el verde de cada gota). Transparente con borde suave.</summary>
+    private static Material CreateUnlitMaterial(string materialName, Texture2D texture)
+    {
+        Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+        if (shader == null) { Debug.LogWarning("[Vómito] No encuentro URP/Particles/Unlit: asigna los materiales."); return null; }
+        var material = new Material(shader) { name = materialName };
+        MakeTransparent(material);
+        material.SetColor("_BaseColor", Color.white);
+        material.SetTexture("_BaseMap", texture);
         return material;
     }
 
-    /// <summary>Transparente con mezcla normal (alpha). softDot = textura de punto suave para la neblina.</summary>
-    private static Material CreateTransparentMaterial(string materialName, float smoothness, bool softDot = false)
+    /// <summary>Con luz pero mate y sin reflejos del entorno (los reflejos del cielo eran lo que lo ponía azul).</summary>
+    private static Material CreateMatteMaterial()
     {
         Shader shader = Shader.Find("Universal Render Pipeline/Particles/Lit");
-        if (shader == null) { Debug.LogWarning("[Vómito] No encuentro URP/Particles/Lit: asigna los materiales."); return null; }
+        if (shader == null) { Debug.LogWarning("[Vómito] No encuentro URP/Particles/Lit: asigna Chunk Material."); return null; }
+        var material = new Material(shader) { name = "VomitChunks (auto)" };
+        material.SetColor("_BaseColor", Color.white);
+        material.SetFloat("_Smoothness", 0.25f);
+        material.SetFloat("_Metallic", 0f);
+        material.SetFloat("_EnvironmentReflections", 0f);
+        material.EnableKeyword("_ENVIRONMENTREFLECTIONS_OFF");
+        return material;
+    }
+
+    /// <summary>Transparente con mezcla normal (alpha), para el charco.</summary>
+    private static Material CreateTransparentMaterial(string materialName, float smoothness)
+    {
+        Shader shader = Shader.Find("Universal Render Pipeline/Particles/Lit");
+        if (shader == null) { Debug.LogWarning("[Vómito] No encuentro URP/Particles/Lit: asigna Puddle Material."); return null; }
         var material = new Material(shader) { name = materialName };
+        MakeTransparent(material);
+        material.SetFloat("_Smoothness", smoothness);
+        material.SetFloat("_EnvironmentReflections", 0f);
+        material.EnableKeyword("_ENVIRONMENTREFLECTIONS_OFF");
+        return material;
+    }
+
+    private static void MakeTransparent(Material material)
+    {
         material.SetFloat("_Surface", 1f);
         material.SetFloat("_Blend", 0f);
         material.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
         material.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
         material.SetFloat("_ZWrite", 0f);
-        material.SetFloat("_Smoothness", smoothness);
         material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
         material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-        if (softDot) material.SetTexture("_BaseMap", SoftDot());
-        return material;
     }
 
-    private static Texture2D SoftDot()
+    /// <summary>Gota redonda: core = parte central totalmente opaca (0 = todo difuminado, para la neblina).</summary>
+    private static Texture2D Blob(float core)
     {
         const int size = 64;
         var texture = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
@@ -476,8 +623,10 @@ public class PlayerVomit : MonoBehaviour
             for (int x = 0; x < size; x++)
             {
                 float dx = (x + 0.5f) / size * 2f - 1f, dy = (y + 0.5f) / size * 2f - 1f;
-                float a = Mathf.Clamp01(1f - Mathf.Sqrt(dx * dx + dy * dy));
-                pixels[y * size + x] = new Color32(255, 255, 255, (byte)(a * a * 255));
+                float d = Mathf.Sqrt(dx * dx + dy * dy);
+                float a = d <= core ? 1f : Mathf.Clamp01(1f - (d - core) / Mathf.Max(0.01f, 1f - core));
+                a = core > 0f ? a * a * (3f - 2f * a) : a * a;
+                pixels[y * size + x] = new Color32(255, 255, 255, (byte)(a * 255));
             }
         }
         texture.SetPixels32(pixels);
