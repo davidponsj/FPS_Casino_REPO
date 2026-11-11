@@ -1,9 +1,14 @@
 fileFormatVersion: 2
-guid: 6cd4ebcc2c3d3434fb41634eda178a7a
+guid: 4516271cf11003e46a7bbb301fcbb6cc
 ModelImporter:
   serializedVersion: 24300
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: MAT_Pivote.001
+    second: {fileID: 2100000, guid: e7a6a6b4d6593ab46aa0cd841c84fe62, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
