@@ -112,6 +112,21 @@ public class SlotMachine : MonoBehaviour, IInteractable
     private string lastResult = "-";
 
     public bool IsSpinning => spinning;
+    /// <summary>Multiplicador del último premio (0 si aún no ha tocado nada). Lo usa SlotWinParticles para saber si es jackpot.</summary>
+    public float LastWinMultiplier { get; private set; }
+
+    /// <summary>El multiplicador más alto de esta máquina (el premio más difícil). Lo usa SlotWinParticles para el jackpot.</summary>
+    public float HighestMultiplier
+    {
+        get
+        {
+            float highest = 0f;
+            if (symbols != null)
+                foreach (Symbol symbol in symbols)
+                    if (symbol != null) highest = Mathf.Max(highest, symbol.multiplier);
+            return highest;
+        }
+    }
     public int ReelCount => reels != null ? reels.Length : 0;
 
     public string InteractionPrompt
@@ -368,6 +383,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
         int won = Mathf.RoundToInt(bet * multiplier);
 
         if (points != null) points.AddPoints(won);
+        LastWinMultiplier = multiplier;
 
         lastResult = $"{names} · ganado x{multiplier} = {won} pts";
         ShowResult($"You won! x{multiplier}\n{won} points");
