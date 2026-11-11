@@ -336,7 +336,8 @@ public class BartenderSpeech : MonoBehaviour
         if (before <= 0f && view.alpha > 0f) view.popStart = Time.time;
 
         // Siempre activos: se ocultan con la transparencia (así el texto se puede medir aunque no se vea).
-        view.group.alpha = view.alpha;
+        // Con el menú de pausa abierto no se ve ninguno (si no, el de pantalla saldría por encima de la pausa).
+        view.group.alpha = PauseMenu.IsPaused ? 0f : view.alpha;
     }
 
     private float PopScale(View view)
@@ -584,7 +585,7 @@ public class BartenderSpeech : MonoBehaviour
         view.line.text = line;
         view.line.maxVisibleCharacters = 0;
         view.settled = false;
-        float lineHeight = view.line.GetPreferredValues(line, contentWidth, 0f).y;
+        float lineHeight = MeasureHeight(view.line, line, contentWidth);
         Place(view.line.rectTransform, textLeft, top, contentWidth, lineHeight);
         float y = top + lineHeight;
 
@@ -606,7 +607,7 @@ public class BartenderSpeech : MonoBehaviour
             if (!used) continue;
 
             view.rowTexts[i].text = summaries[i];
-            float textHeight = view.rowTexts[i].GetPreferredValues(summaries[i], rowTextWidth, 0f).y;
+            float textHeight = MeasureHeight(view.rowTexts[i], summaries[i], rowTextWidth);
             float rowHeight = Mathf.Max(ChipHeight, textHeight);
             Place(view.rows[i], textLeft, y, contentWidth, rowHeight);
             Place((RectTransform)view.chipTexts[i].transform.parent, 0f, 0f, ChipWidth, ChipHeight);
@@ -638,6 +639,29 @@ public class BartenderSpeech : MonoBehaviour
         {
             view.root.pivot = new Vector2(0.5f, 1f);
         }
+    }
+
+    /// <summary>
+    /// Alto real de un texto con ese ancho. Lo maqueta de verdad (negritas, saltos de línea y espacios que no se parten
+    /// incluidos) y se queda con lo mayor entre eso y GetPreferredValues: GetPreferredValues solo se quedaba corto con
+    /// las palabras resaltadas en negrita, y la última línea se montaba sobre DRINK / THROW.
+    /// </summary>
+    private static float MeasureHeight(TextMeshProUGUI text, string content, float width)
+    {
+        int visible = text.maxVisibleCharacters;
+        text.rectTransform.sizeDelta = new Vector2(width, 4000f);
+        text.text = content;
+        text.maxVisibleCharacters = 99999;
+        text.ForceMeshUpdate(true, true);
+
+        float laidOut = 0f;
+        TMP_TextInfo info = text.textInfo;
+        if (info.lineCount > 0)
+            laidOut = info.lineInfo[0].ascender - info.lineInfo[info.lineCount - 1].descender;
+
+        float preferred = text.GetPreferredValues(content, width, 0f).y;
+        text.maxVisibleCharacters = visible;
+        return Mathf.Max(laidOut, preferred) + text.fontSize * 0.15f;
     }
 
     private static RectTransform NewRect(string objectName, Transform parent)

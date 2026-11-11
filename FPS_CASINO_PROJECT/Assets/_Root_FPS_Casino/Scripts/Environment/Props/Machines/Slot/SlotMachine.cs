@@ -118,9 +118,9 @@ public class SlotMachine : MonoBehaviour, IInteractable
     {
         get
         {
-            if (spinning) return "Girando...";
-            if (selectedBet == null) return "Elige una apuesta primero";
-            return $"Tirar ({selectedBet.BetAmount} pts) [E]";
+            if (spinning) return "Spinning...";
+            if (selectedBet == null) return "Choose a bet first";
+            return $"Spin ({selectedBet.BetAmount} pts) [E]";
         }
     }
 
@@ -161,7 +161,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
         if (shownPoints != null) shownPoints.OnPointsChanged -= RefreshPointsText;
     }
 
-    private void RefreshPointsText() => pointsText.text = $"Puntos: {shownPoints.CurrentPoints}";
+    private void RefreshPointsText() => pointsText.text = $"Points: {shownPoints.CurrentPoints}";
 
     /// <summary>
     /// Grados que hay que girar el cilindro para que el símbolo quede donde está la marca del símbolo 0.
@@ -227,7 +227,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
             Debug.LogWarning("[Tragaperras] El jugador no tiene PlayerPoints: la tirada será gratis y sin premio.", this);
         else if (bet > 0 && !points.TrySpend(bet))
         {
-            ShowResult("Puntos insuficientes");
+            ShowResult("Not enough points");
             return;
         }
 
@@ -359,7 +359,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
         if (!allEqual)
         {
             lastResult = $"{names} · perdido (apuesta {bet})";
-            ShowResult("Has perdido");
+            ShowResult("You lost");
             onLose?.Invoke();
             return;
         }
@@ -370,7 +370,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
         if (points != null) points.AddPoints(won);
 
         lastResult = $"{names} · ganado x{multiplier} = {won} pts";
-        ShowResult($"¡Has ganado! x{multiplier}\n{won} puntos");
+        ShowResult($"You won! x{multiplier}\n{won} points");
         onWin?.Invoke(won);
     }
 

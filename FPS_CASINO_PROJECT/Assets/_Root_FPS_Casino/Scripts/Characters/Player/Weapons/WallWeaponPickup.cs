@@ -18,7 +18,7 @@ public class WallWeaponPickup : MonoBehaviour, IInteractable
     [Tooltip("Muestra en la vista Scene, sobre el arma de pared, qué arma da y si le falta el prefab.")]
     [SerializeField] private bool showDebug;
 
-    public string InteractionPrompt => $"Coger {weaponDisplayName} [E]";
+    public string InteractionPrompt => $"Pick up {weaponDisplayName} [E]";
 
     /// <summary>Nombre del arma (lo usa WallWeaponDisplay para la placa).</summary>
     public string DisplayName => weaponDisplayName;
