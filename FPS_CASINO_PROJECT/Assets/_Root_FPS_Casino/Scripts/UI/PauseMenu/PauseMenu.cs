@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.Audio;
 using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
@@ -12,14 +13,17 @@ using UnityEngine.UI;
 /// (PlayerWakeUpIntro) ni con el jugador muerto.
 ///
 /// Controls cambia la ventana a la lista de teclas (PauseRebindKey), con Return para volver y Reset para dejar las
-/// teclas de siempre (KeyBindings, las mismas que el ATM del menú principal). Escape mientras se cambia una tecla
-/// solo cancela ese cambio; en la lista de teclas vuelve a la pausa.
+/// teclas de siempre (KeyBindings, las mismas que el ATM del menú principal). Audio cambia a los sliders de Music y
+/// SFX (VolumeSlider). Escape mientras se cambia una tecla solo cancela ese cambio; en Controls o Audio vuelve a la
+/// pausa.
 ///
 /// Va en el objeto raíz del Canvas de la pausa (SIEMPRE ACTIVO). La ventana, el oscurecido y el desenfoque empiezan
 /// ocultos. Todo va en tiempo real: funciona con el juego parado (Time.timeScale = 0).
 /// </summary>
 public class PauseMenu : MonoBehaviour
 {
+    private enum View { Pause, Controls, Audio }
+
     [Header("Referencias")]
     [Tooltip("La ventana (PNL_Pause). Sube desde abajo y crece al abrir.")]
     [SerializeField] private RectTransform window;
@@ -33,19 +37,29 @@ public class PauseMenu : MonoBehaviour
     [SerializeField] private GameObject[] pauseView;
     [Tooltip("La pantalla de controles (GRP_Controls).")]
     [SerializeField] private GameObject controlsView;
+    [Tooltip("La pantalla de audio (GRP_Audio).")]
+    [SerializeField] private GameObject audioView;
 
     [Header("Botones")]
     [SerializeField] private Button resumeButton;
     [SerializeField] private Button controlsButton;
+    [SerializeField] private Button audioButton;
     [SerializeField] private Button mainMenuButton;
     [SerializeField] private Button returnButton;
     [SerializeField] private Button resetButton;
+    [SerializeField] private Button audioReturnButton;
     [Tooltip("Escena del menú principal (tiene que estar en Build Settings).")]
     [SerializeField] private string menuSceneName = "SCN_MainMenu";
 
     [Header("Teclas")]
     [Tooltip("Las acciones del jugador (PlayerControls). Las usa Reset para volver a las teclas de siempre.")]
     [SerializeField] private InputActionAsset controls;
+
+    [Header("Audio")]
+    [Tooltip("Audio Mixer del juego (AM_Main). Al empezar se le aplican los volúmenes guardados.")]
+    [SerializeField] private AudioMixer mixer;
+    [Tooltip("Para todos los sonidos del juego mientras está en pausa.")]
+    [SerializeField] private bool pauseAudio = true;
 
     [Header("Jugador (vacío = lo busca solo)")]
     [SerializeField] private PlayerInput playerInput;
@@ -65,17 +79,13 @@ public class PauseMenu : MonoBehaviour
     [Range(0f, 1f)]
     [SerializeField] private float startScale = 0.1f;
 
-    [Header("Audio")]
-    [Tooltip("Para todos los sonidos del juego mientras está en pausa.")]
-    [SerializeField] private bool pauseAudio = true;
-
     /// <summary>True mientras el menú de pausa está abierto.</summary>
     public static bool IsPaused { get; private set; }
 
     private float dimAlpha;
     private float shownY;
     private float progress;   // 0 = abajo y pequeña, 1 = en su sitio y a su tamaño
-    private bool showingControls;
+    private View view;
     private Coroutine routine;
 
     private void Awake()
@@ -87,14 +97,22 @@ public class PauseMenu : MonoBehaviour
         if (window != null) shownY = window.anchoredPosition.y;
 
         if (resumeButton != null) resumeButton.onClick.AddListener(Resume);
-        if (controlsButton != null) controlsButton.onClick.AddListener(ShowControls);
+        if (controlsButton != null) controlsButton.onClick.AddListener(() => SetView(View.Controls));
+        if (audioButton != null) audioButton.onClick.AddListener(() => SetView(View.Audio));
         if (mainMenuButton != null) mainMenuButton.onClick.AddListener(GoToMainMenu);
-        if (returnButton != null) returnButton.onClick.AddListener(ShowPauseView);
+        if (returnButton != null) returnButton.onClick.AddListener(() => SetView(View.Pause));
+        if (audioReturnButton != null) audioReturnButton.onClick.AddListener(() => SetView(View.Pause));
         if (resetButton != null) resetButton.onClick.AddListener(ResetKeys);
 
         IsPaused = false;
-        ShowPauseView();
+        SetView(View.Pause);
         Apply(0f);
+    }
+
+    private void Start()
+    {
+        // Los volúmenes guardados (en la pausa o en el ATM) se aplican al empezar la partida
+        VolumeSettings.ApplySaved(mixer);
     }
 
     private void Update()
@@ -106,7 +124,7 @@ public class PauseMenu : MonoBehaviour
 
         if (IsPaused)
         {
-            if (showingControls) ShowPauseView();
+            if (view != View.Pause) SetView(View.Pause);
             else Resume();
         }
         else if (CanPause())
@@ -148,7 +166,7 @@ public class PauseMenu : MonoBehaviour
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        ShowPauseView();
+        SetView(View.Pause);
         StartAnimation(true);
     }
 
@@ -177,19 +195,16 @@ public class PauseMenu : MonoBehaviour
 
     // ---------------- Pantallas ----------------
 
-    private void ShowPauseView() => SetView(false);
-
-    private void ShowControls() => SetView(true);
-
-    private void SetView(bool controlsVisible)
+    private void SetView(View newView)
     {
-        showingControls = controlsVisible;
+        view = newView;
 
         if (pauseView != null)
             foreach (GameObject go in pauseView)
-                if (go != null) go.SetActive(!controlsVisible);
+                if (go != null) go.SetActive(newView == View.Pause);
 
-        if (controlsView != null) controlsView.SetActive(controlsVisible);
+        if (controlsView != null) controlsView.SetActive(newView == View.Controls);
+        if (audioView != null) audioView.SetActive(newView == View.Audio);
     }
 
     private void ResetKeys()
