@@ -115,6 +115,25 @@ public class SlotMachine : MonoBehaviour, IInteractable
     /// <summary>Multiplicador del último premio (0 si aún no ha tocado nada). Lo usa SlotWinParticles para saber si es jackpot.</summary>
     public float LastWinMultiplier { get; private set; }
 
+    /// <summary>
+    /// Hacia dónde mira la máquina (de dónde viene el jugador), en horizontal. Sale de la marca del símbolo 0 (la
+    /// posición "de frente") vista desde el centro del primer cilindro; sin marcas, el eje Z de la máquina.
+    /// Llamarlo con los cilindros en reposo (al empezar), porque la marca gira con el cilindro.
+    /// </summary>
+    public Vector3 FacingDirection
+    {
+        get
+        {
+            if (symbols != null && symbols.Length > 0 && symbols[0].marker != null && reels != null && reels.Length > 0 && reels[0] != null)
+            {
+                Vector3 dir = Vector3.ProjectOnPlane(symbols[0].marker.position - reels[0].position, Vector3.up);
+                if (dir.sqrMagnitude > 1e-6f) return dir.normalized;
+            }
+            Vector3 forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
+            return forward.sqrMagnitude > 1e-6f ? forward.normalized : Vector3.forward;
+        }
+    }
+
     /// <summary>El multiplicador más alto de esta máquina (el premio más difícil). Lo usa SlotWinParticles para el jackpot.</summary>
     public float HighestMultiplier
     {

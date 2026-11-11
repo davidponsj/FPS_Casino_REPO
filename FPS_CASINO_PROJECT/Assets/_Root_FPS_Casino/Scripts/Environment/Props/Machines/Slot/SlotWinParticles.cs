@@ -19,12 +19,13 @@ using UnityEngine;
 public class SlotWinParticles : MonoBehaviour
 {
     private enum Tier { Normal, Big, Jackpot }
+    public enum FrontMode { Auto, Forward, Back, Right, Left }
 
     [Header("Dónde salen")]
     [Tooltip("Punto del que salen (p. ej. la bandeja o la pantalla de la máquina). Vacío = 1.2 m por encima de la máquina y un poco hacia delante.")]
     [SerializeField] private Transform emitPoint;
-    [Tooltip("Hacia dónde mira la máquina (de dónde viene el jugador). Desmarcado = su eje Z (forward); marcado = el contrario.")]
-    [SerializeField] private bool frontIsBackward;
+    [Tooltip("Hacia dónde mira la máquina (hacia el jugador). Auto = lo saca de la marca \"de frente\" de la tragaperras (la del primer símbolo). Si aun así salen torcidas, elige a mano el eje del objeto que apunta al jugador.")]
+    [SerializeField] private FrontMode front = FrontMode.Auto;
 
     [Header("Premios")]
     [Tooltip("Marcado = jackpot es el símbolo que más paga de la máquina y gordo lo que pague al menos Big Win Fraction de él. Desmarcado = se usan los dos multiplicadores de abajo.")]
@@ -91,7 +92,33 @@ public class SlotWinParticles : MonoBehaviour
     private Coroutine routine;
     private string lastTier = "-";
 
-    private Vector3 Front => frontIsBackward ? -transform.forward : transform.forward;
+    private Vector3 frontCache;
+    private bool frontCached;
+
+    /// <summary>Hacia el jugador, en horizontal. Se calcula una vez al empezar (con los cilindros en reposo).</summary>
+    private Vector3 Front
+    {
+        get
+        {
+            if (frontCached && Application.isPlaying) return frontCache;
+            Vector3 dir;
+            switch (front)
+            {
+                case FrontMode.Forward: dir = transform.forward; break;
+                case FrontMode.Back: dir = -transform.forward; break;
+                case FrontMode.Right: dir = transform.right; break;
+                case FrontMode.Left: dir = -transform.right; break;
+                default:
+                    SlotMachine slot = machine != null ? machine : GetComponent<SlotMachine>();
+                    dir = slot != null ? slot.FacingDirection : transform.forward;
+                    break;
+            }
+            dir = Vector3.ProjectOnPlane(dir, Vector3.up);
+            dir = dir.sqrMagnitude > 1e-6f ? dir.normalized : Vector3.forward;
+            if (Application.isPlaying) { frontCache = dir; frontCached = true; }
+            return dir;
+        }
+    }
 
     private void Awake()
     {
