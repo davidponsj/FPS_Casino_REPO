@@ -82,6 +82,12 @@ public class PlayerVomit : MonoBehaviour
     [Tooltip("Material de la neblina. Vacío = se crea por código.")]
     [SerializeField] private Material mistMaterial;
 
+    [Header("Efecto de partículas (recomendado)")]
+    [Tooltip("Prefab con el efecto de vómito hecho en el editor de partículas (p. ej. PF_VomitFX, a partir de las partículas de líquido de PF_BottleBreak). Sale de la boca: su eje Z es hacia dónde sale el chorro. Sus Particle Systems tienen que estar en Looping; este script sube y baja su emisión con Spew Rate. Vacío = partículas por código.")]
+    [SerializeField] private GameObject effectPrefab;
+    [Tooltip("Pinta las partículas del prefab con Vomit Colors (para poder reutilizar un efecto blanco o de otro color).")]
+    [SerializeField] private bool tintEffect = true;
+
     [Header("Charco")]
     [Tooltip("Diámetro del charco de vómito en el suelo, en metros. 0 = sin charco.")]
     [Min(0f)]
@@ -121,6 +127,9 @@ public class PlayerVomit : MonoBehaviour
     private Vector3 startLocalPosition;
     private Quaternion startLocalRotation;
     private ParticleSystem drops, chunks, mist;
+    private ParticleSystem[] effectSystems;   // las del prefab (si hay)
+    private float[] effectBaseRates;          // su emisión tal cual está en el prefab
+    private float spewPeak = 1f;              // el máximo de Spew Rate, para pasar la curva a 0-1 con el prefab
     private Transform mouth;
     private Image tint;
     private AudioSource audioSource;
@@ -163,10 +172,17 @@ public class PlayerVomit : MonoBehaviour
             foreach (GameObject hidden in hideWhileVomiting)
                 if (hidden != null) hidden.SetActive(false);
 
-        if (drops == null) Build();
-        drops.Play();
-        chunks.Play();
-        mist.Play();
+        if (mouth == null) Build();
+        if (effectSystems != null)
+        {
+            foreach (ParticleSystem system in effectSystems) system.Play();
+        }
+        else
+        {
+            drops.Play();
+            chunks.Play();
+            mist.Play();
+        }
 
         if (showDebug) Debug.Log("[Vómito] Empieza.", this);
     }
@@ -206,13 +222,7 @@ public class PlayerVomit : MonoBehaviour
         transform.localRotation = startLocalRotation * Quaternion.Euler(pitchDegrees.Evaluate(t) + nx, sway * 0.5f + ny, sway * 0.6f + nz);
 
         // ---- Vómito ----
-        var emission = drops.emission;
-        float rate = spewRate.Evaluate(t);
-        emission.rateOverTime = rate;
-        var chunkEmission = chunks.emission;
-        chunkEmission.rateOverTime = rate * chunkShare;
-        var mistEmission = mist.emission;
-        mistEmission.rateOverTime = rate * 0.35f;
+        SetSpew(spewRate.Evaluate(t));
 
         if (tint != null)
         {
@@ -233,17 +243,31 @@ public class PlayerVomit : MonoBehaviour
     private void Stop(bool finishedNormally)
     {
         IsPlaying = false;
-        if (drops != null)
-        {
-            var emission = drops.emission; emission.rateOverTime = 0f;
-            var chunkEmission = chunks.emission; chunkEmission.rateOverTime = 0f;
-            var mistEmission = mist.emission; mistEmission.rateOverTime = 0f;
-        }
+        if (mouth != null) SetSpew(0f);
         if (showDebug) Debug.Log(finishedNormally ? "[Vómito] Acaba: ahora mueres." : "[Vómito] Cortado: te han matado.", this);
 
         Action finished = onFinished;
         onFinished = null;
         if (finishedNormally) finished?.Invoke();
+    }
+
+    /// <summary>Cuánto vómito sale ahora (gotas por segundo de Spew Rate).</summary>
+    private void SetSpew(float rate)
+    {
+        if (effectSystems != null)
+        {
+            // Prefab: se respeta su emisión y se escala con la curva (0 = nada, el pico de la curva = lo del prefab).
+            float k = Mathf.Clamp01(rate / spewPeak);
+            for (int i = 0; i < effectSystems.Length; i++)
+            {
+                var emission = effectSystems[i].emission;
+                emission.rateOverTimeMultiplier = effectBaseRates[i] * k;
+            }
+            return;
+        }
+        var dropEmission = drops.emission; dropEmission.rateOverTime = rate;
+        var chunkEmission = chunks.emission; chunkEmission.rateOverTime = rate * chunkShare;
+        var mistEmission = mist.emission; mistEmission.rateOverTime = rate * 0.35f;
     }
 
     private AudioClip Clip(int index) =>
@@ -314,6 +338,29 @@ public class PlayerVomit : MonoBehaviour
         mouth.SetParent(transform, false);
         mouth.localPosition = new Vector3(0f, -0.12f, 0.2f);
         mouth.localRotation = Quaternion.Euler(20f, 0f, 0f); // un poco hacia abajo
+
+        BuildTint();
+        foreach (Keyframe key in spewRate.keys) spewPeak = Mathf.Max(spewPeak, key.value);
+
+        if (effectPrefab != null)
+        {
+            GameObject effect = Instantiate(effectPrefab, mouth);
+            effect.transform.localPosition = Vector3.zero;
+            effect.transform.localRotation = Quaternion.identity;
+            effectSystems = effect.GetComponentsInChildren<ParticleSystem>(true);
+            effectBaseRates = new float[effectSystems.Length];
+            for (int i = 0; i < effectSystems.Length; i++)
+            {
+                ParticleSystem system = effectSystems[i];
+                system.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                var systemMain = system.main;
+                systemMain.loop = true;
+                systemMain.playOnAwake = false;
+                if (tintEffect) systemMain.startColor = RandomColors();
+                effectBaseRates[i] = system.emission.rateOverTimeMultiplier;
+            }
+            return; // con prefab no se crean las partículas por código
+        }
 
         Material liquid = dropMaterial != null ? dropMaterial : CreateUnlitMaterial("VomitLiquid (auto)", Blob(0.55f));
         Material misty = mistMaterial != null ? mistMaterial : CreateUnlitMaterial("VomitMist (auto)", Blob(0f));
@@ -437,8 +484,6 @@ public class PlayerVomit : MonoBehaviour
         mistRenderer.renderMode = ParticleSystemRenderMode.Billboard;
         mistRenderer.sharedMaterial = misty;
         mistRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-
-        BuildTint();
     }
 
     private static ParticleSystem CreateSystem(string systemName, Transform parent, out ParticleSystemRenderer renderer)
