@@ -32,6 +32,10 @@ public class RoundManager : MonoBehaviour
     [Header("Cantidad")]
     [Tooltip("Máximo de enemigos vivos a la vez. El resto espera a que mueran los primeros. 24 = como CoD Zombies.")]
     [SerializeField, Min(1)] private int maxAlive = 24;
+    [Tooltip("Multiplica los enemigos de cada ronda de CoD. 1 = CoD exacto, 1.25 = un 25% más en todas las rondas.")]
+    [SerializeField, Min(0f)] private float enemyCountMultiplier = 1.25f;
+    [Tooltip("Enemigos que se suman a cada ronda (después del multiplicador). Pesa mucho al principio y casi nada al final. 0 = CoD, 4 = la ronda 1 pasa de 6 a 12.")]
+    [SerializeField, Min(0)] private int extraEnemiesPerRound = 4;
 
     [Header("Tiempos")]
     [Tooltip("Segundos entre spawns en la ronda 1. 2 = empieza tranquilo.")]
@@ -40,6 +44,8 @@ public class RoundManager : MonoBehaviour
     [SerializeField, Range(0.5f, 1f)] private float spawnDelayMultiplier = 0.95f;
     [Tooltip("Segundos mínimos entre spawns, por muy alta que sea la ronda. 0.08 = casi de golpe.")]
     [SerializeField, Min(0f)] private float minSpawnDelay = 0.08f;
+    [Tooltip("Azar en la espera entre spawns, en fracción de la espera. 0 = ritmo fijo (llegan en fila), 0.7 = entre el 30% y el 170%: a veces salen dos casi juntos y a veces hay una pausa.")]
+    [SerializeField, Range(0f, 1f)] private float spawnDelayRandomness = 0.7f;
     [Tooltip("Segundos de descanso entre que muere el último enemigo y empieza la ronda siguiente. 10 = da tiempo a comprar.")]
     [SerializeField, Min(0f)] private float secondsBetweenRounds = 10f;
 
@@ -54,6 +60,8 @@ public class RoundManager : MonoBehaviour
     [SerializeField, Range(0f, 180f)] private float minAngleBetweenSpawns = 45f;
     [Tooltip("Capas que tapan la vista del jugador. Sin la capa Enemy, o un enemigo taparía el spawn de otro.")]
     [SerializeField] private LayerMask visionBlockers = ~0;
+    [Tooltip("Prefiere puntos tapados por una pared (Vision Blockers) entre la cámara y el enemigo: salen de detrás de las paredes. Si no encuentra ninguno, vale uno fuera de pantalla. Desmarcado = basta con estar fuera de la vista.")]
+    [SerializeField] private bool preferSpawnBehindCover = true;
     [Tooltip("Metros sobre el suelo a los que se mira si el jugador ve el punto (más o menos el pecho del enemigo).")]
     [SerializeField, Min(0f)] private float visibilityCheckHeight = 1f;
     [Tooltip("Puntos al azar que se prueban por cada spawn. Más = mejores sitios pero más coste. 10 = suficiente.")]
@@ -110,6 +118,14 @@ public class RoundManager : MonoBehaviour
             : total;
     }
 
+    /// <summary>Enemigos de la ronda con los ajustes del Inspector: (CoD × multiplicador, redondeado) + extra.</summary>
+    public static int ScaledEnemyCount(int round, float multiplier, int extra) =>
+        Mathf.RoundToInt(EnemiesForRound(round) * multiplier) + extra;
+
+    /// <summary>Espera entre spawns con azar: "random01" de 0 a 1 la lleva de base × (1 - azar) a base × (1 + azar).</summary>
+    public static float RandomizedSpawnDelay(float baseDelay, float randomness, float random01) =>
+        baseDelay * Mathf.Lerp(1f - randomness, 1f + randomness, random01);
+
     public static float SpawnDelayForRound(int round, float firstRoundDelay, float multiplier, float minDelay) =>
         Mathf.Max(minDelay, firstRoundDelay * Mathf.Pow(multiplier, round - 1));
 
@@ -158,10 +174,9 @@ public class RoundManager : MonoBehaviour
             CurrentRound++;
             OnRoundStarted?.Invoke(CurrentRound);
 
-            int toSpawn = EnemiesForRound(CurrentRound);
+            int toSpawn = ScaledEnemyCount(CurrentRound, enemyCountMultiplier, extraEnemiesPerRound);
             EnemiesLeftInRound = toSpawn;
             currentSpawnDelay = SpawnDelayForRound(CurrentRound, firstRoundSpawnDelay, spawnDelayMultiplier, minSpawnDelay);
-            var spawnDelay = new WaitForSeconds(currentSpawnDelay);
 
             currentEnemyHealth = HealthForRound(CurrentRound, firstRoundHealth, healthPerRound, multiplyFromRound, healthMultiplierPerRound);
             if (limitHealth) currentEnemyHealth = Mathf.Min(currentEnemyHealth, maxEnemyHealth);
@@ -171,7 +186,14 @@ public class RoundManager : MonoBehaviour
                 pendingSpawns = toSpawn - spawned;
                 yield return waitForFreeSlot;
                 if (TrySpawn()) spawned++;
-                yield return spawnDelay;
+
+                // Cuenta a mano en vez de WaitForSeconds: cada espera es distinta y así no se crea un objeto por spawn.
+                float wait = RandomizedSpawnDelay(currentSpawnDelay, spawnDelayRandomness, UnityEngine.Random.value);
+                while (wait > 0f)
+                {
+                    wait -= Time.deltaTime;
+                    yield return null;
+                }
             }
             pendingSpawns = 0;
 
@@ -215,6 +237,8 @@ public class RoundManager : MonoBehaviour
         float maxPathLength = maxSpawnDistance * maxPathFactor;
         float fallbackPathLength = -1f;
         Vector3 fallbackPoint = default;
+        bool hasHiddenFallback = false;
+        Vector3 hiddenFallback = default;
 
         for (int i = 0; i < candidatesPerSpawn; i++)
         {
@@ -239,7 +263,25 @@ public class RoundManager : MonoBehaviour
             if (IsVisibleToPlayer(hit.position) || IsCloseToRecentDirection(direction))
                 continue;
 
+            // Fuera de la vista pero sin pared delante: se guarda por si no sale ninguno tapado.
+            if (preferSpawnBehindCover && !IsBehindCover(hit.position))
+            {
+                if (!hasHiddenFallback)
+                {
+                    hiddenFallback = hit.position;
+                    hasHiddenFallback = true;
+                }
+                continue;
+            }
+
             spawnPoint = hit.position;
+            RememberSpawn(spawnPoint);
+            return true;
+        }
+
+        if (hasHiddenFallback)
+        {
+            spawnPoint = hiddenFallback;
             RememberSpawn(spawnPoint);
             return true;
         }
@@ -273,7 +315,15 @@ public class RoundManager : MonoBehaviour
         Vector3 viewport = playerCamera.WorldToViewportPoint(target);
         bool onScreen = viewport.z > 0f && viewport.x >= 0f && viewport.x <= 1f && viewport.y >= 0f && viewport.y <= 1f;
 
-        return onScreen && !Physics.Linecast(playerCamera.transform.position, target, visionBlockers, QueryTriggerInteraction.Ignore);
+        return onScreen && !IsBehindCover(point);
+    }
+
+    /// <summary>Hay algo de Vision Blockers entre la cámara y el punto (una pared lo tapa).</summary>
+    private bool IsBehindCover(Vector3 point)
+    {
+        if (playerCamera == null) return false;
+        return Physics.Linecast(playerCamera.transform.position, point + Vector3.up * visibilityCheckHeight,
+                                visionBlockers, QueryTriggerInteraction.Ignore);
     }
 
     private bool IsCloseToRecentDirection(Vector3 direction)
