@@ -115,15 +115,15 @@ public class RouletteMachine : MonoBehaviour, IInteractable
     {
         get
         {
-            if (spinning) return "Girando...";
+            if (spinning) return "Spinning...";
 
             if (ticketDispenser != null && ticketDispenser.HasTicketWaiting)
-                return $"Coger {ticketDispenser.WaitingTicketName} [E]";
+                return $"Take {ticketDispenser.WaitingTicketName} [E]";
 
-            if (PlayerHasTicket) return "Gasta tu ticket";
-            if (PlayerHasBottle) return "Usa tu botella";
+            if (PlayerHasTicket) return "Spend your ticket at the bar";
+            if (PlayerHasBottle) return "Use your bottle first";
 
-            return $"Jugar a la ruleta ({spinCost} pts) [E]";
+            return $"Play roulette ({spinCost} pts) [E]";
         }
     }
 

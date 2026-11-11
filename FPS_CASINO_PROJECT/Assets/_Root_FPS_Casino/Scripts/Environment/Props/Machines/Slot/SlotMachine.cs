@@ -112,15 +112,49 @@ public class SlotMachine : MonoBehaviour, IInteractable
     private string lastResult = "-";
 
     public bool IsSpinning => spinning;
+    /// <summary>Multiplicador del último premio (0 si aún no ha tocado nada). Lo usa SlotWinParticles para saber si es jackpot.</summary>
+    public float LastWinMultiplier { get; private set; }
+
+    /// <summary>
+    /// Hacia dónde mira la máquina (de dónde viene el jugador), en horizontal. Sale de la marca del símbolo 0 (la
+    /// posición "de frente") vista desde el centro del primer cilindro; sin marcas, el eje Z de la máquina.
+    /// Llamarlo con los cilindros en reposo (al empezar), porque la marca gira con el cilindro.
+    /// </summary>
+    public Vector3 FacingDirection
+    {
+        get
+        {
+            if (symbols != null && symbols.Length > 0 && symbols[0].marker != null && reels != null && reels.Length > 0 && reels[0] != null)
+            {
+                Vector3 dir = Vector3.ProjectOnPlane(symbols[0].marker.position - reels[0].position, Vector3.up);
+                if (dir.sqrMagnitude > 1e-6f) return dir.normalized;
+            }
+            Vector3 forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
+            return forward.sqrMagnitude > 1e-6f ? forward.normalized : Vector3.forward;
+        }
+    }
+
+    /// <summary>El multiplicador más alto de esta máquina (el premio más difícil). Lo usa SlotWinParticles para el jackpot.</summary>
+    public float HighestMultiplier
+    {
+        get
+        {
+            float highest = 0f;
+            if (symbols != null)
+                foreach (Symbol symbol in symbols)
+                    if (symbol != null) highest = Mathf.Max(highest, symbol.multiplier);
+            return highest;
+        }
+    }
     public int ReelCount => reels != null ? reels.Length : 0;
 
     public string InteractionPrompt
     {
         get
         {
-            if (spinning) return "Girando...";
-            if (selectedBet == null) return "Elige una apuesta primero";
-            return $"Tirar ({selectedBet.BetAmount} pts) [E]";
+            if (spinning) return "Spinning...";
+            if (selectedBet == null) return "Choose a bet first";
+            return $"Spin ({selectedBet.BetAmount} pts) [E]";
         }
     }
 
@@ -161,7 +195,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
         if (shownPoints != null) shownPoints.OnPointsChanged -= RefreshPointsText;
     }
 
-    private void RefreshPointsText() => pointsText.text = $"Puntos: {shownPoints.CurrentPoints}";
+    private void RefreshPointsText() => pointsText.text = $"Points: {shownPoints.CurrentPoints}";
 
     /// <summary>
     /// Grados que hay que girar el cilindro para que el símbolo quede donde está la marca del símbolo 0.
@@ -227,7 +261,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
             Debug.LogWarning("[Tragaperras] El jugador no tiene PlayerPoints: la tirada será gratis y sin premio.", this);
         else if (bet > 0 && !points.TrySpend(bet))
         {
-            ShowResult("Puntos insuficientes");
+            ShowResult("Not enough points");
             return;
         }
 
@@ -359,7 +393,7 @@ public class SlotMachine : MonoBehaviour, IInteractable
         if (!allEqual)
         {
             lastResult = $"{names} · perdido (apuesta {bet})";
-            ShowResult("Has perdido");
+            ShowResult("You lost");
             onLose?.Invoke();
             return;
         }
@@ -368,9 +402,10 @@ public class SlotMachine : MonoBehaviour, IInteractable
         int won = Mathf.RoundToInt(bet * multiplier);
 
         if (points != null) points.AddPoints(won);
+        LastWinMultiplier = multiplier;
 
         lastResult = $"{names} · ganado x{multiplier} = {won} pts";
-        ShowResult($"¡Has ganado! x{multiplier}\n{won} puntos");
+        ShowResult($"You won! x{multiplier}\n{won} points");
         onWin?.Invoke(won);
     }
 

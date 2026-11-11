@@ -26,9 +26,9 @@ public class Bartender : MonoBehaviour, IInteractable
         get
         {
             var inv = TicketInventory.Instance;
-            if (bottleHolder != null && bottleHolder.HasBottle) return "Usa la botella";
-            if (inv != null && inv.HasTicket) return "Cambiar ticket por bebida [E]";
-            return "Necesitas un ticket";
+            if (bottleHolder != null && bottleHolder.HasBottle) return "Use your bottle first";
+            if (inv != null && inv.HasTicket) return "Trade ticket for a drink [E]";
+            return "You need a ticket";
         }
     }
 

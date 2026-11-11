@@ -44,9 +44,9 @@ public class SlotBetButton : MonoBehaviour, IInteractable
     {
         get
         {
-            if (machine != null && machine.IsSpinning) return "Girando...";
-            if (selected) return $"Apuesta de {betAmount} pts seleccionada";
-            return $"Apostar {betAmount} pts [E]";
+            if (machine != null && machine.IsSpinning) return "Spinning...";
+            if (selected) return $"{betAmount} pts bet selected";
+            return $"Bet {betAmount} pts [E]";
         }
     }
 

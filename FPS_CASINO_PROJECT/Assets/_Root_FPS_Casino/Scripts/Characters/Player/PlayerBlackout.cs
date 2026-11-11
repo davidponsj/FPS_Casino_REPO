@@ -4,7 +4,7 @@ using UnityEngine;
 /// <summary>
 /// Barra de blackout. Cada botella que te BEBES sube 1/bottlesToBlackout de la barra (un tercio con 3);
 /// las que lanzas no cuentan. La barra baja sola: llena del todo, tarda secondsToEmpty segundos en
-/// vaciarse. Si llega al 100%, el jugador sufre un blackout y muere.
+/// vaciarse. Si llega al 100%, el jugador sufre un blackout: vomita (PlayerVomit, si está) y muere.
 ///
 /// Se engancha al evento OnEffectStarted del BottleHolder (que solo salta al beber), así que no
 /// hay que tocar el BottleHolder: basta con poner este componente en el Player.
@@ -19,6 +19,8 @@ public class PlayerBlackout : MonoBehaviour
     [SerializeField] private BottleHolder bottleHolder;
     [Tooltip("Al que mata el blackout. Si está vacío, usa el PlayerHealth del mismo objeto.")]
     [SerializeField] private PlayerHealth playerHealth;
+    [Tooltip("Vómito antes de morir (en la Main Camera). Si está vacío, lo busca en los hijos; si no hay, mueres directamente.")]
+    [SerializeField] private PlayerVomit vomit;
 
     [Header("Barra")]
     [Tooltip("Botellas seguidas que provocan el blackout. Con 3, cada botella sube un tercio de la barra.")]
@@ -47,6 +49,7 @@ public class PlayerBlackout : MonoBehaviour
     {
         if (bottleHolder == null) bottleHolder = GetComponent<BottleHolder>();
         if (playerHealth == null) playerHealth = GetComponent<PlayerHealth>();
+        if (vomit == null) vomit = GetComponentInChildren<PlayerVomit>(true);
     }
 
     private void OnEnable()
@@ -91,7 +94,16 @@ public class PlayerBlackout : MonoBehaviour
         blackedOut = true;
         OnBlackout?.Invoke();
 
-        if (playerHealth != null)
+        // Primero vomita y, al acabar, muere (la caída de borracho de PlayerDeathAnimation empieza desde ahí).
+        if (vomit != null && vomit.isActiveAndEnabled)
+            vomit.Play(Die);
+        else
+            Die();
+    }
+
+    private void Die()
+    {
+        if (playerHealth != null && !playerHealth.IsDead)
             playerHealth.Kill();
     }
 
