@@ -9,6 +9,9 @@ using UnityEngine;
 /// del FBX (WeaponAnimator mueve las piezas del modelo; esto mueve el arma entera), así que pueden usarse a la vez.
 /// Los movimientos se miden desde la cámara (atrás = hacia ti, arriba = hacia el techo de la pantalla), así que valen
 /// igual para todas las armas aunque cada prefab esté girado y escalado distinto dentro del WeaponHolder.
+///
+/// En el editor, en Play, se puede mover y girar el arma desde el Inspector o la vista Scene para colocarla: el script
+/// lo detecta y toma esa nueva posición como la de reposo. Luego se copia el Transform y se pega en el prefab.
 /// </summary>
 [RequireComponent(typeof(WeaponBase))]
 public class WeaponRecoil : MonoBehaviour
@@ -62,6 +65,13 @@ public class WeaponRecoil : MonoBehaviour
     private Vector2 targetOffset, currentOffset;
     private Vector3 targetAngles, currentAngles;
 
+#if UNITY_EDITOR
+    // Lo que el script dejó puesto en el último frame: si al siguiente es distinto, lo has movido tú (Inspector o Scene).
+    private Vector3 lastAppliedLocalPosition;
+    private Quaternion lastAppliedLocalRotation = Quaternion.identity;
+    private bool hasApplied;
+#endif
+
     private void Awake()
     {
         weapon = GetComponent<WeaponBase>();
@@ -107,8 +117,30 @@ public class WeaponRecoil : MonoBehaviour
         currentOffset = Vector2.Lerp(currentOffset, targetOffset, snap);
         currentAngles = Vector3.Lerp(currentAngles, targetAngles, snap);
 
+#if UNITY_EDITOR
+        AdoptManualEdits();
+#endif
         ApplyPose();
+#if UNITY_EDITOR
+        lastAppliedLocalPosition = transform.localPosition;
+        lastAppliedLocalRotation = transform.localRotation;
+        hasApplied = true;
+#endif
     }
+
+#if UNITY_EDITOR
+    /// <summary>Si has movido o girado el arma a mano desde el último frame, ese cambio pasa a la pose de reposo.</summary>
+    private void AdoptManualEdits()
+    {
+        if (!hasApplied) return;
+        Vector3 movedBy = transform.localPosition - lastAppliedLocalPosition;
+        Quaternion turnedBy = transform.localRotation * Quaternion.Inverse(lastAppliedLocalRotation);
+        if (movedBy.sqrMagnitude < 1e-10f && Quaternion.Angle(Quaternion.identity, turnedBy) < 0.001f) return;
+
+        baseLocalPosition += movedBy;
+        baseLocalRotation = turnedBy * baseLocalRotation;
+    }
+#endif
 
     /// <summary>
     /// Coloca el arma: su pose de reposo más el golpe, medido en los ejes de la cámara. Así "atrás" es siempre hacia
