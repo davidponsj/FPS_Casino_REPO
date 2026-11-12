@@ -8,8 +8,8 @@ using UnityEditor.Animations;
 /// <summary>
 /// Animaciones del barman. Escucha al Bartender (no hay que conectar nada más):
 /// - Normal: AC_IDLE en bucle.
-/// - Al darte la botella: AC_BOTTLE, luego se queda con la botella (AC_BOTTLE_idle en bucle) unos segundos y vuelve a
-///   la pose normal con AC_BottleidleToIdle.
+/// - Al darle el ticket: saca la botella (AC_BOTTLE) y se queda con ella en la mano (AC_BOTTLE_idle en bucle) hasta que
+///   vuelves a pulsar E para cogerla; entonces vuelve a la pose normal con AC_BottleidleToIdle.
 /// - Si pulsas E sin ticket (o con una botella aún en la mano): AC_NOTICKET, el "no" (con un tiempo mínimo entre uno y
 ///   otro para que no repita si machacas la E).
 /// El botón "Crear Animator Controller" del Inspector monta ACR_Bartender con esos estados y transiciones, marca en
@@ -33,11 +33,6 @@ public class BartenderAnimation : MonoBehaviour
     [Tooltip("Animator del modelo del barman (el hijo con el FBX). Vacío = lo busca en los hijos.")]
     [SerializeField] private Animator animator;
 
-    [Header("Botella")]
-    [Tooltip("Segundos que se queda con la botella en la mano (AC_BOTTLE_idle) después de dártela, antes de volver a la pose normal.")]
-    [Min(0f)]
-    [SerializeField] private float holdSeconds = 2f;
-
     [Header("Sin ticket")]
     [Tooltip("Segundos mínimos entre dos \"no\" seguidos si el jugador pulsa E muchas veces.")]
     [Min(0f)]
@@ -55,9 +50,7 @@ public class BartenderAnimation : MonoBehaviour
 #pragma warning restore 0414, 0169
 
     private Bartender bartender;
-    private float holdUntil = -1f;
     private float nextRefuse;
-    private float bottleLength = 2.5f;
 
     private void Awake()
     {
@@ -65,44 +58,42 @@ public class BartenderAnimation : MonoBehaviour
         if (animator == null) animator = GetComponentInChildren<Animator>();
         if (animator == null) return;
         animator.applyRootMotion = false; // las animaciones no mueven al barman de su sitio
+        // La botella se puede coger justo cuando acaba de sacarla.
         if (animator.runtimeAnimatorController != null)
             foreach (AnimationClip clip in animator.runtimeAnimatorController.animationClips)
-                if (clip != null && clip.name == BottleClip) bottleLength = clip.length;
+                if (clip != null && clip.name == BottleClip) bartender.PrepareSeconds = clip.length;
     }
 
     private void OnEnable()
     {
+        bartender.TicketTaken += HandleTicketTaken;
         bartender.BottleGiven += HandleBottleGiven;
         bartender.Refused += HandleRefused;
     }
 
     private void OnDisable()
     {
+        bartender.TicketTaken -= HandleTicketTaken;
         bartender.BottleGiven -= HandleBottleGiven;
         bartender.Refused -= HandleRefused;
     }
 
-    private void Update()
+    private void HandleTicketTaken(TicketData ticket)
     {
-        if (holdUntil > 0f && Time.time >= holdUntil)
-        {
-            holdUntil = -1f;
-            if (animator != null) animator.SetBool(HoldingHash, false);
-        }
+        if (animator == null) return;
+        animator.ResetTrigger(RefuseHash);
+        animator.SetBool(HoldingHash, true);   // la sujeta hasta que la cojas
+        animator.SetTrigger(GiveHash);
     }
 
     private void HandleBottleGiven(TicketData ticket)
     {
-        if (animator == null) return;
-        animator.ResetTrigger(RefuseHash);
-        animator.SetBool(HoldingHash, true);
-        animator.SetTrigger(GiveHash);
-        holdUntil = Time.time + bottleLength + holdSeconds;
+        if (animator != null) animator.SetBool(HoldingHash, false);
     }
 
     private void HandleRefused()
     {
-        if (animator == null || Time.time < nextRefuse || holdUntil > 0f) return;
+        if (animator == null || Time.time < nextRefuse || bartender.IsBusy) return;
         nextRefuse = Time.time + refuseCooldown;
         animator.SetTrigger(RefuseHash);
     }
@@ -202,8 +193,7 @@ public class BartenderAnimation : MonoBehaviour
         if (!showDebug || !Application.isPlaying || animator == null || animator.runtimeAnimatorController == null) return;
         AnimatorClipInfo[] info = animator.GetCurrentAnimatorClipInfo(0);
         string clip = info.Length > 0 ? info[0].clip.name : "-";
-        string hold = holdUntil > 0f ? $" · suelta en {holdUntil - Time.time:0.0} s" : "";
-        DebugLabels.At(transform.position + Vector3.up * 2.2f, 1, $"Barman · {clip}{hold}", DebugLabels.Casino);
+        DebugLabels.At(transform.position + Vector3.up * 2.2f, 1, $"Animación · {clip}", DebugLabels.Casino);
     }
 #endif
 }

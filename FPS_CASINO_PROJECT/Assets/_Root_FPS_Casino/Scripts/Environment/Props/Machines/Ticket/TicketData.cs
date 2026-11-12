@@ -10,7 +10,10 @@ public class TicketData : ScriptableObject
     public Color ticketColor = Color.white;
     public string displayName = "Ticket";
     public Sprite icon;
+    [Tooltip("Modelo del ticket que sale de la ruleta (PF_Ticket).")]
     public GameObject worldPrefab;
+    [Tooltip("Material de este color para el modelo (M_Ticket_Verde...). Vacío = el modelo se tiñe con Ticket Color.")]
+    public Material worldMaterial;
     [Tooltip("Botella que da el barman por este ticket (SO_BottleEffect_*).")]
     public BottleEffect bottleEffect;
 

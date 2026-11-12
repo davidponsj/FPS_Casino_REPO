@@ -21,6 +21,8 @@ public class PlayerBuffs : MonoBehaviour
     [Header("Referencias")]
     [Tooltip("Para las botellas que curan o matan. Si está vacío, usa el PlayerHealth del mismo objeto.")]
     [SerializeField] private PlayerHealth playerHealth;
+    [Tooltip("Vómito del jugador (en la cámara). La botella negra hace vomitar antes de morir. Vacío = lo busca en los hijos; si no hay, muere directamente.")]
+    [SerializeField] private PlayerVomit vomit;
 
     [Header("Depuración")]
     [Tooltip("Muestra sobre el jugador, en la vista Scene, los efectos activos con su valor y los segundos que les quedan.")]
@@ -38,6 +40,7 @@ public class PlayerBuffs : MonoBehaviour
     private void Awake()
     {
         if (playerHealth == null) playerHealth = GetComponent<PlayerHealth>();
+        if (vomit == null) vomit = GetComponentInChildren<PlayerVomit>(true);
     }
 
     /// <summary>Activa una mejora durante unos segundos. Si ya estaba activa, se sustituye (no se acumula).</summary>
@@ -62,7 +65,12 @@ public class PlayerBuffs : MonoBehaviour
         switch (effect.drinkEffect)
         {
             case BottleEffect.DrinkEffect.KillSelf:
-                if (playerHealth != null) playerHealth.Kill();
+                // Primero vomita y, al acabar, muere (como el blackout). Si ya está vomitando por el blackout, ese vómito ya le mata.
+                if (vomit != null && vomit.isActiveAndEnabled)
+                {
+                    if (!vomit.IsPlaying) vomit.Play(KillAfterVomit);
+                }
+                else KillAfterVomit();
                 break;
             case BottleEffect.DrinkEffect.HealPercent:
                 if (playerHealth != null) playerHealth.HealPercent(effect.drinkValue);
@@ -80,6 +88,10 @@ public class PlayerBuffs : MonoBehaviour
                 Apply(Stat.SlotLuck, effect.drinkValue, effect.drinkDuration);
                 break;
         }
+    }
+    private void KillAfterVomit()
+    {
+        if (playerHealth != null && !playerHealth.IsDead) playerHealth.Kill();
     }
 
     public void ApplyThrowSelfEffect(BottleEffect effect)

@@ -47,6 +47,12 @@ public class RouletteMachine : MonoBehaviour, IInteractable
     [FormerlySerializedAs("cost")]
     [Min(0)]
     [SerializeField] private int spinCost = 100;
+    [Tooltip("Puntos que sube la tirada cada vez que la ruleta da una botella (ticket): cada botella sale más cara. 0 = siempre igual.")]
+    [Min(0)]
+    [SerializeField] private int costIncreasePerBottle = 75;
+    [Tooltip("Coste máximo de la tirada. 0 = sin límite.")]
+    [Min(0)]
+    [SerializeField] private int maxSpinCost = 1500;
 
     [Header("Bola en la madera (parte fija)")]
     [Tooltip("Radio por el que rueda la bola sobre la madera")]
@@ -123,7 +129,19 @@ public class RouletteMachine : MonoBehaviour, IInteractable
             if (PlayerHasTicket) return "Spend your ticket at the bar";
             if (PlayerHasBottle) return "Use your bottle first";
 
-            return $"Play roulette ({spinCost} pts) [E]";
+            return $"Play roulette ({CurrentSpinCost} pts) [E]";
+        }
+    }
+
+    private int bottlesWon;
+
+    /// <summary>Lo que cuesta ahora la tirada: sube con cada botella ganada, hasta Max Spin Cost.</summary>
+    public int CurrentSpinCost
+    {
+        get
+        {
+            int cost = spinCost + costIncreasePerBottle * bottlesWon;
+            return maxSpinCost > 0 ? Mathf.Min(cost, Mathf.Max(maxSpinCost, spinCost)) : cost;
         }
     }
 
@@ -180,7 +198,7 @@ public class RouletteMachine : MonoBehaviour, IInteractable
         PlayerPoints points = interactor != null ? interactor.GetComponentInParent<PlayerPoints>() : null;
         if (points == null)
             Debug.LogWarning("[Ruleta] El jugador no tiene PlayerPoints: la tirada será gratis.", this);
-        else if (spinCost > 0 && !points.TrySpend(spinCost))
+        else if (CurrentSpinCost > 0 && !points.TrySpend(CurrentSpinCost))
         {
             onNotEnoughPoints?.Invoke();
             return;
@@ -340,6 +358,7 @@ public class RouletteMachine : MonoBehaviour, IInteractable
 
         if (result.ticket != null && ticketDispenser != null)
             ticketDispenser.Spawn(result);
+        if (result.ticket != null) bottlesWon++; // la siguiente tirada cuesta más
 
         onSpinFinished?.Invoke(result);
 
@@ -430,7 +449,7 @@ public class RouletteMachine : MonoBehaviour, IInteractable
             : $"{lastResult.colorName} ({(lastResult.ticket != null ? lastResult.ticket.displayName : "sin ticket")})";
 
         Vector3 center = wheelCenter ? wheelCenter.position : transform.position;
-        DebugLabels.At(center + Vector3.up * 1.5f, 0, $"Ruleta · {spinCost} pts · {state}\nÚltimo resultado: {last}", DebugLabels.Casino);
+        DebugLabels.At(center + Vector3.up * 1.5f, 0, $"Ruleta · {CurrentSpinCost} pts ({bottlesWon} botellas) · {state}\nÚltimo resultado: {last}", DebugLabels.Casino);
     }
 #endif
 }

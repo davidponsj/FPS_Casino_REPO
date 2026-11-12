@@ -4,7 +4,8 @@ using UnityEngine.Serialization;
 
 /// <summary>
 /// Por donde sale el ticket que gana la ruleta. RouletteMachine llama a Spawn(segmento): el ticket
-/// queda "esperando" y, si tiene worldPrefab, sale deslizándose desde spawnPoint. Al pulsar E sobre
+/// queda "esperando" y, si tiene worldPrefab, sale deslizándose desde spawnPoint con el worldMaterial
+/// de su color (o teñido con ticketColor si no tiene). Al pulsar E sobre
 /// la ruleta, esta llama a TryCollect() y el ticket pasa al TicketInventory.
 /// </summary>
 public class RouletteTicketDispenser : MonoBehaviour
@@ -46,15 +47,22 @@ public class RouletteTicketDispenser : MonoBehaviour
         Vector3 end = point.position;
         Vector3 start = end - point.forward * slideDistanceMeters;
 
-        spawnedObject = Instantiate(segment.ticket.worldPrefab, start, point.rotation);
+        // Respeta el giro que tenga el prefab en su raíz (p. ej. para tumbar el modelo), además del del punto de salida.
+        Quaternion rotation = point.rotation * segment.ticket.worldPrefab.transform.localRotation;
+        spawnedObject = Instantiate(segment.ticket.worldPrefab, start, rotation);
 
         // Sin colliders: el ticket ya no se coge mirándolo, sino desde la ruleta
         foreach (var col in spawnedObject.GetComponentsInChildren<Collider>())
             col.enabled = false;
 
-        var rend = spawnedObject.GetComponentInChildren<Renderer>();
-        if (rend != null)
-            rend.material.color = segment.ticket.ticketColor;
+        // Su material de color (con su textura); si el ticket no tiene, se tiñe con su color como antes.
+        foreach (var rend in spawnedObject.GetComponentsInChildren<Renderer>())
+        {
+            if (segment.ticket.worldMaterial != null)
+                rend.sharedMaterial = segment.ticket.worldMaterial;
+            else
+                rend.material.color = segment.ticket.ticketColor;
+        }
 
         StartCoroutine(Slide(spawnedObject.transform, start, end));
     }
