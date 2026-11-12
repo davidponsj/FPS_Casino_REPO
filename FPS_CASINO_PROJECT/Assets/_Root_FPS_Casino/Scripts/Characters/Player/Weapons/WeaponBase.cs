@@ -136,6 +136,12 @@ public abstract class WeaponBase : MonoBehaviour
     public event Action OnFired;
     /// <summary>Se dispara al apretar el gatillo con el cargador vacío (para el "clic" de WeaponAnimator).</summary>
     public event Action OnDryFire;
+    /// <summary>
+    /// Se dispara con cada bala que sale (cada perdigón en la escopeta), con el punto de salida (MuzzlePoint)
+    /// y el punto donde acaba (impacto o alcance máximo). Es solo para efectos visuales que viajan por el
+    /// mismo camino que la bala, como las cartas del Lanzacartas: el daño ya se ha hecho con el raycast.
+    /// </summary>
+    public event Action<Vector3, Vector3> OnShotPath;
 
     /// <summary>Un impacto a un enemigo: a quién, dónde (punto en el mundo), si lo ha matado y si ha sido en la cabeza.</summary>
     public readonly struct EnemyHit
@@ -354,7 +360,12 @@ public abstract class WeaponBase : MonoBehaviour
 
     protected void SpawnTracer(Vector3 endPoint)
     {
-        if (tracerPrefab == null || muzzlePoint == null) return;
+        if (muzzlePoint == null) return;
+
+        // Primero el aviso (aunque el arma no tenga trazador): así las cartas voladoras funcionan solas.
+        OnShotPath?.Invoke(muzzlePoint.position, endPoint);
+
+        if (tracerPrefab == null) return;
 
         BulletTracerEffect tracer = Instantiate(tracerPrefab, muzzlePoint.position, Quaternion.identity);
         tracer.Play(muzzlePoint.position, endPoint);

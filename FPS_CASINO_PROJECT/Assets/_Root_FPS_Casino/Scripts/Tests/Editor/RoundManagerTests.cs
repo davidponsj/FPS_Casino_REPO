@@ -34,4 +34,31 @@ public class RoundManagerTests
     {
         Assert.AreEqual(expected, RoundManager.HealthForRound(round, 150f, 100f, 10, 1.1f), 1f);
     }
+
+    // Mas enemigos que CoD: (CoD x multiplicador, redondeado) + extra fijos.
+    [TestCase(1, 12)]
+    [TestCase(2, 14)]
+    [TestCase(3, 20)]
+    [TestCase(5, 34)]
+    [TestCase(10, 45)]
+    [TestCase(20, 79)]
+    public void ScaledEnemyCount_AplicaMultiplicadorYExtra(int round, int expected)
+    {
+        Assert.AreEqual(expected, RoundManager.ScaledEnemyCount(round, 1.25f, 4));
+    }
+
+    [Test]
+    public void ScaledEnemyCount_ConValoresNeutros_EsCoD()
+    {
+        Assert.AreEqual(RoundManager.EnemiesForRound(7), RoundManager.ScaledEnemyCount(7, 1f, 0));
+    }
+
+    // El azar va de base x (1 - azar) a base x (1 + azar).
+    [TestCase(0f, 0.6f)]
+    [TestCase(0.5f, 2f)]
+    [TestCase(1f, 3.4f)]
+    public void RandomizedSpawnDelay_VaDeMenosAMas(float random01, float expected)
+    {
+        Assert.AreEqual(expected, RoundManager.RandomizedSpawnDelay(2f, 0.7f, random01), 0.001f);
+    }
 }
