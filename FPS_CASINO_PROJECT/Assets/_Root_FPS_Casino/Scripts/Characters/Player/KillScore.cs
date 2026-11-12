@@ -121,7 +121,7 @@ public class KillScore : MonoBehaviour
     [Tooltip("Segundos como mucho desde que te sueltas de la pared para Despegue. 1 = justo al saltar.")]
     [Min(0f)]
     [SerializeField] private float wallLaunchSeconds = 1f;
-    [Tooltip("2ª, 3ª... baja seguida sin aterrizar. Los puntos se multiplican: ×1 en la 2ª, ×2 en la 3ª...")]
+    [Tooltip("2ª, 3ª... baja seguida sin aterrizar. Los puntos se multiplican: ×1 en la 2ª, ×2 en la 3ª... hasta ×3.")]
     [SerializeField] private Trick noGround = new Trick("Sin tocar el suelo", 150);
     [Tooltip("Matas corriendo por la pared.")]
     [SerializeField] private Trick wallRun = new Trick("Por la pared", 200);
@@ -190,6 +190,7 @@ public class KillScore : MonoBehaviour
     public int LastKillPoints { get; private set; }
     public event Action OnComboLost;
 
+    private const int MaxNoGroundTimes = 3; // tope de Sin tocar el suelo: como mucho ×3
     private const int SpinSamples = 256; // frames que se recuerdan para el 360° (de sobra para 1 s a 240 fps)
 
     private readonly List<ScoreLine> lines = new List<ScoreLine>(16);
@@ -225,7 +226,7 @@ public class KillScore : MonoBehaviour
     public IReadOnlyList<ScoreLine> LastKillLines => lines;
     public bool IsComboActive => comboKills > 0;
     public int ComboKills => comboKills;
-    /// <summary>Puntos del combo sin el multiplicador.</summary>
+    /// <summary>Puntos del combo, cada baja ya multiplicada por el combo que había al hacerla.</summary>
     public int ComboPoints => comboPoints;
     public float ComboMultiplier => GetComboMultiplier(comboKills, multiplierPerKill, maxMultiplier);
     public float ComboSecondsLeft => IsComboActive ? Mathf.Max(0f, comboEndTime - Time.time) : 0f;
@@ -233,6 +234,13 @@ public class KillScore : MonoBehaviour
     /// <summary>Multiplicador de un combo de "kills" bajas: ×1 con una, sube "perKill" por cada baja más, hasta "max".</summary>
     public static float GetComboMultiplier(int kills, float perKill, float max) =>
         kills <= 1 ? 1f : Mathf.Min(1f + perKill * (kills - 1), max);
+
+    /// <summary>
+    /// Lo que suma al combo la baja número "comboKill": sus puntos por el multiplicador de ESE momento.
+    /// Se fija al matar para que el multiplicador no suba también las bajas anteriores (bola de nieve).
+    /// </summary>
+    public static int GetComboKillPoints(int killPoints, int comboKill, float perKill, float max) =>
+        Mathf.RoundToInt(killPoints * GetComboMultiplier(comboKill, perKill, max));
 
     /// <summary>Ordena de menos a más puntos sin cambiar el orden de las que empatan (la Baja sale antes que otro truco de 100).</summary>
     public static void SortByPoints(List<ScoreLine> list)
@@ -360,7 +368,7 @@ public class KillScore : MonoBehaviour
             killPoints += line.Points;
 
         comboKills++;
-        comboPoints += killPoints;
+        comboPoints += GetComboKillPoints(killPoints, comboKills, multiplierPerKill, maxMultiplier);
         comboEndTime = Time.time + comboWindowSeconds;
 
         LastKilledEnemy = enemy;
@@ -411,7 +419,10 @@ public class KillScore : MonoBehaviour
 
         airKills++;
         if (airKills >= 2 && noGround.enabled)
-            AddLine($"{noGround.label} ×{airKills - 1}", noGround.points * (airKills - 1));
+        {
+            int times = Mathf.Min(airKills - 1, MaxNoGroundTimes);
+            AddLine($"{noGround.label} ×{times}", noGround.points * times);
+        }
     }
 
     private void AddSurvivalTricks(EnemyHealth enemy)
@@ -475,7 +486,7 @@ public class KillScore : MonoBehaviour
 
     private void CashOut()
     {
-        int total = Mathf.RoundToInt(comboPoints * ComboMultiplier);
+        int total = comboPoints; // cada baja ya va multiplicada
         points.AddPoints(total);
         lastCashed = total;
 

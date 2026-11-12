@@ -8,9 +8,12 @@ public class SlotBetButton : MonoBehaviour, IInteractable
 {
     [Tooltip("Tragaperras a la que pertenece este botón.")]
     [SerializeField] private SlotMachine machine;
-    [Tooltip("Puntos que se apuestan con este botón. 10 = apuesta pequeña.")]
+    [Tooltip("Puntos que se apuestan con este botón en la ronda 1. 50 = apuesta pequeña.")]
     [Min(0)]
-    [SerializeField] private int betAmount = 10;
+    [SerializeField] private int betAmount = 50;
+    [Tooltip("Porcentaje del valor base que sube la apuesta en cada ronda (redondeado a 5). 10 = una apuesta de 100 vale 110 en la ronda 2 y 190 en la 10.")]
+    [Min(0f)]
+    [SerializeField] private float betIncreasePercentPerRound = 10f;
 
     [Header("Brillo")]
     [Tooltip("Renderer que brilla. Vacío = el primero que encuentre en sus hijos.")]
@@ -37,16 +40,25 @@ public class SlotBetButton : MonoBehaviour, IInteractable
     private float pressAmount;   // 0 = arriba, 1 = hundido
     private Vector3 restLocalPosition;
     private Material material;
+    private RoundManager roundManager;
 
-    public int BetAmount => betAmount;
+    /// <summary>Apuesta de ahora: la base, subida según la ronda.</summary>
+    public int BetAmount => ScaledBet(betAmount, betIncreasePercentPerRound, roundManager != null ? roundManager.CurrentRound : 1);
+
+    /// <summary>Apuesta base + percentPerRound % por cada ronda después de la 1, redondeada a 5.</summary>
+    public static int ScaledBet(int baseBet, float percentPerRound, int round)
+    {
+        float scaled = baseBet * (1f + percentPerRound / 100f * Mathf.Max(0, round - 1));
+        return Mathf.RoundToInt(scaled / 5f) * 5;
+    }
 
     public string InteractionPrompt
     {
         get
         {
             if (machine != null && machine.IsSpinning) return "Spinning...";
-            if (selected) return $"{betAmount} pts bet selected";
-            return $"Bet {betAmount} pts [E]";
+            if (selected) return $"{BetAmount} pts bet selected";
+            return $"Bet {BetAmount} pts [E]";
         }
     }
 
@@ -63,6 +75,11 @@ public class SlotBetButton : MonoBehaviour, IInteractable
 
         restLocalPosition = transform.localPosition;
         SetSelected(false);
+    }
+
+    private void Start()
+    {
+        roundManager = FindFirstObjectByType<RoundManager>(); // sin RoundManager la apuesta no sube
     }
 
     private void Update()

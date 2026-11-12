@@ -43,13 +43,13 @@ public class RouletteMachine : MonoBehaviour, IInteractable
     [SerializeField] private Segment[] segments;
 
     [Header("Coste")]
-    [Tooltip("Puntos que cuesta cada tirada. 100 = barata; 0 = gratis.")]
+    [Tooltip("Puntos que cuesta la primera tirada. 250 = barata; 0 = gratis.")]
     [FormerlySerializedAs("cost")]
     [Min(0)]
-    [SerializeField] private int spinCost = 100;
+    [SerializeField] private int spinCost = 250;
     [Tooltip("Puntos que sube la tirada cada vez que la ruleta da una botella (ticket): cada botella sale más cara. 0 = siempre igual.")]
     [Min(0)]
-    [SerializeField] private int costIncreasePerBottle = 75;
+    [SerializeField] private int costIncreasePerBottle = 150;
     [Tooltip("Coste máximo de la tirada. 0 = sin límite.")]
     [Min(0)]
     [SerializeField] private int maxSpinCost = 1500;
