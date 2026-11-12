@@ -115,6 +115,12 @@ public class BartenderSpeech : MonoBehaviour
     [SerializeField] private int blipEveryChars = 3;
     [Tooltip("Variación de tono de los pitidos (mín, máx).")]
     [SerializeField] private Vector2 blipPitch = new Vector2(0.9f, 1.15f);
+    [Tooltip("Voz al hablar (SFX_Bartender_Talk): suena un trozo al azar mientras se escribe la frase y se apaga al acabar. Vacío = sin voz.")]
+    [SerializeField] private AudioClip voiceTalk;
+    [SerializeField, Range(0f, 1f)] private float talkVolume = 0.8f;
+    [Tooltip("Segundos del fundido de la voz al empezar y al acabar.")]
+    [Min(0.01f)]
+    [SerializeField] private float talkFadeSeconds = 0.2f;
 
     [Header("Depuración")]
     [Tooltip("Muestra sobre el barman si estás mirándolo, dónde sale el bocadillo y cuánto le queda.")]
@@ -161,6 +167,7 @@ public class BartenderSpeech : MonoBehaviour
     private float typedTime = -1f;
     private float endTime;
     private int lastBlipChar;
+    private float talkTarget;
     private bool looking;
     private readonly Dictionary<TicketData, int> lastLine = new Dictionary<TicketData, int>();
     private readonly RaycastHit[] hits = new RaycastHit[8];
@@ -221,6 +228,7 @@ public class BartenderSpeech : MonoBehaviour
         lastBlipChar = 0;
         typedTime = -1f;
         speaking = true;
+        StartTalk();
 
         // Vuelve a hacer el rebote de entrada en el que esté visible.
         worldView.popStart = screenView.popStart = Time.time;
@@ -230,6 +238,7 @@ public class BartenderSpeech : MonoBehaviour
 
     private void Update()
     {
+        UpdateTalk();
         if (!speaking && worldView.alpha <= 0f && screenView.alpha <= 0f) return;
 
         if (speaking) Advance();
@@ -273,6 +282,7 @@ public class BartenderSpeech : MonoBehaviour
         if (typedTime < 0f)
         {
             typedTime = Time.time;
+            talkTarget = 0f; // acaba de escribir: la voz se apaga
             int words = screenView.line.textInfo.wordCount;
             endTime = typedTime + Mathf.Clamp(minHoldSeconds + words * secondsPerWord, minHoldSeconds, Mathf.Max(minHoldSeconds, maxHoldSeconds));
         }
@@ -282,6 +292,26 @@ public class BartenderSpeech : MonoBehaviour
             endTime = Mathf.Min(endTime, typedTime + 1f);
 
         if (Time.time >= endTime) speaking = false;
+    }
+
+    private void StartTalk()
+    {
+        if (voiceSource == null || voiceTalk == null) return;
+        voiceSource.clip = voiceTalk;
+        voiceSource.loop = true;
+        voiceSource.pitch = 1f;
+        voiceSource.time = Random.Range(0f, Mathf.Max(0f, voiceTalk.length - 6f)); // cada frase, un trozo distinto
+        if (!voiceSource.isPlaying) voiceSource.volume = 0f;
+        voiceSource.Play();
+        talkTarget = talkVolume;
+    }
+
+    private void UpdateTalk()
+    {
+        if (voiceSource == null || voiceTalk == null || voiceSource.clip != voiceTalk || !voiceSource.isPlaying) return;
+        if (!speaking) talkTarget = 0f;
+        voiceSource.volume = Mathf.MoveTowards(voiceSource.volume, talkTarget, talkVolume * Time.deltaTime / talkFadeSeconds);
+        if (talkTarget <= 0f && voiceSource.volume <= 0f) voiceSource.Stop();
     }
 
     private void PlayBlips()
