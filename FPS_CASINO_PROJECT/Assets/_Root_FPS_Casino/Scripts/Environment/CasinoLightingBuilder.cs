@@ -42,6 +42,11 @@ public class CasinoLightingBuilder : MonoBehaviour
     [SerializeField] private float modelYaw = 90f;
     [Tooltip("No pone aplique donde hay algo pegado a la pared (tragaperras, puertas, cortinas).")]
     [SerializeField] private bool skipBlocked = true;
+    [Tooltip("Objetos delante de los que no quieres apliques aunque no tengan collider: carteles (Luxury Casino), la pantalla del cine, cuadros... Arrastra aquí el objeto (o su padre).")]
+    [SerializeField] private Transform[] avoid;
+    [Tooltip("Metros de margen alrededor de los objetos de Avoid.")]
+    [Min(0f)]
+    [SerializeField] private float avoidMargin = 0.75f;
 
     [Header("Luz de los apliques")]
     [Tooltip("Color cálido de bombilla (unos 2700 K).")]
@@ -70,6 +75,7 @@ public class CasinoLightingBuilder : MonoBehaviour
 
     private const string GeneratedName = "Generado";
     private int lastSconces, lastSkipped, lastProbes;
+    private readonly List<Bounds> avoidBounds = new List<Bounds>();
 #pragma warning restore 0414, 0169
 
 #if UNITY_EDITOR
@@ -87,6 +93,7 @@ public class CasinoLightingBuilder : MonoBehaviour
 
         lastSconces = lastSkipped = lastProbes = 0;
         float floorY = transform.position.y;
+        CollectAvoidBounds();
         if (wallsRoot != null)
         {
             var sconces = new GameObject("Apliques").transform;
@@ -156,6 +163,12 @@ public class CasinoLightingBuilder : MonoBehaviour
                     continue;
                 }
 
+                if (InAvoidZone(face))
+                {
+                    lastSkipped++;
+                    continue;
+                }
+
                 Quaternion rotation = Quaternion.LookRotation(normal) * Quaternion.Euler(0f, modelYaw, 0f);
                 Transform lamp;
                 if (sconcePrefab != null)
@@ -193,6 +206,29 @@ public class CasinoLightingBuilder : MonoBehaviour
                 lastSconces++;
             }
         }
+    }
+
+    private void CollectAvoidBounds()
+    {
+        avoidBounds.Clear();
+        if (avoid == null) return;
+        foreach (Transform t in avoid)
+        {
+            if (t == null) continue;
+            foreach (Renderer r in t.GetComponentsInChildren<Renderer>())
+            {
+                Bounds b = r.bounds;
+                b.Expand(avoidMargin * 2f);
+                avoidBounds.Add(b);
+            }
+        }
+    }
+
+    private bool InAvoidZone(Vector3 point)
+    {
+        foreach (Bounds b in avoidBounds)
+            if (b.Contains(point)) return true;
+        return false;
     }
 
     /// <summary>
