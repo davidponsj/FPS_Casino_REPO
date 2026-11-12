@@ -17,6 +17,15 @@ public class KillScoreTests
         Assert.AreEqual(expected, KillScore.GetComboMultiplier(kills, 0.1f, 3f), 0.001f);
     }
 
+    [TestCase(200, 1, 200)]
+    [TestCase(200, 2, 210)]
+    [TestCase(200, 21, 400)]
+    [TestCase(200, 50, 400)] // tope ×2: la baja 50 no vale más que la 21
+    public void GetComboKillPoints_MultiplicaSoloEsaBaja(int killPoints, int comboKill, int expected)
+    {
+        Assert.AreEqual(expected, KillScore.GetComboKillPoints(killPoints, comboKill, 0.05f, 2f));
+    }
+
     [Test]
     public void SpinTracker_VueltaRapida_Cuenta360()
     {
