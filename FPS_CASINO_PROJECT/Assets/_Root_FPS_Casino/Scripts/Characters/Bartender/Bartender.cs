@@ -1,8 +1,11 @@
+using System;
 using UnityEngine;
 
 /// <summary>
 /// El barman. Al pulsar E con un ticket en el TicketInventory, se lo quita y te da su botella
 /// (BottleHolder.Give). Con una botella ya en la mano no hace nada: primero hay que gastarla.
+/// Avisa con BottleGiven (al dar la botella) y Refused (al pulsar E sin ticket o con botella), para que
+/// BartenderAnimation ponga la animación que toca.
 /// </summary>
 public class Bartender : MonoBehaviour, IInteractable
 {
@@ -15,6 +18,11 @@ public class Bartender : MonoBehaviour, IInteractable
     [Header("Depuración")]
     [Tooltip("Muestra qué lleva el jugador (ticket, botella o nada) sobre el barman en la vista Scene (y en Game con el botón Gizmos activado).")]
     [SerializeField] private bool showDebug;
+
+    /// <summary>Se acaba de dar una botella (con el ticket que se ha cambiado).</summary>
+    public event Action<TicketData> BottleGiven;
+    /// <summary>El jugador ha pulsado E pero no puede: sin ticket o con una botella aún en la mano.</summary>
+    public event Action Refused;
 
     private void Awake()
     {
@@ -41,11 +49,16 @@ public class Bartender : MonoBehaviour, IInteractable
             return;
         }
 
-        if (bottleHolder.HasBottle || !inv.HasTicket) return;
+        if (bottleHolder.HasBottle || !inv.HasTicket)
+        {
+            Refused?.Invoke();
+            return;
+        }
 
         TicketData ticket = inv.Take();
         bottleHolder.Give(ticket);
         if (speech != null) speech.Say(ticket, bottleHolder);
+        BottleGiven?.Invoke(ticket);
     }
 
 #if UNITY_EDITOR
