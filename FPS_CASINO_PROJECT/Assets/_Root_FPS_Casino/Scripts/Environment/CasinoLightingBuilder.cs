@@ -27,7 +27,7 @@ public class CasinoLightingBuilder : MonoBehaviour
     [Tooltip("Metros entre aplique y aplique. 5-7 = bien iluminado sin pasarse.")]
     [Min(1f)]
     [SerializeField] private float sconceSpacing = 6f;
-    [Tooltip("Altura del aplique sobre el suelo (metros). Por encima de la cabeza: 2.4-2.8.")]
+    [Tooltip("Altura del centro del aplique sobre el suelo (metros). Por encima de la cabeza: 2.4-2.8.")]
     [Min(0.5f)]
     [SerializeField] private float sconceHeight = 2.6f;
     [Tooltip("Metros sin apliques en los extremos de cada pared (esquinas).")]
@@ -38,8 +38,8 @@ public class CasinoLightingBuilder : MonoBehaviour
     [SerializeField] private float minWallLength = 3f;
     [Tooltip("Separación del aplique respecto a la pared (metros).")]
     [SerializeField] private float wallOffset = 0.02f;
-    [Tooltip("Giro del modelo (grados) por si el aplique sale mirando hacia la pared o de lado. Prueba 0, 90, 180 o 270.")]
-    [SerializeField] private float modelYaw = 0f;
+    [Tooltip("Giro del modelo (grados) por si el aplique sale mirando hacia la pared o de lado. PF_LamparaPared: 90. Si sale al revés, 270.")]
+    [SerializeField] private float modelYaw = 90f;
     [Tooltip("No pone aplique donde hay algo pegado a la pared (tragaperras, puertas, cortinas).")]
     [SerializeField] private bool skipBlocked = true;
 
@@ -170,11 +170,19 @@ public class CasinoLightingBuilder : MonoBehaviour
                     lamp.SetPositionAndRotation(face, rotation);
                 }
                 lamp.name = $"Aplique_{wall.name}_{(side > 0 ? "A" : "B")}{i + 1}";
+
+                // Pegado a la pared por detrás y con su centro a la altura pedida, mida lo que mida el modelo.
+                float depth = 0f;
+                if (LampExtents(lamp, face, normal, out float back, out float frontEdge, out float centerY))
+                {
+                    lamp.position += normal * -back + Vector3.up * (face.y - centerY);
+                    depth = frontEdge - back;
+                }
                 GameObjectUtility.SetStaticEditorFlags(lamp.gameObject, StaticEditorFlags.BatchingStatic | StaticEditorFlags.ReflectionProbeStatic);
 
                 var lightGo = new GameObject("Luz");
                 lightGo.transform.SetParent(lamp, false);
-                lightGo.transform.position = face + normal * 0.3f + Vector3.up * 0.1f;
+                lightGo.transform.position = face + normal * (depth + 0.15f); // justo delante del aplique
                 var light = lightGo.AddComponent<Light>();
                 light.type = LightType.Point;
                 light.color = sconceColor;
@@ -185,6 +193,33 @@ public class CasinoLightingBuilder : MonoBehaviour
                 lastSconces++;
             }
         }
+    }
+
+    /// <summary>
+    /// Mide el aplique: cuánto sobresale por detrás (back) y por delante (front) de la cara de la pared, y la altura de su
+    /// centro. Usa las esquinas reales de cada malla, así funciona aunque la pared esté girada.
+    /// </summary>
+    private static bool LampExtents(Transform lamp, Vector3 face, Vector3 normal, out float back, out float front, out float centerY)
+    {
+        back = float.MaxValue; front = float.MinValue;
+        float minY = float.MaxValue, maxY = float.MinValue;
+        bool any = false;
+        foreach (MeshFilter mf in lamp.GetComponentsInChildren<MeshFilter>())
+        {
+            if (mf.sharedMesh == null) continue;
+            Bounds b = mf.sharedMesh.bounds;
+            for (int c = 0; c < 8; c++)
+            {
+                var corner = new Vector3((c & 1) == 0 ? b.min.x : b.max.x, (c & 2) == 0 ? b.min.y : b.max.y, (c & 4) == 0 ? b.min.z : b.max.z);
+                Vector3 w = mf.transform.TransformPoint(corner);
+                float d = Vector3.Dot(w - face, normal);
+                back = Mathf.Min(back, d); front = Mathf.Max(front, d);
+                minY = Mathf.Min(minY, w.y); maxY = Mathf.Max(maxY, w.y);
+                any = true;
+            }
+        }
+        centerY = (minY + maxY) * 0.5f;
+        return any;
     }
 
     private void Probes(Transform root)
